@@ -77,8 +77,9 @@ class Builder extends Command {
         }
       }
     }
-    if (androidArgs.isNotEmpty)
+    if (androidArgs.isNotEmpty) {
       customBuildArgs['android'] = androidArgs.split(',');
+    }
     if (iosArgs.isNotEmpty) customBuildArgs['ios'] = iosArgs.split(',');
 
     return build(
