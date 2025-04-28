@@ -128,19 +128,19 @@ your_project_directory
 2. **Initialize Distribution**  
    Execute this command in your project directory to set up the distribution environment:
    ```bash
-   dart run distribute init
+   distribute init
    ```
 
 3. **Build Your Project**  
    Use the following command to build your project. Include the `-p` flag to automatically upload the build:
    ```bash
-   dart run distribute build -p
+   distribute build -p
    ```
 
 4. **Publish Your Project**  
    To publish your project without building, run:
    ```bash
-   dart run distribute publish
+   distribute publish
    ```
 
 For additional arguments and details, refer to the sections below.
