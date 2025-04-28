@@ -6,16 +6,33 @@ import 'package:args/command_runner.dart';
 import 'package:distribute_cli/environment.dart';
 import 'logger.dart';
 
+/// A command to initialize the distribution environment.
+///
+/// The `InitCommand` class sets up the necessary directories, checks for
+/// required tools (e.g., Git, Firebase CLI, Fastlane), and validates the
+/// configuration for the distribution process.
+///
+/// To use this class, invoke the `init` command:
+/// ```
+/// distribute init
+/// ```
 class InitCommand extends Command {
+  /// Initializes the `InitCommand` class.
   InitCommand();
 
   @override
+
+  /// Provides a description of the `init` command.
   String get description => "Initialize the distribution tool.";
 
   @override
+
+  /// The name of the `init` command.
   String get name => "init";
 
   @override
+
+  /// Executes the `init` command to set up the distribution environment.
   Future? run() async {
     final Environment environment = Environment.fromArgResults(argResults);
     final Map<String, bool> initialized = {};

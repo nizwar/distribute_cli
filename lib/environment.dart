@@ -5,22 +5,63 @@ import 'package:args/args.dart';
 
 import 'logger.dart';
 
+/// Represents the environment configuration for the distribution process.
+///
+/// The `Environment` class loads configuration from a `.env` file and provides
+/// access to various settings, such as build flags, Firebase credentials, and
+/// Fastlane configuration. It also validates the environment setup.
+///
+/// Example usage:
+/// ```
+/// final environment = Environment.fromArgResults(argResults);
+/// if (environment.isAndroidBuild) {
+///   print("Android build is enabled.");
+/// }
+/// ```
 class Environment {
+  /// Stores environment variables loaded from the configuration file.
   static final Map<String, String> _env = {};
+
+  /// Indicates if Android builds are enabled.
   bool isAndroidBuild = false;
+
+  /// Indicates if iOS builds are enabled.
   bool isIOSBuild = false;
+
+  /// Indicates if Android distribution is enabled.
   bool isAndroidDistribute = false;
+
+  /// Indicates if iOS distribution is enabled.
   bool isIOSDistribute = false;
+
+  /// The Android package name.
   String androidPackageName = '';
+
+  /// The Firebase App ID for Android.
   String androidFirebaseAppId = '';
+
+  /// The Firebase groups for Android distribution.
   String androidFirebaseGroups = '';
+
+  /// The iOS distribution user.
   String iosDistributionUser = '';
+
+  /// The iOS distribution password.
   String iosDistributionPassword = '';
+
+  /// Indicates if Fastlane is used for distribution.
   bool useFastlane = false;
+
+  /// Indicates if Firebase is used for distribution.
   bool useFirebase = false;
+
+  /// Indicates if verbose logging is enabled.
   bool isVerbose = false;
+
+  /// The path to the configuration file.
   late final String configPath;
 
+  /// Creates an `Environment` instance from the provided [argResults].
   static Environment fromArgResults(ArgResults? argResults) {
     final configPath =
         argResults?['config_path'] as String? ?? ".distribution.env";
@@ -40,12 +81,14 @@ class Environment {
     return environment;
   }
 
+  /// Creates an `Environment` instance from the specified [file].
   static Environment fromFile(File file) {
     final output = Environment();
     output._loadEnv(file.path);
     return output;
   }
 
+  /// Checks if the environment is fully initialized.
   Future<bool> get initialized async {
     final androidDir = await Directory("distribution/android").exists();
     bool initEnvironment = false;
@@ -79,6 +122,7 @@ class Environment {
     return androidDir && initEnvironment;
   }
 
+  /// Loads environment variables from the specified [path].
   void _loadEnv(path) {
     final envFile = File(path);
     if (!envFile.existsSync()) {
@@ -99,6 +143,7 @@ class Environment {
     _parseEnv();
   }
 
+  /// Parses the loaded environment variables.
   void _parseEnv() {
     isAndroidBuild = _env['ANDROID_BUILD'] == 'true';
     isIOSBuild = _env['IOS_BUILD'] == 'true';
@@ -130,6 +175,8 @@ USE_FIREBASE=false
 ''';
 
   @override
+
+  /// Returns a string representation of the environment configuration.
   String toString() => '''
 ANDROID_BUILD=$isAndroidBuild
 ANDROID_DISTRIBUTE=$isAndroidDistribute

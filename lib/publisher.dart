@@ -8,14 +8,35 @@ import 'package:args/command_runner.dart';
 import 'environment.dart';
 import 'logger.dart';
 
+/// A command to handle the publishing process of the app.
+///
+/// The `Publisher` class provides functionality to build and distribute
+/// Android and iOS apps using Firebase or Fastlane. It supports configuration
+/// through command-line arguments and environment settings.
+///
+/// To use this class, invoke the `publish` command with the desired flags:
+/// ```
+/// distribute publish --android --firebase
+/// ```
 class Publisher extends Command {
+  /// The environment configuration for the distribution process.
   late Environment environment;
+
+  /// Checks if the Android build flag is enabled.
   bool get isAndroidBuild => argResults?['android'] as bool? ?? false;
+
+  /// Checks if the iOS build flag is enabled.
   bool get isIOSBuild => argResults?['ios'] as bool? ?? false;
+
+  /// Checks if Firebase is used for distribution.
   bool get useFirebase => argResults?['firebase'] as bool? ?? false;
+
+  /// Checks if Fastlane is used for distribution.
   bool get useFastlane => argResults?['fastlane'] as bool? ?? false;
 
   @override
+
+  /// Configures the argument parser for the `publish` command.
   ArgParser get argParser {
     environment = Environment.fromArgResults(globalResults);
     return ArgParser()
@@ -37,6 +58,7 @@ class Publisher extends Command {
               "Use Fastlane for distribution (Default value follows the config file)");
   }
 
+  /// Publishes the app by building and distributing it based on the provided flags.
   Future<int> publish() async {
     await buildAndroidDocs();
     if (isAndroidBuild) {
@@ -48,6 +70,7 @@ class Publisher extends Command {
     return 0;
   }
 
+  /// Builds the Android changelogs based on the git logs since yesterday.
   Future<int> buildAndroidDocs() async {
     final docs = await Process.run(
         "git", ["log", "--pretty='format:%s'", "--since=yesterday.midnight"]);
@@ -76,6 +99,7 @@ class Publisher extends Command {
     return 0;
   }
 
+  /// Distributes the Android app bundles to the configured platforms.
   Future<int> distributeAndroid() async {
     Directory distributionDir = Directory("distribution/android/output");
     if (!await distributionDir.exists()) {
@@ -118,6 +142,7 @@ class Publisher extends Command {
     return 0;
   }
 
+  /// Distributes the iOS app to the App Store using XCRun.
   Future<int> distributeIOS() async {
     if (!Platform.isMacOS) {
       ColorizeLogger.logError("Only MacOS can build iOS platform");
@@ -149,6 +174,9 @@ class Publisher extends Command {
     return process.exitCode;
   }
 
+  /// Distributes a single Android app bundle using Firebase or Fastlane.
+  ///
+  /// [file] The app bundle file to distribute.
   Future<int> _distributeAppbundles(File file) async {
     int output = 0;
     if (useFirebase) {
@@ -202,12 +230,18 @@ class Publisher extends Command {
   }
 
   @override
+
+  /// Provides a description of the `publish` command.
   String get description => "Distribute the apps";
 
   @override
+
+  /// The name of the `publish` command.
   String get name => "publish";
 
   @override
+
+  /// Executes the `publish` command by initializing the environment and running the distribution tasks.
   Future? run() async {
     environment = Environment.fromArgResults(globalResults);
     final android = argResults!['android'] as bool;

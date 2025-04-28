@@ -8,15 +8,35 @@ import 'environment.dart';
 import 'logger.dart';
 import 'publisher.dart';
 
+/// A command to build and optionally distribute the app.
+///
+/// The `Builder` class provides functionality to build Android and iOS apps,
+/// as well as custom platforms. It also supports optional distribution of the
+/// built apps using the `Publisher` class.
+///
+/// To use this class, invoke the `build` command with the desired flags:
+/// ```
+/// distribute build --android --publish
+/// ```
 class Builder extends Command {
+  /// The publisher instance for distributing the app.
   late final Publisher publisher;
+
+  /// The environment configuration for the build process.
   late Environment environment;
 
+  /// Checks if the Android build flag is enabled.
   bool get buildAndroid => argResults?['android'] as bool? ?? true;
+
+  /// Checks if the iOS build flag is enabled.
   bool get buildIOS => argResults?['ios'] as bool? ?? false;
+
+  /// Checks if the publish flag is enabled.
   bool get publish => argResults?['publish'] as bool? ?? false;
 
   @override
+
+  /// Configures the argument parser for the `build` command.
   ArgParser get argParser {
     environment = Environment.fromArgResults(globalResults);
     return ArgParser()
@@ -45,12 +65,18 @@ class Builder extends Command {
   }
 
   @override
+
+  /// Provides a description of the `build` command.
   String get description => "Build the apps";
 
   @override
+
+  /// The name of the `build` command.
   String get name => "build";
 
   @override
+
+  /// Executes the `build` command to build and optionally distribute the app.
   Future run() async {
     environment = Environment.fromArgResults(globalResults);
     final androidArgs = argResults!['android_args'] as String;
@@ -101,10 +127,12 @@ class Builder extends Command {
     });
   }
 
-  Future<int> build(
-      {List<String> androidArgs = const [],
-      List<String> iosArgs = const [],
-      Map<String, List<String>>? customBuildArgs}) async {
+  /// Builds the app for the specified platforms and arguments.
+  Future<int> build({
+    List<String> androidArgs = const [],
+    List<String> iosArgs = const [],
+    Map<String, List<String>>? customBuildArgs,
+  }) async {
     customBuildArgs ??= {};
     int exitCode = 0;
 
@@ -184,6 +212,7 @@ class Builder extends Command {
     exit(exitCode);
   }
 
+  /// Builds the Android app with the specified [args].
   Future<int> _buildAndroid({final List<String>? args}) async {
     if (buildAndroid) {
       ColorizeLogger.logDebug('Start android build...');
@@ -203,6 +232,7 @@ class Builder extends Command {
     return 0;
   }
 
+  /// Builds the iOS app with the specified [args].
   Future<int> _buildIOS({final List<String>? args}) async {
     if (buildIOS) {
       final process = await Process.start(
@@ -222,6 +252,7 @@ class Builder extends Command {
     return 0;
   }
 
+  /// Builds a custom platform with the specified [key] and [args].
   Future<int> _buildCustom(String key, List<String> args) async {
     ColorizeLogger.logInfo('Start $key build...');
     final process = await Process.start('flutter', ['build', ...args]);
@@ -233,6 +264,7 @@ class Builder extends Command {
     return process.exitCode;
   }
 
+  /// Moves the Android binaries to the distribution directory.
   Future<int> _moveAndroidBinaries() async {
     if (buildAndroid) {
       Directory distributionDir = Directory("distribution/android/output");
@@ -276,6 +308,7 @@ class Builder extends Command {
     return 0;
   }
 
+  /// Moves the iOS binaries to the distribution directory.
   Future<int> _moveIOSBinaries() async {
     if (buildIOS) {
       Directory distributionDir = Directory("distribution/ios/output");
