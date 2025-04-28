@@ -18,7 +18,8 @@ class Helper {
     /// Check if the configuration file exists
     if (!await configFile.exists()) {
       await configFile.create();
-      ColorizeLogger.logDebug('Configuration file created at ${configFile.path}');
+      ColorizeLogger.logDebug(
+          'Configuration file created at ${configFile.path}');
     }
 
     if ((await configFile.readAsString()).isEmpty) {

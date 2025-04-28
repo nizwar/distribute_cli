@@ -6,11 +6,16 @@ import 'package:distribute_cli/publisher.dart';
 
 late Helper helper;
 void main(List<String> args) async {
-  final runner = CommandRunner('distribute', 'Run commands to distribute your app packages.');
+  final runner = CommandRunner(
+      'distribute', 'Run commands to distribute your app packages.');
   runner.argParser
-    ..addOption("config_path", defaultsTo: ".distribution.env", help: "Path to the configuration file.")
-    ..addFlag("verbose", abbr: 'v', defaultsTo: false, help: "Enable verbose output.")
-    ..addFlag("process_logs", abbr: 'l', defaultsTo: false, help: "Enable process logs.");
+    ..addOption("config_path",
+        defaultsTo: ".distribution.env",
+        help: "Path to the configuration file.")
+    ..addFlag("verbose",
+        abbr: 'v', defaultsTo: false, help: "Enable verbose output.")
+    ..addFlag("process_logs",
+        abbr: 'l', defaultsTo: false, help: "Enable process logs.");
 
   helper = Helper();
   await helper.initialize(runner.argParser.parse(args));

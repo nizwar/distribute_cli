@@ -6,7 +6,7 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
 import 'environment.dart';
-import 'logger.dart'; 
+import 'logger.dart';
 
 class Publisher extends Command {
   final Environment environment;
@@ -15,10 +15,18 @@ class Publisher extends Command {
 
   @override
   ArgParser get argParser => ArgParser()
-    ..addFlag("android", defaultsTo: environment.isAndroidDistribute, help: "Build and distribute Android")
-    ..addFlag("ios", defaultsTo: environment.isIOSDistribute, help: "Build and distribute iOS")
-    ..addFlag("firebase", defaultsTo: environment.useFirebase, help: "Use Firebase for distribution")
-    ..addFlag("fastlane", defaultsTo: environment.useFastlane, help: "Use Fastlane for distribution");
+    ..addFlag("android",
+        defaultsTo: environment.isAndroidDistribute,
+        help: "Build and distribute Android")
+    ..addFlag("ios",
+        defaultsTo: environment.isIOSDistribute,
+        help: "Build and distribute iOS")
+    ..addFlag("firebase",
+        defaultsTo: environment.useFirebase,
+        help: "Use Firebase for distribution")
+    ..addFlag("fastlane",
+        defaultsTo: environment.useFastlane,
+        help: "Use Fastlane for distribution");
 
   bool get isAndroidBuild => argResults?['android'] as bool? ?? false;
   bool get isIOSBuild => argResults?['ios'] as bool? ?? false;
@@ -37,7 +45,8 @@ class Publisher extends Command {
   }
 
   Future<int> buildAndroidDocs() async {
-    final docs = await Process.run("git", ["log", "--pretty='format:%s'", "--since=yesterday.midnight"]);
+    final docs = await Process.run(
+        "git", ["log", "--pretty='format:%s'", "--since=yesterday.midnight"]);
     if (docs.exitCode != 0) {
       ColorizeLogger.logError("Error while getting git logs");
       return 1;
@@ -83,16 +92,20 @@ class Publisher extends Command {
           if (index > -1) {
             final appbundle = files[index];
             if (appbundle is File) {
-              await appbundle.copy("distribution/android/output/${appbundle.path.split("/").last}");
-              appbundles.add(File("distribution/android/output/${appbundle.path.split("/").last}"));
-              ColorizeLogger.logDebug("${appbundles.length} copied to distribution/android/output");
+              await appbundle.copy(
+                  "distribution/android/output/${appbundle.path.split("/").last}");
+              appbundles.add(File(
+                  "distribution/android/output/${appbundle.path.split("/").last}"));
+              ColorizeLogger.logDebug(
+                  "${appbundles.length} copied to distribution/android/output");
             }
           }
         }
       }
     }
 
-    ColorizeLogger.logDebug("${appbundles.length} appbundle(s) found, start distributing appbundle(s)...");
+    ColorizeLogger.logDebug(
+        "${appbundles.length} appbundle(s) found, start distributing appbundle(s)...");
 
     for (var appbundle in appbundles) {
       await _distributeAppbundles(appbundle);
@@ -158,7 +171,8 @@ class Publisher extends Command {
     if (useFastlane) {
       ColorizeLogger.logInfo('Start distribute android (FASTLANE)');
       if (!(await File('distribution/fastlane.json').exists())) {
-        ColorizeLogger.logError("distribution/fastlane.json is not exists, please follow the instructions to set this up");
+        ColorizeLogger.logError(
+            "distribution/fastlane.json is not exists, please follow the instructions to set this up");
         return 1;
       }
       final process = await Process.start('fastlane', [

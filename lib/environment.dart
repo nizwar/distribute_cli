@@ -27,7 +27,8 @@ class Environment {
     bool initEnvironment = false;
     File distributionFile = File("dist");
     if (!await distributionFile.exists()) {
-      ColorizeLogger.logError('dist file not found, please run distribute init first');
+      ColorizeLogger.logError(
+          'dist file not found, please run distribute init first');
       return false;
     } else {
       final distribution = await distributionFile.readAsString().then((value) {
@@ -39,7 +40,8 @@ class Environment {
 
       final checkGit = distribution["git"] ?? false; //Required
       final checkFastlane = distribution["fastlane"] ?? false; //Required
-      final checkFastlaneJson = distribution["fastlane_json"] ?? false; //Required
+      final checkFastlaneJson =
+          distribution["fastlane_json"] ?? false; //Required
       final checkXCrun = distribution["xcrun"] ?? false; //Optional
 
       if (Platform.isMacOS) {
@@ -58,7 +60,8 @@ class Environment {
   void _loadEnv(path) {
     final envFile = File(path);
     if (!envFile.existsSync()) {
-      ColorizeLogger.logError('Environment file not found: $path, please run distribute init first');
+      ColorizeLogger.logError(
+          'Environment file not found: $path, please run distribute init first');
       exit(1);
     }
     final env = envFile.readAsStringSync();
