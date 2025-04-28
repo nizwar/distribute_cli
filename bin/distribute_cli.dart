@@ -1,10 +1,9 @@
 import 'package:args/command_runner.dart';
 import 'package:distribute_cli/builder.dart';
 import 'package:distribute_cli/initializer.dart';
-import 'package:distribute_cli/helper.dart';
+
 import 'package:distribute_cli/publisher.dart';
 
-late Helper helper;
 void main(List<String> args) async {
   final runner = CommandRunner(
       'distribute', 'Run commands to distribute your app packages.');
@@ -17,10 +16,8 @@ void main(List<String> args) async {
     ..addFlag("process_logs",
         abbr: 'l', defaultsTo: false, help: "Enable process logs.");
 
-  helper = Helper();
-  await helper.initialize(runner.argParser.parse(args));
-  runner.addCommand(InitCommand(helper));
-  runner.addCommand(Builder(helper.environment));
-  runner.addCommand(Publisher(helper.environment));
+  runner.addCommand(InitCommand());
+  runner.addCommand(Builder());
+  runner.addCommand(Publisher());
   runner.run(args);
 }

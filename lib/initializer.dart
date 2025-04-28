@@ -3,13 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:distribute_cli/environment.dart';
 import 'logger.dart';
 
-import 'helper.dart';
-
 class InitCommand extends Command {
-  final Helper helper;
-  InitCommand(this.helper);
+  InitCommand();
 
   @override
   String get description => "Initialize the distribution tool.";
@@ -18,7 +16,8 @@ class InitCommand extends Command {
   String get name => "init";
 
   @override
-  FutureOr? run() async {
+  Future? run() async {
+    final Environment environment = Environment.fromArgResults(argResults);
     final Map<String, bool> initialized = {};
     File pubspecFile = File('pubspec.yaml');
     Directory androidDirectory = Directory("distribution/android");
@@ -127,6 +126,6 @@ class InitCommand extends Command {
     ColorizeLogger.logDebug(
         "[Info] Make sure you follow the instructions to setup fastlane and configuration");
     ColorizeLogger.logDebug(
-        "[Info] Please fill in the configuration file: ${helper.configPath}");
+        "[Info] Please fill in the configuration file: ${environment.configPath}");
   }
 }

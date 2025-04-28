@@ -4,33 +4,40 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'environment.dart';
+
 import 'logger.dart';
 import 'publisher.dart';
 
 class Builder extends Command {
-  final Environment environment;
   late final Publisher publisher;
+  late Environment environment;
 
-  Builder(this.environment) {
-    publisher = Publisher(environment);
-  }
+  bool get buildAndroid => argResults?['android'] as bool? ?? true;
+  bool get buildIOS => argResults?['ios'] as bool? ?? false;
+  bool get publish => argResults?['publish'] as bool? ?? false;
 
   @override
-  ArgParser get argParser => ArgParser()
-    ..addFlag("publish",
-        abbr: "p", defaultsTo: false, help: "Distribute Android")
-    ..addFlag("android", defaultsTo: buildAndroid, help: "Build Android")
-    ..addFlag("ios", defaultsTo: buildIOS, help: "Build iOS")
-    ..addOption("android_args",
-        defaultsTo: "", help: "Arguments for Android build.")
-    ..addOption("ios_args", defaultsTo: "", help: "Arguments for iOS build.")
-    ..addOption(
-      'custom_args',
-      defaultsTo: "",
-      help:
-          "Custom arguments key:args,key:args, it will executed as `flutter build <args>`",
-      valueHelp: "macos:macos,windows:windows,ios:ipa,android_apk:apk",
-    );
+  ArgParser get argParser {
+    environment = Environment.fromArgResults(globalResults);
+    return ArgParser()
+      ..addFlag("publish",
+          abbr: "p", defaultsTo: false, help: "Distribute Android")
+      ..addFlag("android",
+          defaultsTo: environment.isAndroidBuild, help: "Build Android")
+      ..addFlag("ios",
+          defaultsTo: Platform.isMacOS ? environment.isIOSBuild : false,
+          help: "Build iOS")
+      ..addOption("android_args",
+          defaultsTo: "", help: "Arguments for Android build.")
+      ..addOption("ios_args", defaultsTo: "", help: "Arguments for iOS build.")
+      ..addOption(
+        'custom_args',
+        defaultsTo: "",
+        help:
+            "Custom arguments key:args,key:args, it will executed as `flutter build <args>`",
+        valueHelp: "macos:macos,windows:windows,ios:ipa,android_apk:apk",
+      );
+  }
 
   @override
   String get description => "Build the apps";
@@ -38,12 +45,9 @@ class Builder extends Command {
   @override
   String get name => "build";
 
-  bool get buildAndroid => argResults?['android'] as bool? ?? true;
-  bool get buildIOS => argResults?['ios'] as bool? ?? false;
-  bool get publish => argResults?['publish'] as bool? ?? false;
-
   @override
   Future run() async {
+    environment = Environment.fromArgResults(globalResults);
     final androidArgs = argResults!['android_args'] as String;
     final iosArgs = argResults!['ios_args'] as String;
     final customArgs = argResults!['custom_args'] as String;

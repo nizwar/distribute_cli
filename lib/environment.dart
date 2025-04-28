@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:args/args.dart';
+
 import 'logger.dart';
 
 class Environment {
@@ -17,9 +19,31 @@ class Environment {
   bool useFastlane = false;
   bool useFirebase = false;
   bool isVerbose = false;
+  late final String configPath;
 
-  Environment(final String path) {
-    _loadEnv(path);
+  static Environment fromArgResults(ArgResults? argResults) {
+    final configPath =
+        argResults?['config_path'] as String? ?? ".distribution.env";
+    final configFile = File(configPath);
+    final isVerbose = argResults?['verbose'] as bool? ?? false;
+    if (!configFile.existsSync()) {
+      configFile.createSync();
+      ColorizeLogger.logDebug(
+          'Configuration file created at ${configFile.path}');
+    }
+
+    if ((configFile.readAsStringSync()).isEmpty) {
+      configFile.writeAsStringSync(Environment.examples);
+    }
+    final environment = fromFile(configFile);
+    environment.isVerbose = isVerbose;
+    return environment;
+  }
+
+  static Environment fromFile(File file) {
+    final output = Environment();
+    output._loadEnv(file.path);
+    return output;
   }
 
   Future<bool> get initialized async {
@@ -27,8 +51,6 @@ class Environment {
     bool initEnvironment = false;
     File distributionFile = File("dist");
     if (!await distributionFile.exists()) {
-      ColorizeLogger.logError(
-          'dist file not found, please run distribute init first');
       return false;
     } else {
       final distribution = await distributionFile.readAsString().then((value) {

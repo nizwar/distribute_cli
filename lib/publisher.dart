@@ -9,29 +9,29 @@ import 'environment.dart';
 import 'logger.dart';
 
 class Publisher extends Command {
-  final Environment environment;
-
-  Publisher(this.environment);
-
-  @override
-  ArgParser get argParser => ArgParser()
-    ..addFlag("android",
-        defaultsTo: environment.isAndroidDistribute,
-        help: "Build and distribute Android")
-    ..addFlag("ios",
-        defaultsTo: environment.isIOSDistribute,
-        help: "Build and distribute iOS")
-    ..addFlag("firebase",
-        defaultsTo: environment.useFirebase,
-        help: "Use Firebase for distribution")
-    ..addFlag("fastlane",
-        defaultsTo: environment.useFastlane,
-        help: "Use Fastlane for distribution");
-
+  late Environment environment;
   bool get isAndroidBuild => argResults?['android'] as bool? ?? false;
   bool get isIOSBuild => argResults?['ios'] as bool? ?? false;
   bool get useFirebase => argResults?['firebase'] as bool? ?? false;
   bool get useFastlane => argResults?['fastlane'] as bool? ?? false;
+
+  @override
+  ArgParser get argParser {
+    environment = Environment.fromArgResults(globalResults);
+    return ArgParser()
+      ..addFlag("android",
+          defaultsTo: environment.isAndroidDistribute,
+          help: "Build and distribute Android")
+      ..addFlag("ios",
+          defaultsTo: Platform.isMacOS ? environment.isIOSDistribute : false,
+          help: "Build and distribute iOS")
+      ..addFlag("firebase",
+          defaultsTo: environment.useFirebase,
+          help: "Use Firebase for distribution")
+      ..addFlag("fastlane",
+          defaultsTo: environment.useFastlane,
+          help: "Use Fastlane for distribution");
+  }
 
   Future<int> publish() async {
     await buildAndroidDocs();
@@ -205,6 +205,7 @@ class Publisher extends Command {
 
   @override
   Future? run() async {
+    environment = Environment.fromArgResults(globalResults);
     final android = argResults!['android'] as bool;
     final ios = argResults!['ios'] as bool;
 
