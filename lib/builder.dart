@@ -22,11 +22,16 @@ class Builder extends Command {
     return ArgParser()
       ..addFlag("publish",
           abbr: "p", defaultsTo: false, help: "Distribute Android")
-      ..addFlag("android",
-          defaultsTo: environment.isAndroidBuild, help: "Build Android")
-      ..addFlag("ios",
-          defaultsTo: Platform.isMacOS ? environment.isIOSBuild : false,
-          help: "Build iOS")
+      ..addFlag(
+        "android",
+        defaultsTo: environment.isAndroidBuild,
+        help: "Build Android (Default value follows the config file)",
+      )
+      ..addFlag(
+        "ios",
+        defaultsTo: Platform.isMacOS ? environment.isIOSBuild : false,
+        help: "Build iOS (Default value follows the config file)",
+      )
       ..addOption("android_args",
           defaultsTo: "", help: "Arguments for Android build.")
       ..addOption("ios_args", defaultsTo: "", help: "Arguments for iOS build.")

@@ -21,16 +21,20 @@ class Publisher extends Command {
     return ArgParser()
       ..addFlag("android",
           defaultsTo: environment.isAndroidDistribute,
-          help: "Build and distribute Android")
+          help:
+              "Build and distribute Android (Default value follows the config file)")
       ..addFlag("ios",
           defaultsTo: Platform.isMacOS ? environment.isIOSDistribute : false,
-          help: "Build and distribute iOS")
+          help:
+              "Build and distribute iOS (Default value follows the config file)")
       ..addFlag("firebase",
           defaultsTo: environment.useFirebase,
-          help: "Use Firebase for distribution")
+          help:
+              "Use Firebase for distribution (Default value follows the config file)")
       ..addFlag("fastlane",
           defaultsTo: environment.useFastlane,
-          help: "Use Fastlane for distribution");
+          help:
+              "Use Fastlane for distribution (Default value follows the config file)");
   }
 
   Future<int> publish() async {
