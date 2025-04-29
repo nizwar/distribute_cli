@@ -232,6 +232,7 @@ class Publisher extends Command {
           '--groups',
           environment.androidFirebaseGroups,
           '--release-notes-file',
+          Files.androidChangeLogs.path,
         ]);
         if (environment.isVerbose) {
           process.stdout.transform(utf8.decoder).listen((data) {
