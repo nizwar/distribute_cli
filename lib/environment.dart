@@ -61,8 +61,13 @@ class Environment {
   /// Indicates if verbose logging is enabled.
   bool isVerbose = false;
 
-  /// The Android Play Store mode (e.g., internal, alpha, beta, production).
+  /// The Android binary type (apk, appbundle).
+  String androidBinary = "appbundle";
+
+  /// The Android Play Store track for distribution (e.g., internal, alpha, beta, production).
   String androidPlaystoreTrack = 'internal';
+
+  /// The Play Store track to promote the build to after distribution (e.g., production).
   String androidPlaystoreTrackPromoteTo = 'production';
 
   /// The path to the configuration file.
@@ -124,7 +129,10 @@ class Environment {
     _parseEnv();
   }
 
-  /// Parses the loaded environment variables.
+  /// Parses the loaded environment variables and assigns them to properties.
+  ///
+  /// This method processes the key-value pairs loaded from the `.env` file
+  /// and maps them to the corresponding properties of the `Environment` class.
   void _parseEnv() {
     isAndroidBuild = _env['ANDROID_BUILD'] == 'true';
     isIOSBuild = _env['IOS_BUILD'] == 'true';
@@ -139,8 +147,14 @@ class Environment {
     iosDistributionPassword = _env['IOS_DISTRIBUTION_PASSWORD'] ?? '';
     useFastlane = _env['USE_FASTLANE'] == 'true';
     useFirebase = _env['USE_FIREBASE'] == 'true';
+    androidBinary = _env['ANDROID_BINARY'] ?? 'appbundle';
   }
 
+  /// Example `.env` configuration file content.
+  ///
+  /// This string provides a template for the `.env` file used to configure
+  /// the distribution environment. It includes placeholders for Android and
+  /// iOS build settings, Firebase credentials, and Fastlane configuration.
   static String examples = '''
 ANDROID_BUILD=true
 ANDROID_DISTRIBUTE=true
@@ -149,7 +163,7 @@ ANDROID_PLAYSTORE_TRACK_PROMOTE_TO=production
 ANDROID_PACKAGE_NAME=
 ANDROID_FIREBASE_APP_ID=
 ANDROID_FIREBASE_GROUPS=
-ANDROID_PLAYSTORE_MODE=internal
+ANDROID_BINARY=appbundle
 
 IOS_BUILD=true
 IOS_DISTRIBUTE=true
@@ -171,6 +185,7 @@ ANDROID_PLAYSTORE_TRACK_PROMOTE_TO=$androidPlaystoreTrack
 ANDROID_PACKAGE_NAME=$androidPackageName
 ANDROID_FIREBASE_APP_ID=$androidFirebaseAppId
 ANDROID_FIREBASE_GROUPS=$androidFirebaseGroups
+ANDROID_BINARY=appbundle
 
 IOS_BUILD=$isIOSBuild
 IOS_DISTRIBUTE=$isIOSDistribute
@@ -182,13 +197,36 @@ USE_FIREBASE=$useFirebase
   ''';
 }
 
+/// Represents the initialization result of the distribution environment.
+///
+/// The `DistributionInitResult` class contains flags indicating whether
+/// required tools and configurations (e.g., Git, Fastlane, Firebase CLI) are
+/// available and valid.
+///
+/// Example usage:
+/// ```
+/// final initResult = DistributionInitResult.instance();
+/// if (initResult?.git ?? false) {
+///   print("Git is installed.");
+/// }
+/// ```
 class DistributionInitResult {
-  bool git;
-  bool fastlane;
-  bool fastlaneJson;
-  bool xcrun;
-  bool firebase;
+  /// Indicates if Git is installed.
+  final bool git;
 
+  /// Indicates if Fastlane is installed.
+  final bool fastlane;
+
+  /// Indicates if the Fastlane JSON key is valid.
+  final bool fastlaneJson;
+
+  /// Indicates if XCRun is installed (MacOS only).
+  final bool xcrun;
+
+  /// Indicates if Firebase CLI is installed.
+  final bool firebase;
+
+  /// Creates a new `DistributionInitResult` instance with the specified flags.
   DistributionInitResult({
     required this.git,
     required this.fastlane,
@@ -197,6 +235,7 @@ class DistributionInitResult {
     required this.firebase,
   });
 
+  /// Creates a `DistributionInitResult` instance from a JSON map.
   factory DistributionInitResult.fromJson(Map<String, dynamic> json) {
     return DistributionInitResult(
       git: json['git'] ?? false,
@@ -207,6 +246,9 @@ class DistributionInitResult {
     );
   }
 
+  /// Loads the `DistributionInitResult` instance from the `dist` file.
+  ///
+  /// Returns `null` if the `dist` file does not exist or cannot be parsed.
   static DistributionInitResult? instance() {
     final dist = File("dist");
     if (!dist.existsSync()) return null;
@@ -216,6 +258,7 @@ class DistributionInitResult {
     return null;
   }
 
+  /// Creates an empty `DistributionInitResult` instance with all flags set to `false`.
   static DistributionInitResult empty() {
     return DistributionInitResult(
       git: false,
@@ -227,6 +270,7 @@ class DistributionInitResult {
   }
 
   @override
+  /// Returns a string representation of the `DistributionInitResult` instance.
   String toString() {
     return 'DistributionInitResult(git: $git, fastlane: $fastlane, fastlaneJson: $fastlaneJson, xcrun: $xcrun, firebase: $firebase)';
   }

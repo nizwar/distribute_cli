@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:distribute_cli/environment.dart';
+import 'files.dart';
 import 'logger.dart';
 
 /// A command to initialize the distribution environment.
@@ -34,102 +35,94 @@ class InitCommand extends Command {
 
   /// Executes the `init` command to set up the distribution environment.
   Future? run() async {
-    final Environment environment = Environment.fromArgResults(globalResults);
-    final Map<String, bool> initialized = {};
-    File pubspecFile = File('pubspec.yaml');
-    Directory androidDirectory = Directory("distribution/android");
-    Directory iosDirectory = Directory("distribution/ios");
-    final file = File("dist");
-    if (!await file.exists()) {
-      await file.create(recursive: true);
+    final environment = Environment.fromArgResults(globalResults);
+    final initialized = <String, bool>{};
+
+    _logOSInfo();
+    _checkPubspecFile();
+    await _createDirectory("distribution/android", initialized, "android_directory");
+    if (Platform.isMacOS) {
+      await _createDirectory("distribution/ios", initialized, "ios_directory");
     }
+
+    await _checkTool("git", "Git", initialized, args: ["help"]);
+    await _checkTool("firebase", "Firebase", initialized);
+    await _checkTool("fastlane", "Fastlane", initialized, args: ['actions']);
+    await _validateFastlaneJson(initialized);
+    await _downloadAndroidMetaData(environment);
 
     if (Platform.isMacOS) {
-      ColorizeLogger.logDebug("OS : MacOS");
-    } else if (Platform.isLinux) {
-      ColorizeLogger.logDebug("OS : Linux");
-    } else if (Platform.isWindows) {
-      ColorizeLogger.logDebug("OS : Windows");
-    } else {
-      ColorizeLogger.logDebug("OS : Unknown OS");
+      await _checkTool("xcrun", "XCRun", initialized, args: ["altool", "-h"]);
     }
 
-    /// Check if pubspec.yaml file exists
-    if (!pubspecFile.existsSync()) {
-      ColorizeLogger.logError('[X] pubspec.yaml file not found. Please run this command in the root directory of your Flutter project.');
-      exit(1);
-    }
-
-    if (!await androidDirectory.exists()) {
-      await androidDirectory.create(recursive: true);
-      initialized["android_directory"] = true;
-      ColorizeLogger.logSuccess('[OK] Created android distribution directory');
-    }
-
-    if (Platform.isMacOS) {
-      if (!await iosDirectory.exists()) {
-        await iosDirectory.create(recursive: true);
-        initialized["ios_directory"] = true;
-        ColorizeLogger.logSuccess('[OK] Created ios distribution directory');
-      }
-    }
-
-    await Process.run("git", ["help"]).then((value) {
-      if (value.exitCode != 0) {
-        initialized["git"] = false;
-        ColorizeLogger.logError('[X] Git is not installed. Please install Git to use this tool.');
-        exit(1);
-      } else {
-        initialized["git"] = true;
-        ColorizeLogger.logSuccess('[OK] Git is installed.');
-      }
-    });
-
-    await Process.run("firebase", []).then((value) {
-      if (value.exitCode != 0) {
-        initialized["firebase"] = false;
-        ColorizeLogger.logError('[X] Firebase CLI is not installed. Please install it to use Firebase distribution.');
-      } else {
-        initialized["firebase"] = true;
-        ColorizeLogger.logSuccess('[OK] Firebase CLI is installed.');
-      }
-    });
-
-    await Process.run("fastlane", ['actions']).then((value) {
-      if (value.exitCode != 0) {
-        initialized["fastlane"] = false;
-        ColorizeLogger.logError("[X] Fastlane is not installed. You won't be able to push with fastlane.");
-      } else {
-        initialized["fastlane"] = true;
-        ColorizeLogger.logSuccess('[OK] Fastlane is installed.');
-      }
-    });
-
-    await Process.run("fastlane", ['run', 'validate_play_store_json_key', 'json_key:distribution/fastlane.json']).then((value) {
-      if (value.exitCode != 0) {
-        initialized["fastlane_json"] = false;
-        ColorizeLogger.logError("[X] Fastlane JSON key is not valid. You won't be able to push with fastlane.");
-      } else {
-        initialized["fastlane_json"] = true;
-        ColorizeLogger.logSuccess('[OK] Fastlane JSON key is valid.');
-      }
-    });
-
-    if (Platform.isMacOS) {
-      await Process.start("xcrun", ['--version']).then((value) async {
-        if (await value.exitCode != 0) {
-          initialized["xcrun"] = false;
-          ColorizeLogger.logError('[X] XCRun is not installed. Please install it to use iOS distribution.');
-        } else {
-          initialized["xcrun"] = true;
-          ColorizeLogger.logSuccess('[OK] XCRun is installed.');
-        }
-      });
-    }
-
-    await file.writeAsString(jsonEncode(initialized), flush: true, mode: FileMode.write, encoding: utf8);
+    await File("dist").writeAsString(jsonEncode(initialized), flush: true, mode: FileMode.write, encoding: utf8);
     ColorizeLogger.logDebug("==========================");
     ColorizeLogger.logDebug("[Info] Make sure you follow the instructions to setup fastlane and configuration");
     ColorizeLogger.logDebug("[Info] Please fill in the configuration file: ${environment.configPath}");
+  }
+
+  void _logOSInfo() {
+    final os = Platform.operatingSystem;
+    ColorizeLogger.logDebug("Operating System: ${os[0].toUpperCase()}${os.substring(1)}");
+  }
+
+  void _checkPubspecFile() {
+    if (!File('pubspec.yaml').existsSync()) {
+      ColorizeLogger.logError('[ERROR] The "pubspec.yaml" file was not found. Please ensure this command is executed in the root directory of your Flutter project.');
+      exit(1);
+    }
+  }
+
+  Future<void> _createDirectory(String path, Map<String, bool> initialized, String key) async {
+    final directory = Directory(path);
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+      initialized[key] = true;
+      ColorizeLogger.logSuccess('[SUCCESS] Created directory: $path');
+    }
+  }
+
+  Future<void> _checkTool(String command, String toolName, Map<String, bool> initialized, {List<String> args = const []}) async {
+    await Process.run(command, args).then((value) {
+      if (value.exitCode != 0) {
+        initialized[toolName.toLowerCase()] = false;
+        ColorizeLogger.logError('[ERROR] $toolName is not installed. Please install $toolName to proceed.');
+        if (toolName == "Git") exit(1);
+      } else {
+        initialized[toolName.toLowerCase()] = true;
+        ColorizeLogger.logSuccess('[SUCCESS] $toolName is installed.');
+      }
+    });
+  }
+
+  Future<void> _validateFastlaneJson(Map<String, bool> initialized) async {
+    await Process.run("fastlane", ['run', 'validate_play_store_json_key', 'json_key:distribution/fastlane.json']).then((value) {
+      if (value.exitCode != 0) {
+        initialized["fastlane_json"] = false;
+        ColorizeLogger.logError("[ERROR] The Fastlane JSON key is invalid. Please ensure it is correctly configured.");
+      } else {
+        initialized["fastlane_json"] = true;
+        ColorizeLogger.logSuccess('[SUCCESS] The Fastlane JSON key is valid.');
+      }
+    });
+  }
+
+  Future<void> _downloadAndroidMetaData(Environment environment) async {
+    if (await Files.androidDistributionMetadataDir.exists()) {
+      await Files.androidDistributionMetadataDir.delete(recursive: true);
+    }
+    await Process.run("fastlane", [
+      "run",
+      "download_from_play_store",
+      "package_name:${environment.androidPackageName}",
+      "json_key:${Files.fastlaneJson.path}",
+      "metadata_path:${Files.androidDistributionMetadataDir.path}"
+    ]).then((value) {
+      if (value.exitCode != 0) {
+        ColorizeLogger.logError("[ERROR] Failed to download Android metadata.");
+      } else {
+        ColorizeLogger.logSuccess("[SUCCESS] Android metadata downloaded successfully.");
+      }
+    });
   }
 }

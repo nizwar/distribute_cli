@@ -42,9 +42,12 @@ When you run `distribute init`, a `.distribution.env` file will be automatically
 # Android Configuration
 ANDROID_BUILD=true
 ANDROID_DISTRIBUTE=true
+ANDROID_PLAYSTORE_TRACK=internal
+ANDROID_PLAYSTORE_TRACK_PROMOTE_TO=production
 ANDROID_PACKAGE_NAME=
 ANDROID_FIREBASE_APP_ID=
 ANDROID_FIREBASE_GROUPS=
+ANDROID_BINARY=appbundle
 
 # iOS Configuration
 IOS_BUILD=true
@@ -63,6 +66,7 @@ It is recommended to add both `.distribution.env` and the `distribution` directo
 ```gitignore
 .distribution.env
 distribution/
+dist
 ```
 
 ### Populating the `.distribution.env` File
@@ -76,28 +80,37 @@ distribution/
 3. **ANDROID_PACKAGE_NAME**:  
    Specify your app's package name (e.g., `com.example.app`).
 
-4. **ANDROID_FIREBASE_APP_ID**:  
+4. **ANDROID_PLAYSTORE_TRACK**:  
+   Specify the Play Store track for Android distribution (e.g., `internal`, `alpha`, `beta`, `production`). Defaults to `internal`.
+
+5. **ANDROID_PLAYSTORE_TRACK_PROMOTE_TO**:  
+   Specify the Play Store track to promote the build to after distribution (e.g., `production`). Defaults to `production`.
+
+6. **ANDROID_BINARY**:  
+   Specify the Android binary type for builds (`apk` or `appbundle`). Defaults to `appbundle`.
+
+7. **ANDROID_FIREBASE_APP_ID**:  
    Provide your Firebase App ID if using Firebase App Distribution. Leave blank otherwise.
 
-5. **ANDROID_FIREBASE_GROUPS**:  
+8. **ANDROID_FIREBASE_GROUPS**:  
    List Firebase tester groups (comma-separated) for distribution. Leave blank if not applicable.
 
-6. **IOS_BUILD**:  
+9. **IOS_BUILD**:  
    Set to `true` to enable iOS builds.
 
-7. **IOS_DISTRIBUTE**:  
-   Set to `true` to enable iOS distribution after building.
+10. **IOS_DISTRIBUTE**:  
+    Set to `true` to enable iOS distribution after building.
 
-8. **IOS_DISTRIBUTION_USER**:  
-   Provide your Apple ID for App Store distribution.
+11. **IOS_DISTRIBUTION_USER**:  
+    Provide your Apple ID for App Store distribution.
 
-9. **IOS_DISTRIBUTION_PASSWORD**:  
-   Provide your app-specific password for App Store distribution. You can generate it from [Apple ID settings](https://support.apple.com/en-us/HT204397).
+12. **IOS_DISTRIBUTION_PASSWORD**:  
+    Provide your app-specific password for App Store distribution. You can generate it from [Apple ID settings](https://support.apple.com/en-us/HT204397).
 
-10. **USE_FASTLANE**:  
+13. **USE_FASTLANE**:  
     Set to `true` to enable Fastlane for Android distribution.
 
-11. **USE_FIREBASE**:  
+14. **USE_FIREBASE**:  
     Set to `true` to enable Firebase App Distribution.
 
 ### Adding the `distribution/fastlane.json` File
