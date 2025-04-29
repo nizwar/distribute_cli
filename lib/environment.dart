@@ -58,19 +58,21 @@ class Environment {
   /// Indicates if verbose logging is enabled.
   bool isVerbose = false;
 
+  /// The Android Play Store mode (e.g., internal, alpha, beta, production).
+  String androidPlaystoreTrack = 'internal';
+  String androidPlaystoreTrackPromoteTo = 'production';
+
   /// The path to the configuration file.
-  late final String configPath;
+  late String configPath;
 
   /// Creates an `Environment` instance from the provided [argResults].
   static Environment fromArgResults(ArgResults? argResults) {
-    final configPath =
-        argResults?['config_path'] as String? ?? ".distribution.env";
+    final configPath = argResults?['config_path'] as String? ?? ".distribution.env";
     final configFile = File(configPath);
     final isVerbose = argResults?['verbose'] as bool? ?? false;
     if (!configFile.existsSync()) {
       configFile.createSync();
-      ColorizeLogger.logDebug(
-          'Configuration file created at ${configFile.path}');
+      ColorizeLogger.logDebug('Configuration file created at ${configFile.path}');
     }
 
     if ((configFile.readAsStringSync()).isEmpty) {
@@ -78,6 +80,7 @@ class Environment {
     }
     final environment = fromFile(configFile);
     environment.isVerbose = isVerbose;
+    environment.configPath = configPath;
     return environment;
   }
 
@@ -105,8 +108,7 @@ class Environment {
 
       final checkGit = distribution["git"] ?? false; //Required
       final checkFastlane = distribution["fastlane"] ?? false; //Required
-      final checkFastlaneJson =
-          distribution["fastlane_json"] ?? false; //Required
+      final checkFastlaneJson = distribution["fastlane_json"] ?? false; //Required
       final checkXCrun = distribution["xcrun"] ?? false; //Optional
 
       if (Platform.isMacOS) {
@@ -126,8 +128,7 @@ class Environment {
   void _loadEnv(path) {
     final envFile = File(path);
     if (!envFile.existsSync()) {
-      ColorizeLogger.logError(
-          'Environment file not found: $path, please run distribute init first');
+      ColorizeLogger.logError('Environment file not found: $path, please run distribute init first');
       exit(1);
     }
     final env = envFile.readAsStringSync();
@@ -152,6 +153,8 @@ class Environment {
     androidPackageName = _env['ANDROID_PACKAGE_NAME'] ?? '';
     androidFirebaseAppId = _env['ANDROID_FIREBASE_APP_ID'] ?? '';
     androidFirebaseGroups = _env['ANDROID_FIREBASE_GROUPS'] ?? '';
+    androidPlaystoreTrack = _env['ANDROID_PLAYSTORE_TRACK'] ?? 'internal';
+    androidPlaystoreTrackPromoteTo = _env['ANDROID_PLAYSTORE_TRACK_PROMOTE_TO'] ?? 'production';
     iosDistributionUser = _env['IOS_DISTRIBUTION_USER'] ?? '';
     iosDistributionPassword = _env['IOS_DISTRIBUTION_PASSWORD'] ?? '';
     useFastlane = _env['USE_FASTLANE'] == 'true';
@@ -161,9 +164,12 @@ class Environment {
   static String examples = '''
 ANDROID_BUILD=true
 ANDROID_DISTRIBUTE=true
+ANDROID_PLAYSTORE_TRACK=internal
+ANDROID_PLAYSTORE_TRACK_PROMOTE_TO=production
 ANDROID_PACKAGE_NAME=
 ANDROID_FIREBASE_APP_ID=
 ANDROID_FIREBASE_GROUPS=
+ANDROID_PLAYSTORE_MODE=internal
 
 IOS_BUILD=true
 IOS_DISTRIBUTE=true
@@ -180,6 +186,8 @@ USE_FIREBASE=false
   String toString() => '''
 ANDROID_BUILD=$isAndroidBuild
 ANDROID_DISTRIBUTE=$isAndroidDistribute
+ANDROID_PLAYSTORE_TRACK=$androidPlaystoreTrack
+ANDROID_PLAYSTORE_TRACK_PROMOTE_TO=$androidPlaystoreTrack
 ANDROID_PACKAGE_NAME=$androidPackageName
 ANDROID_FIREBASE_APP_ID=$androidFirebaseAppId
 ANDROID_FIREBASE_GROUPS=$androidFirebaseGroups
