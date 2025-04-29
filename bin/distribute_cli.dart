@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:distribute_cli/builder.dart';
 import 'package:distribute_cli/initializer.dart';
@@ -32,6 +34,10 @@ import 'package:distribute_cli/publisher.dart';
 /// ```
 void main(List<String> args) async {
   final runner = CommandRunner('distribute', 'Run commands to distribute your app packages.');
+  final logs = File("distribution.log");
+  if (await logs.exists()) {
+    await logs.delete(recursive: true).catchError((value) => value);
+  }
   runner.argParser
     ..addOption("config_path", defaultsTo: ".distribution.env", help: "Path to the configuration file.")
     ..addFlag("verbose", abbr: 'v', defaultsTo: false, help: "Enable verbose output.")

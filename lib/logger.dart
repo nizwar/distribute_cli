@@ -16,8 +16,10 @@ class ColorizeLogger {
   static const String _reset = '\x1B[0m';
 
   /// Logs a message with the specified [color].
-  static void log(String message, {LogLevel color = LogLevel.info}) =>
-      stdout.writeln('${color.color}$message$_reset');
+  static void log(String message, {LogLevel color = LogLevel.info}) {
+    stdout.writeln('${color.color}$message$_reset');
+    File("distribution.log").writeAsStringSync("$message\n", mode: FileMode.append);
+  }
 
   /// Logs an error message in red.
   static void logError(String message) => log(message, color: LogLevel.error);
