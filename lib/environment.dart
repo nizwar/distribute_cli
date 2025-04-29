@@ -19,6 +19,9 @@ import 'logger.dart';
 /// }
 /// ```
 class Environment {
+  /// The environment variables for the distribution process.
+  DistributionInitResult? distributionInitResult;
+
   /// Stores environment variables loaded from the configuration file.
   static final Map<String, String> _env = {};
 
@@ -65,16 +68,18 @@ class Environment {
   /// The path to the configuration file.
   late String configPath;
 
+  Environment() {
+    distributionInitResult = DistributionInitResult.instance();
+  }
+
   /// Creates an `Environment` instance from the provided [argResults].
   static Environment fromArgResults(ArgResults? argResults) {
-    final configPath =
-        argResults?['config_path'] as String? ?? ".distribution.env";
+    final configPath = argResults?['config_path'] as String? ?? ".distribution.env";
     final configFile = File(configPath);
     final isVerbose = argResults?['verbose'] as bool? ?? false;
     if (!configFile.existsSync()) {
       configFile.createSync();
-      ColorizeLogger.logDebug(
-          'Configuration file created at ${configFile.path}');
+      ColorizeLogger.logDebug('Configuration file created at ${configFile.path}');
     }
 
     if ((configFile.readAsStringSync()).isEmpty) {
@@ -90,49 +95,20 @@ class Environment {
   static Environment fromFile(File file) {
     final output = Environment();
     output._loadEnv(file.path);
+
     return output;
   }
 
   /// Checks if the environment is fully initialized.
   Future<bool> get initialized async {
-    final androidDir = await Directory("distribution/android").exists();
-    bool initEnvironment = false;
-    File distributionFile = File("dist");
-    if (!await distributionFile.exists()) {
-      return false;
-    } else {
-      final distribution = await distributionFile.readAsString().then((value) {
-        return jsonDecode(value);
-      }).catchError((e) {
-        ColorizeLogger.logError('Error while parsing dist');
-        exit(1);
-      });
-
-      final checkGit = distribution["git"] ?? false; //Required
-      final checkFastlane = distribution["fastlane"] ?? false; //Required
-      final checkFastlaneJson =
-          distribution["fastlane_json"] ?? false; //Required
-      final checkXCrun = distribution["xcrun"] ?? false; //Optional
-
-      if (Platform.isMacOS) {
-        if (checkGit && checkFastlane && checkFastlaneJson && checkXCrun) {
-          initEnvironment = true;
-        }
-      } else {
-        if (checkGit && checkFastlane && checkFastlaneJson) {
-          initEnvironment = true;
-        }
-      }
-    }
-    return androidDir && initEnvironment;
+    return distributionInitResult != null && _env.isNotEmpty;
   }
 
   /// Loads environment variables from the specified [path].
   void _loadEnv(path) {
     final envFile = File(path);
     if (!envFile.existsSync()) {
-      ColorizeLogger.logError(
-          'Environment file not found: $path, please run distribute init first');
+      ColorizeLogger.logError('Environment file not found: $path, please run distribute init first');
       exit(1);
     }
     final env = envFile.readAsStringSync();
@@ -158,8 +134,7 @@ class Environment {
     androidFirebaseAppId = _env['ANDROID_FIREBASE_APP_ID'] ?? '';
     androidFirebaseGroups = _env['ANDROID_FIREBASE_GROUPS'] ?? '';
     androidPlaystoreTrack = _env['ANDROID_PLAYSTORE_TRACK'] ?? 'internal';
-    androidPlaystoreTrackPromoteTo =
-        _env['ANDROID_PLAYSTORE_TRACK_PROMOTE_TO'] ?? 'production';
+    androidPlaystoreTrackPromoteTo = _env['ANDROID_PLAYSTORE_TRACK_PROMOTE_TO'] ?? 'production';
     iosDistributionUser = _env['IOS_DISTRIBUTION_USER'] ?? '';
     iosDistributionPassword = _env['IOS_DISTRIBUTION_PASSWORD'] ?? '';
     useFastlane = _env['USE_FASTLANE'] == 'true';
@@ -205,4 +180,50 @@ IOS_DISTRIBUTION_PASSWORD=$iosDistributionPassword
 USE_FASTLANE=$useFastlane
 USE_FIREBASE=$useFirebase
   ''';
+}
+
+class DistributionInitResult {
+  bool git;
+  bool fastlane;
+  bool fastlaneJson;
+  bool xcrun;
+
+  DistributionInitResult({
+    required this.git,
+    required this.fastlane,
+    required this.fastlaneJson,
+    required this.xcrun,
+  });
+
+  factory DistributionInitResult.fromJson(Map<String, dynamic> json) {
+    return DistributionInitResult(
+      git: json['git'] ?? false,
+      fastlane: json['fastlane'] ?? false,
+      fastlaneJson: json['fastlane_json'] ?? false,
+      xcrun: json['xcrun'] ?? false,
+    );
+  }
+
+  static DistributionInitResult? instance() {
+    final dist = File("dist");
+    if (!dist.existsSync()) return null;
+    try {
+      return DistributionInitResult.fromJson(jsonDecode(dist.readAsStringSync()));
+    } catch (_) {}
+    return null;
+  }
+
+  static DistributionInitResult empty() {
+    return DistributionInitResult(
+      git: false,
+      fastlane: false,
+      fastlaneJson: false,
+      xcrun: false,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'DistributionInitResult(git: $git, fastlane: $fastlane, fastlaneJson: $fastlaneJson, xcrun: $xcrun)';
+  }
 }
