@@ -101,6 +101,7 @@ class Publisher extends Command {
   }
 
   Future<int> buildAndroidDocs() async {
+    ColorizeLogger.logDebug("Start building Android changelogs...");
     final docs = await Process.run("git", ["log", "--pretty=format:%s", "--since=yesterday.midnight"]);
     if (docs.exitCode != 0) {
       ColorizeLogger.logError("[ERROR] Failed to retrieve Git logs.");
@@ -114,7 +115,7 @@ class Publisher extends Command {
   Future<int> distributeAndroid() async {
     final binaries = await _collectBinaries(Files.androidDistributionOutputDir, ["aab", "apk"]);
     for (var binary in binaries) {
-      ColorizeLogger.logInfo('Initiating distribution for Android binary: $binary');
+      ColorizeLogger.logInfo('Distributing Android binary: $binary');
       await _distributeBinary(binary, _distributeAndroidBinary);
     }
     return 0;
@@ -149,6 +150,7 @@ class Publisher extends Command {
   Future<int> _distributeAndroidBinary(File file) async {
     int output = 0;
     if (useFirebase && environment.distributionInitResult!.firebase) {
+      ColorizeLogger.logDebug("Distributing Android binary using Firebase");
       output = await _runProcess(
           'firebase',
           [
@@ -164,6 +166,7 @@ class Publisher extends Command {
           "Android Distribution (FIREBASE)");
     }
     if (useFastlane && environment.distributionInitResult!.fastlane && environment.distributionInitResult!.fastlaneJson) {
+      ColorizeLogger.logDebug("Distributing Android binary using Fastlane");
       output = await _runProcess(
           'fastlane',
           [
@@ -183,6 +186,7 @@ class Publisher extends Command {
   }
 
   Future<int> _distributeIosBinary(File file) async {
+    ColorizeLogger.logDebug("Distributing iOS binary using xcrun");
     return await _runProcess(
         'xcrun',
         [

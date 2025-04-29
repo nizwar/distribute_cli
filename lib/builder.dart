@@ -158,12 +158,14 @@ class Builder extends Command {
         return (
           platform,
           await _buildAndroid(args: args).then((value) async {
-            if (publish && environment.isAndroidDistribute) {
-              if (environment.distributionInitResult?.git ?? false) {
-                await publisher.buildAndroidDocs();
-              }
+            if (value == 0) {
+              if (publish && buildAndroid && environment.isAndroidDistribute) {
+                if (environment.distributionInitResult?.git ?? false) {
+                  await publisher.buildAndroidDocs();
+                }
 
-              return publisher.distributeAndroid();
+                return publisher.distributeAndroid();
+              }
             }
 
             return value;
@@ -173,8 +175,10 @@ class Builder extends Command {
         return (
           platform,
           await _buildIOS(args: args).then((value) async {
-            if (publish && environment.isIOSDistribute) {
-              return publisher.distributeIOS();
+            if (value == 0) {
+              if (publish && buildIOS && environment.isIOSDistribute) {
+                return publisher.distributeIOS();
+              }
             }
             return value;
           })
