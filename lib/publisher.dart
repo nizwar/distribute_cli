@@ -44,21 +44,35 @@ class Publisher extends Command {
     isIOSDistribute = argResults?["ios"] ?? environment.isIOSBuild;
     useFirebase = argResults?["firebase"] ?? environment.useFirebase;
     useFastlane = argResults?["fastlane"] ?? environment.useFastlane;
-    fastlaneTrack = argResults?["fastlane_track"] ?? environment.androidPlaystoreTrack;
-    fastlanePromoteTrackTo = argResults?["fastlane_promote_track_to"] ?? environment.androidPlaystoreTrackPromoteTo;
+    fastlaneTrack =
+        argResults?["fastlane_track"] ?? environment.androidPlaystoreTrack;
+    fastlanePromoteTrackTo = argResults?["fastlane_promote_track_to"] ??
+        environment.androidPlaystoreTrackPromoteTo;
   }
 
   @override
   ArgParser get argParser {
     environment = Environment.fromArgResults(argResults ?? globalResults);
     return ArgParser()
-      ..addFlag("android", defaultsTo: environment.isAndroidDistribute, help: "Build and distribute Android.")
-      ..addFlag("ios", defaultsTo: Platform.isMacOS ? environment.isIOSDistribute : false, help: "Build and distribute iOS.")
-      ..addOption("fastlane_track", defaultsTo: environment.androidPlaystoreTrack, help: "Playstore track for Android.")
-      ..addOption("fastlane_promote_track_to", defaultsTo: environment.androidPlaystoreTrackPromoteTo, help: "Playstore track to promote to.")
+      ..addFlag("android",
+          defaultsTo: environment.isAndroidDistribute,
+          help: "Build and distribute Android.")
+      ..addFlag("ios",
+          defaultsTo: Platform.isMacOS ? environment.isIOSDistribute : false,
+          help: "Build and distribute iOS.")
+      ..addOption("fastlane_track",
+          defaultsTo: environment.androidPlaystoreTrack,
+          help: "Playstore track for Android.")
+      ..addOption("fastlane_promote_track_to",
+          defaultsTo: environment.androidPlaystoreTrackPromoteTo,
+          help: "Playstore track to promote to.")
       ..addOption("fastlane_args", help: "Arguments for Fastlane.")
-      ..addFlag("firebase", defaultsTo: environment.useFirebase, help: "Use Firebase for distribution.")
-      ..addFlag("fastlane", defaultsTo: environment.useFastlane, help: "Use Fastlane for distribution.");
+      ..addFlag("firebase",
+          defaultsTo: environment.useFirebase,
+          help: "Use Firebase for distribution.")
+      ..addFlag("fastlane",
+          defaultsTo: environment.useFastlane,
+          help: "Use Fastlane for distribution.");
   }
 
   @override
@@ -89,7 +103,8 @@ class Publisher extends Command {
     }
   }
 
-  Future<void> _executeTask(Future<int> Function()? preTask, Future<int> Function() task, String platform) async {
+  Future<void> _executeTask(Future<int> Function()? preTask,
+      Future<int> Function() task, String platform) async {
     if (preTask != null) await preTask();
     ColorizeLogger.logDebug("Start $platform distribution...");
     final result = await task();
@@ -102,18 +117,21 @@ class Publisher extends Command {
 
   Future<int> buildAndroidDocs() async {
     ColorizeLogger.logDebug("Start building Android changelogs...");
-    final docs = await Process.run("git", ["log", "--pretty=format:%s", "--since=yesterday.midnight"]);
+    final docs = await Process.run(
+        "git", ["log", "--pretty=format:%s", "--since=yesterday.midnight"]);
     if (docs.exitCode != 0) {
       ColorizeLogger.logError("[ERROR] Failed to retrieve Git logs.");
       return 1;
     }
     final log = docs.stdout.toString().replaceAll("'", "");
-    await Files.androidChangeLogs.writeAsString(log, encoding: utf8, flush: true);
+    await Files.androidChangeLogs
+        .writeAsString(log, encoding: utf8, flush: true);
     return 0;
   }
 
   Future<int> distributeAndroid() async {
-    final binaries = await _collectBinaries(Files.androidDistributionOutputDir, ["aab", "apk"]);
+    final binaries = await _collectBinaries(
+        Files.androidDistributionOutputDir, ["aab", "apk"]);
     for (var binary in binaries) {
       ColorizeLogger.logInfo('Distributing Android binary: $binary');
       await _distributeBinary(binary, _distributeAndroidBinary);
@@ -123,10 +141,12 @@ class Publisher extends Command {
 
   Future<int> distributeIOS() async {
     if (!Platform.isMacOS) {
-      ColorizeLogger.logError("[ERROR] iOS distribution is only supported on macOS.");
+      ColorizeLogger.logError(
+          "[ERROR] iOS distribution is only supported on macOS.");
       return 1;
     }
-    final binaries = await _collectBinaries(Files.iosDistributionOutputDir, ["ipa"]);
+    final binaries =
+        await _collectBinaries(Files.iosDistributionOutputDir, ["ipa"]);
     for (var binary in binaries) {
       ColorizeLogger.logInfo('Initiating distribution for iOS binary: $binary');
       await _distributeBinary(binary, _distributeIosBinary).then((value) {});
@@ -134,16 +154,22 @@ class Publisher extends Command {
     return 0;
   }
 
-  Future<List<File>> _collectBinaries(Directory outputDir, List<String> extensions) async {
+  Future<List<File>> _collectBinaries(
+      Directory outputDir, List<String> extensions) async {
     if (!await outputDir.exists()) await outputDir.create(recursive: true);
     final files = await outputDir.list().toList();
-    return files.where((file) => extensions.any((ext) => file.path.endsWith(ext))).map((item) => File(item.path)).toList();
+    return files
+        .where((file) => extensions.any((ext) => file.path.endsWith(ext)))
+        .map((item) => File(item.path))
+        .toList();
   }
 
-  Future<void> _distributeBinary(File file, Future<int> Function(File) distributeFunction) async {
+  Future<void> _distributeBinary(
+      File file, Future<int> Function(File) distributeFunction) async {
     final result = await distributeFunction(file);
     if (result != 0) {
-      ColorizeLogger.logError("[ERROR] Distribution failed for file: ${file.path}");
+      ColorizeLogger.logError(
+          "[ERROR] Distribution failed for file: ${file.path}");
     }
   }
 
@@ -165,7 +191,9 @@ class Publisher extends Command {
           ],
           "Android Distribution (FIREBASE)");
     }
-    if (useFastlane && environment.distributionInitResult!.fastlane && environment.distributionInitResult!.fastlaneJson) {
+    if (useFastlane &&
+        environment.distributionInitResult!.fastlane &&
+        environment.distributionInitResult!.fastlaneJson) {
       ColorizeLogger.logDebug("Distributing Android binary using Fastlane");
       output = await _runProcess(
           'fastlane',
@@ -178,7 +206,8 @@ class Publisher extends Command {
             'metadata_path:${Files.androidDistributionMetadataDir.path}',
             "track:$fastlaneTrack",
             "track_promote_to:$fastlanePromoteTrackTo",
-            if (argResults?['fastlane_args'] != null) ...argResults!['fastlane_args'].split(" "),
+            if (argResults?['fastlane_args'] != null)
+              ...argResults!['fastlane_args'].split(" "),
           ],
           "Android Distribution (FASTLANE)");
     }
@@ -205,21 +234,27 @@ class Publisher extends Command {
         "iOS Distribution");
   }
 
-  Future<int> _runProcess(String executable, List<String> arguments, String taskName) async {
+  Future<int> _runProcess(
+      String executable, List<String> arguments, String taskName) async {
     try {
       final process = await Process.start(executable, arguments);
       if (environment.isVerbose) {
-        process.stdout.transform(utf8.decoder).listen((data) => ColorizeLogger.logDebug(data.trim()));
+        process.stdout
+            .transform(utf8.decoder)
+            .listen((data) => ColorizeLogger.logDebug(data.trim()));
       }
       final exitCode = await process.exitCode;
       if (exitCode != 0) {
         ColorizeLogger.logError("[ERROR] $taskName encountered an issue.");
-        ColorizeLogger.logError(await process.stderr.transform(utf8.decoder).join("\n"));
+        ColorizeLogger.logError(
+            await process.stderr.transform(utf8.decoder).join("\n"));
       }
-      ColorizeLogger.logSuccess("[SUCCESS] $taskName completed successfully with exit code $exitCode.");
+      ColorizeLogger.logSuccess(
+          "[SUCCESS] $taskName completed successfully with exit code $exitCode.");
       return exitCode;
     } catch (e) {
-      ColorizeLogger.logError("[ERROR] An exception occurred during $taskName: $e");
+      ColorizeLogger.logError(
+          "[ERROR] An exception occurred during $taskName: $e");
       return 1;
     }
   }

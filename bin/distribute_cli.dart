@@ -33,15 +33,20 @@ import 'package:distribute_cli/publisher.dart';
 /// dart distribute_cli.dart build --config_path=config.env -v
 /// ```
 void main(List<String> args) async {
-  final runner = CommandRunner('distribute', 'Run commands to distribute your app packages.');
+  final runner = CommandRunner(
+      'distribute', 'Run commands to distribute your app packages.');
   final logs = File("distribution.log");
   if (await logs.exists()) {
     await logs.delete(recursive: true).catchError((value) => value);
   }
   runner.argParser
-    ..addOption("config_path", defaultsTo: ".distribution.env", help: "Path to the configuration file.")
-    ..addFlag("verbose", abbr: 'v', defaultsTo: false, help: "Enable verbose output.")
-    ..addFlag("process_logs", abbr: 'l', defaultsTo: false, help: "Enable process logs.");
+    ..addOption("config_path",
+        defaultsTo: ".distribution.env",
+        help: "Path to the configuration file.")
+    ..addFlag("verbose",
+        abbr: 'v', defaultsTo: false, help: "Enable verbose output.")
+    ..addFlag("process_logs",
+        abbr: 'l', defaultsTo: false, help: "Enable process logs.");
 
   runner.addCommand(InitCommand());
   runner.addCommand(Builder());

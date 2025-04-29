@@ -18,17 +18,20 @@ class ColorizeLogger {
   /// Logs a message with the specified [color].
   static void log(String message, {LogLevel color = LogLevel.info}) {
     stdout.writeln('${color.color}$message$_reset');
-    File("distribution.log").writeAsStringSync("$message\n", mode: FileMode.append);
+    File("distribution.log")
+        .writeAsStringSync("$message\n", mode: FileMode.append);
   }
 
   /// Logs an error message in red.
   static void logError(String message) => log(message, color: LogLevel.error);
 
   /// Logs a warning message in yellow.
-  static void logWarning(String message) => log(message, color: LogLevel.warning);
+  static void logWarning(String message) =>
+      log(message, color: LogLevel.warning);
 
   /// Logs a success message in green.
-  static void logSuccess(String message) => log(message, color: LogLevel.success);
+  static void logSuccess(String message) =>
+      log(message, color: LogLevel.success);
 
   /// Logs an informational message in green.
   static void logInfo(String message) => log(message, color: LogLevel.info);
