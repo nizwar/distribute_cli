@@ -20,7 +20,6 @@ import 'package:distribute_cli/publisher.dart';
 /// ### Options:
 /// - `--config_path`: Specifies the path to the configuration file. Defaults to `.distribution.env`.
 /// - `--verbose` (`-v`): Enables verbose output. Defaults to `false`.
-/// - `--process_logs` (`-l`): Enables process logs. Defaults to `false`.
 ///
 /// ### Usage:
 /// Run the CLI with the desired command and options:
@@ -44,9 +43,7 @@ void main(List<String> args) async {
         defaultsTo: ".distribution.env",
         help: "Path to the configuration file.")
     ..addFlag("verbose",
-        abbr: 'v', defaultsTo: false, help: "Enable verbose output.")
-    ..addFlag("process_logs",
-        abbr: 'l', defaultsTo: false, help: "Enable process logs.");
+        abbr: 'v', defaultsTo: false, help: "Enable verbose output.");
 
   runner.addCommand(InitCommand());
   runner.addCommand(Builder());

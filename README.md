@@ -178,9 +178,6 @@ distribute <command> [arguments]
 - `-v, --[no-]verbose`  
   Enable verbose output.
 
-- `-l, --[no-]process_logs`  
-  Enable process logs.
-
 ### Available Commands
 
 #### `init`
