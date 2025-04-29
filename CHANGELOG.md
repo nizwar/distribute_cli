@@ -1,3 +1,8 @@
+## 1.0.2+1
+* Builder and Publisher will be more tolerant for tools that doesn't exists
+* Firebase changelogs included
+* Optimize code and error appearance
+
 ## 1.0.1+1
 * Add `fastlane_track` and `fastlane_promote_track_to`
 * Solve `distribute build -p`
@@ -11,7 +16,6 @@
 * Add distribute executable
 * Fix args not working on subCommands
 * Enhance command to be more clearer
-
 
 ## 1.0.0
 * First release, look readme.md for details
