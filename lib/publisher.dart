@@ -127,6 +127,7 @@ class Publisher extends Command {
     }
     final binaries = await _collectBinaries(Files.iosDistributionOutputDir, ["ipa"]);
     for (var binary in binaries) {
+      ColorizeLogger.logInfo('Initiating distribution for iOS binary: $binary');
       await _distributeBinary(binary, _distributeIosBinary).then((value) {});
     }
     return 0;
@@ -211,6 +212,7 @@ class Publisher extends Command {
         ColorizeLogger.logError("[ERROR] $taskName encountered an issue.");
         ColorizeLogger.logError(await process.stderr.transform(utf8.decoder).join("\n"));
       }
+      ColorizeLogger.logSuccess("[SUCCESS] $taskName completed successfully with exit code $exitCode.");
       return exitCode;
     } catch (e) {
       ColorizeLogger.logError("[ERROR] An exception occurred during $taskName: $e");

@@ -143,17 +143,7 @@ class Builder extends Command {
       return await _buildPlatform(platform, args);
     }));
 
-    if (publish) {
-      final distributionResults = await _executeDistribution(buildResults);
-      for (var result in distributionResults) {
-        if (result.$2 != 0) {
-          ColorizeLogger.logError('[ERROR] Distribution failed for ${result.$1}.');
-          exitCode = 1;
-        } else {
-          ColorizeLogger.logSuccess('Distribution completed successfully for ${result.$1}.');
-        }
-      }
-    }
+    exitCode = buildResults.fold(0, (prev, element) => prev + element.$2);
 
     return exitCode;
   }
@@ -165,9 +155,30 @@ class Builder extends Command {
   Future<(String, int)> _buildPlatform(String platform, List<String> args) async {
     try {
       if (platform == 'android') {
-        return (platform, await _buildAndroid(args: args));
+        return (
+          platform,
+          await _buildAndroid(args: args).then((value) async {
+            if (publish && environment.isAndroidDistribute) {
+              if (environment.distributionInitResult?.git ?? false) {
+                await publisher.buildAndroidDocs();
+              }
+
+              return publisher.distributeAndroid();
+            }
+
+            return value;
+          })
+        );
       } else if (platform == 'ios') {
-        return (platform, await _buildIOS(args: args));
+        return (
+          platform,
+          await _buildIOS(args: args).then((value) async {
+            if (publish && environment.isIOSDistribute) {
+              return publisher.distributeIOS();
+            }
+            return value;
+          })
+        );
       } else {
         return (platform, await _buildCustom(platform, args));
       }
@@ -175,27 +186,6 @@ class Builder extends Command {
       ColorizeLogger.logError('[ERROR] An error occurred during $platform build: $e');
       return (platform, 1);
     }
-  }
-
-  /// Executes the distribution process for the build results.
-  ///
-  /// This method iterates over the build results and invokes the appropriate
-  /// distribution method for each platform if the build was successful.
-  Future<List<(String, int)>> _executeDistribution(List<(String, int)> buildResults) async {
-    final distributionResults = <(String, int)>[];
-    for (var buildResult in buildResults) {
-      if (buildResult.$2 == 0) {
-        if (buildResult.$1 == 'android' && buildAndroid) {
-          if (environment.distributionInitResult!.git) {
-            await publisher.buildAndroidDocs();
-          }
-          distributionResults.add((buildResult.$1, await publisher.distributeAndroid()));
-        } else if (buildResult.$1 == 'ios' && buildIOS) {
-          distributionResults.add((buildResult.$1, await publisher.distributeIOS()));
-        }
-      }
-    }
-    return distributionResults;
   }
 
   /// Builds the app for the specified platforms and arguments.
@@ -287,11 +277,12 @@ class Builder extends Command {
       final process = await Process.start('flutter', ['build', androidBinary, if (args != null) ...args]);
       if (environment.isVerbose) {
         process.stdout.transform(utf8.decoder).listen((data) {
-          if (data.trim().isNotEmpty) ColorizeLogger.logDebug(data);
+          if (data.trim().isNotEmpty) ColorizeLogger.logDebug("[Android] $data");
         });
       }
       final exitCode = await process.exitCode;
       if (exitCode == 0) {
+        ColorizeLogger.logSuccess('Android build completed successfully.');
         return await _moveAndroidBinaries();
       } else {
         ColorizeLogger.logError(await process.stderr.join("\n"));
@@ -308,11 +299,12 @@ class Builder extends Command {
       final process = await Process.start('flutter', ['build', 'ipa', if (args != null) ...args]);
       if (environment.isVerbose) {
         process.stdout.transform(utf8.decoder).listen((data) {
-          if (data.trim().isNotEmpty) ColorizeLogger.logDebug(data);
+          if (data.trim().isNotEmpty) ColorizeLogger.logDebug("[iOS] $data");
         });
       }
       final exitCode = await process.exitCode;
       if (exitCode == 0) {
+        ColorizeLogger.logSuccess('iOS build completed successfully.');
         return await _moveIOSBinaries();
       } else {
         ColorizeLogger.logError(await process.stderr.join("\n"));
@@ -328,12 +320,12 @@ class Builder extends Command {
     final process = await Process.start('flutter', ['build', ...args]);
     if (environment.isVerbose) {
       process.stdout.transform(utf8.decoder).listen((data) {
-        if (data.trim().isNotEmpty) ColorizeLogger.logDebug(data);
+        if (data.trim().isNotEmpty) ColorizeLogger.logDebug("[$key] $data");
       });
     }
     final exitCode = await process.exitCode;
     if (exitCode == 0) {
-      return await _moveIOSBinaries();
+      ColorizeLogger.logSuccess('[$key] Build completed successfully.');
     } else {
       ColorizeLogger.logError(await process.stderr.join("\n"));
     }
@@ -382,11 +374,7 @@ class Builder extends Command {
       return 1;
     }
 
-    final ipas = await outputDir
-        .list(recursive: true)
-        .where((item) => item.path.endsWith(".ipa"))
-        .cast<File>()
-        .toList();
+    final ipas = await outputDir.list(recursive: true).where((item) => item.path.endsWith(".ipa")).cast<File>().toList();
 
     for (var ipa in ipas) {
       await ipa.copy("${distributionDir.path}/${ipa.uri.pathSegments.last}");
