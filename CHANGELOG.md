@@ -1,3 +1,7 @@
+## 1.0.3+1
+* Create distribution.log to record the logs
+* Start distribute once task finished
+
 ## 1.0.2+1
 * Builder and Publisher will be more tolerant for tools that doesn't exists
 * Firebase changelogs included
