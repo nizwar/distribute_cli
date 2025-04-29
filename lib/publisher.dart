@@ -29,7 +29,8 @@ class Publisher extends Command {
     instance.environment = Environment.fromArgResults(argResults);
     instance.isAndroidBuild = instance.environment.isAndroidBuild;
     instance.isIOSBuild = instance.environment.isIOSBuild;
-    instance.fastlanePromoteTrackTo = instance.environment.androidPlaystoreTrackPromoteTo;
+    instance.fastlanePromoteTrackTo =
+        instance.environment.androidPlaystoreTrackPromoteTo;
     instance.fastlaneTrack = instance.environment.androidPlaystoreTrack;
     instance.useFastlane = instance.environment.useFastlane;
     instance.useFirebase = instance.environment.useFirebase;
@@ -78,13 +79,31 @@ class Publisher extends Command {
   ArgParser get argParser {
     environment = Environment.fromArgResults(argResults ?? globalResults);
     return ArgParser()
-      ..addFlag("android", defaultsTo: environment.isAndroidDistribute, help: "Build and distribute Android (Default value follows the config file)")
-      ..addOption("fastlane_track", defaultsTo: environment.androidPlaystoreTrack, help: "Playstore track for Android (Default value follows the config file)")
-      ..addOption("fastlane_promote_track_to", defaultsTo: environment.androidPlaystoreTrackPromoteTo, help: "Playstore track promote to for Android (Default value follows the config file)")
+      ..addFlag("android",
+          defaultsTo: environment.isAndroidDistribute,
+          help:
+              "Build and distribute Android (Default value follows the config file)")
+      ..addOption("fastlane_track",
+          defaultsTo: environment.androidPlaystoreTrack,
+          help:
+              "Playstore track for Android (Default value follows the config file)")
+      ..addOption("fastlane_promote_track_to",
+          defaultsTo: environment.androidPlaystoreTrackPromoteTo,
+          help:
+              "Playstore track promote to for Android (Default value follows the config file)")
       ..addOption("fastlane_args", help: "Arguments for Fastlane")
-      ..addFlag("ios", defaultsTo: Platform.isMacOS ? environment.isIOSDistribute : false, help: "Build and distribute iOS (Default value follows the config file)")
-      ..addFlag("firebase", defaultsTo: environment.useFirebase, help: "Use Firebase for distribution (Default value follows the config file)")
-      ..addFlag("fastlane", defaultsTo: environment.useFastlane, help: "Use Fastlane for distribution (Default value follows the config file)");
+      ..addFlag("ios",
+          defaultsTo: Platform.isMacOS ? environment.isIOSDistribute : false,
+          help:
+              "Build and distribute iOS (Default value follows the config file)")
+      ..addFlag("firebase",
+          defaultsTo: environment.useFirebase,
+          help:
+              "Use Firebase for distribution (Default value follows the config file)")
+      ..addFlag("fastlane",
+          defaultsTo: environment.useFastlane,
+          help:
+              "Use Fastlane for distribution (Default value follows the config file)");
   }
 
   /// Publishes the app by building and distributing it based on the provided flags.
@@ -101,7 +120,8 @@ class Publisher extends Command {
 
   /// Builds the Android changelogs based on the git logs since yesterday.
   Future<int> buildAndroidDocs() async {
-    final docs = await Process.run("git", ["log", "--pretty='format:%s'", "--since=yesterday.midnight"]);
+    final docs = await Process.run(
+        "git", ["log", "--pretty='format:%s'", "--since=yesterday.midnight"]);
     if (docs.exitCode != 0) {
       ColorizeLogger.logError("Error while getting git logs");
       return 1;
@@ -134,7 +154,9 @@ class Publisher extends Command {
       await distributionDir.create(recursive: true);
     }
 
-    final distributionDirList = await distributionDir.list().toList().then((value) => value.where((element) => element.path.endsWith(".aab")).toList());
+    final distributionDirList = await distributionDir.list().toList().then(
+        (value) =>
+            value.where((element) => element.path.endsWith(".aab")).toList());
     List<File> appbundles = [];
 
     if (distributionDirList.isEmpty) {
@@ -148,9 +170,12 @@ class Publisher extends Command {
             final appbundle = files[index];
             if (appbundle is File) {
               ColorizeLogger.logInfo('Start distribute android 5');
-              await appbundle.copy("distribution/android/output/${appbundle.path.split("/").last}");
-              appbundles.add(File("distribution/android/output/${appbundle.path.split("/").last}"));
-              ColorizeLogger.logDebug("${appbundles.length} copied to distribution/android/output");
+              await appbundle.copy(
+                  "distribution/android/output/${appbundle.path.split("/").last}");
+              appbundles.add(File(
+                  "distribution/android/output/${appbundle.path.split("/").last}"));
+              ColorizeLogger.logDebug(
+                  "${appbundles.length} copied to distribution/android/output");
             }
           }
         }
@@ -159,7 +184,8 @@ class Publisher extends Command {
       appbundles = distributionDirList.map((e) => File(e.path)).toList();
     }
 
-    ColorizeLogger.logDebug("${appbundles.length} appbundle(s) found, start distributing appbundle(s)...");
+    ColorizeLogger.logDebug(
+        "${appbundles.length} appbundle(s) found, start distributing appbundle(s)...");
 
     for (var appbundle in appbundles) {
       ColorizeLogger.logInfo('Start distribute android $appbundle');
@@ -197,7 +223,8 @@ class Publisher extends Command {
       }
       if (await process.exitCode != 0) {
         ColorizeLogger.logError("iOS Distribution Error");
-        ColorizeLogger.logError(await process.stderr.transform(utf8.decoder).join("\n"));
+        ColorizeLogger.logError(
+            await process.stderr.transform(utf8.decoder).join("\n"));
       }
       return process.exitCode;
     } catch (e) {
@@ -229,7 +256,8 @@ class Publisher extends Command {
         }
         if (await process.exitCode != 0) {
           ColorizeLogger.logError("Android Distribution Error (FIREBASE)");
-          ColorizeLogger.logError(await process.stderr.transform(utf8.decoder).join("\n"));
+          ColorizeLogger.logError(
+              await process.stderr.transform(utf8.decoder).join("\n"));
         }
         output = await process.exitCode;
       } catch (e) {
@@ -240,7 +268,8 @@ class Publisher extends Command {
       ColorizeLogger.logInfo('Start distribute android (FASTLANE)');
       try {
         if (!(await File('distribution/fastlane.json').exists())) {
-          ColorizeLogger.logError("distribution/fastlane.json is not exists, please follow the instructions to set this up");
+          ColorizeLogger.logError(
+              "distribution/fastlane.json is not exists, please follow the instructions to set this up");
           return 1;
         }
         final process = await Process.start('fastlane', [
@@ -252,7 +281,8 @@ class Publisher extends Command {
           'metadata_path:distribution/android/metadata',
           "track:$fastlaneTrack",
           "track_promote_to:$fastlanePromoteTrackTo",
-          if (argResults?['fastlane_args'] != null) ...argResults!['fastlane_args'].split(" ")
+          if (argResults?['fastlane_args'] != null)
+            ...argResults!['fastlane_args'].split(" ")
         ]);
         if (environment.isVerbose) {
           process.stdout.transform(utf8.decoder).listen((data) {
@@ -261,7 +291,8 @@ class Publisher extends Command {
         }
         if (await process.exitCode != 0) {
           ColorizeLogger.logError("Android Distribution Error (FASTLANE)");
-          ColorizeLogger.logError(await process.stderr.transform(utf8.decoder).join("\n"));
+          ColorizeLogger.logError(
+              await process.stderr.transform(utf8.decoder).join("\n"));
         }
         output = await process.exitCode;
       } catch (e) {

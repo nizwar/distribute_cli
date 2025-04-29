@@ -1,3 +1,8 @@
+## 1.0.1+1
+* Add `fastlane_track` and `fastlane_promote_track_to`
+* Solve `distribute build -p`
+* More environment on init
+
 ## 1.0.0+2
 * Add documentation on the code
 * Solve pub.dev scores

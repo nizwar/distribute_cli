@@ -67,12 +67,14 @@ class Environment {
 
   /// Creates an `Environment` instance from the provided [argResults].
   static Environment fromArgResults(ArgResults? argResults) {
-    final configPath = argResults?['config_path'] as String? ?? ".distribution.env";
+    final configPath =
+        argResults?['config_path'] as String? ?? ".distribution.env";
     final configFile = File(configPath);
     final isVerbose = argResults?['verbose'] as bool? ?? false;
     if (!configFile.existsSync()) {
       configFile.createSync();
-      ColorizeLogger.logDebug('Configuration file created at ${configFile.path}');
+      ColorizeLogger.logDebug(
+          'Configuration file created at ${configFile.path}');
     }
 
     if ((configFile.readAsStringSync()).isEmpty) {
@@ -108,7 +110,8 @@ class Environment {
 
       final checkGit = distribution["git"] ?? false; //Required
       final checkFastlane = distribution["fastlane"] ?? false; //Required
-      final checkFastlaneJson = distribution["fastlane_json"] ?? false; //Required
+      final checkFastlaneJson =
+          distribution["fastlane_json"] ?? false; //Required
       final checkXCrun = distribution["xcrun"] ?? false; //Optional
 
       if (Platform.isMacOS) {
@@ -128,7 +131,8 @@ class Environment {
   void _loadEnv(path) {
     final envFile = File(path);
     if (!envFile.existsSync()) {
-      ColorizeLogger.logError('Environment file not found: $path, please run distribute init first');
+      ColorizeLogger.logError(
+          'Environment file not found: $path, please run distribute init first');
       exit(1);
     }
     final env = envFile.readAsStringSync();
@@ -154,7 +158,8 @@ class Environment {
     androidFirebaseAppId = _env['ANDROID_FIREBASE_APP_ID'] ?? '';
     androidFirebaseGroups = _env['ANDROID_FIREBASE_GROUPS'] ?? '';
     androidPlaystoreTrack = _env['ANDROID_PLAYSTORE_TRACK'] ?? 'internal';
-    androidPlaystoreTrackPromoteTo = _env['ANDROID_PLAYSTORE_TRACK_PROMOTE_TO'] ?? 'production';
+    androidPlaystoreTrackPromoteTo =
+        _env['ANDROID_PLAYSTORE_TRACK_PROMOTE_TO'] ?? 'production';
     iosDistributionUser = _env['IOS_DISTRIBUTION_USER'] ?? '';
     iosDistributionPassword = _env['IOS_DISTRIBUTION_PASSWORD'] ?? '';
     useFastlane = _env['USE_FASTLANE'] == 'true';
