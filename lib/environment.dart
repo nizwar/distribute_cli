@@ -187,12 +187,14 @@ class DistributionInitResult {
   bool fastlane;
   bool fastlaneJson;
   bool xcrun;
+  bool firebase;
 
   DistributionInitResult({
     required this.git,
     required this.fastlane,
     required this.fastlaneJson,
     required this.xcrun,
+    required this.firebase,
   });
 
   factory DistributionInitResult.fromJson(Map<String, dynamic> json) {
@@ -201,6 +203,7 @@ class DistributionInitResult {
       fastlane: json['fastlane'] ?? false,
       fastlaneJson: json['fastlane_json'] ?? false,
       xcrun: json['xcrun'] ?? false,
+      firebase: json['firebase'] ?? false,
     );
   }
 
@@ -219,11 +222,12 @@ class DistributionInitResult {
       fastlane: false,
       fastlaneJson: false,
       xcrun: false,
+      firebase: false,
     );
   }
 
   @override
   String toString() {
-    return 'DistributionInitResult(git: $git, fastlane: $fastlane, fastlaneJson: $fastlaneJson, xcrun: $xcrun)';
+    return 'DistributionInitResult(git: $git, fastlane: $fastlane, fastlaneJson: $fastlaneJson, xcrun: $xcrun, firebase: $firebase)';
   }
 }
