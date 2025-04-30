@@ -1,73 +1,121 @@
 # Distribute CLI
 
-`distribute_cli` is a command-line utility designed to streamline the process of building and distributing your Flutter applications.
+The **Distribute CLI** is a command-line tool designed to streamline the process of building and distributing Flutter applications for Android and iOS platforms. It supports integration with Firebase and Fastlane for seamless app distribution.
 
-## Installation
+## Features
 
-To install `distribute_cli`, please follow these steps:
-
-* **Activate the CLI**  
-   Execute the following command to globally activate `distribute_cli`:
-   ```bash
-   dart pub global activate distribute_cli
-   ```
+- Build Android and iOS apps with custom configurations.
+- Distribute apps using Firebase App Distribution or Fastlane.
+- Automatically generate changelogs based on Git commits.
+- Validate and download metadata for Android Play Store.
+- Cross-platform support (macOS required for iOS builds).
 
 ## Prerequisites
 
-Ensure the following tools are installed before proceeding:
+Before using the Distribute CLI, ensure the following tools are installed:
 
-- **Fastlane (for Android distribution)**:  
-  Follow the installation guide available at [fastlane.tools](https://fastlane.tools).
+- [Git](https://git-scm.com/)
+- [Firebase CLI](https://firebase.google.com/docs/cli)
+- [Fastlane](https://docs.fastlane.tools/)
+- [Flutter](https://flutter.dev/docs/get-started/install)
 
-- **Firebase CLI (optional, for Firebase App Distribution)**:  
-  Install Firebase CLI by running:  
-  ```bash
-  npm install -g firebase-tools
-  ```
+For iOS builds, you must use macOS and have Xcode installed.
 
-- **Xcode Command Line Tools (for iOS builds)**:  
-  Install Xcode and verify that `xcrun` is accessible.
+## Installation
 
-- **Git**:  
-  Ensure Git is installed and configured for generating changelogs.
+Execute the following command to globally activate `distribute_cli`:
+```bash
+dart pub global activate distribute_cli
+```
 
-- **Google Cloud Service Account Key (for Fastlane)**:  
-  Obtain the JSON key file for your Google Cloud service account. This is required for Fastlane to upload Android builds to the Play Store.
+Run the following command to initialize the environment:
 
-## Environment Configuration
+```bash
+distribute init
+```
 
-When you run `distribute init`, a `.distribution.env` file will be automatically generated with the following structure:
+This will create the necessary directories and validate the required tools.
+
+## Usage
+
+### Build Apps
+
+To build Android and iOS apps, use the `build` command:
+
+```bash
+distribute build --android --ios
+```
+
+#### Options
+
+- `-p, --[no-]publish`: Automatically distribute Android builds.
+- `--[no]-android`: Build Android (enabled by default).
+- `--[no]-ios`: Build iOS (enabled by default).
+- `--android_binary`: Specify the Android binary type (`aab` or `apk`).
+- `--android_args`: Specify additional arguments for Android builds.
+- `--ios_args`: Specify additional arguments for iOS builds.
+- `--custom_args=<macos:macos,windows:windows,ios:ipa,android_apk:apk>`: Provide custom arguments in the format `key:args,key:args`. These will be executed as `flutter build <args>`.
+
+### Distribute Apps
+
+To distribute apps, use the `publish` command:
+
+```bash
+distribute publish --android --firebase
+```
+
+#### Options
+
+- `--[no]-android`: Build and distribute Android (enabled by default).
+- `--[no]-ios`: Build and distribute iOS (enabled by default).
+- `--[no]-firebase`: Use Firebase for distribution.
+- `--[no]-fastlane`: Use Fastlane for distribution (enabled by default).
+- `--fastlane_track`: Specify the Play Store track (e.g., `internal`, `production`).
+- `--fastlane_promote_track_to`: Specify the track to promote to after distribution.
+
+### Example Commands
+
+#### Build and Distribute Android App
+
+```bash
+distribute build --no-ios --android --publish --android_binary=aab
+```
+
+#### Distribute iOS App
+
+```bash
+distribute publish --ios --no-android
+```
+
+#### Build with Custom Arguments
+
+```bash
+distribute build --custom_args="macos:macos,windows:windows"
+```
+
+## Configuration
+
+The tool uses a `.distribution.env` file for configuration. This file is created during initialization and contains the following settings:
 
 ```env
-# Android Configuration
 ANDROID_BUILD=true
 ANDROID_DISTRIBUTE=true
 ANDROID_PLAYSTORE_TRACK=internal
 ANDROID_PLAYSTORE_TRACK_PROMOTE_TO=production
-ANDROID_PACKAGE_NAME=
-ANDROID_FIREBASE_APP_ID=
-ANDROID_FIREBASE_GROUPS=
+ANDROID_PACKAGE_NAME=com.example.app
+ANDROID_FIREBASE_APP_ID=your-firebase-app-id
+ANDROID_FIREBASE_GROUPS=testers
 ANDROID_BINARY=appbundle
 
-# iOS Configuration
 IOS_BUILD=true
 IOS_DISTRIBUTE=true
-IOS_DISTRIBUTION_USER=
-IOS_DISTRIBUTION_PASSWORD=
+IOS_DISTRIBUTION_USER=your-apple-id
+IOS_DISTRIBUTION_PASSWORD=your-app-specific-password
 
-# Distribution Options
 USE_FASTLANE=true
 USE_FIREBASE=false
 ```
 
-Additionally, a `distribution` directory will be created.  
-It is recommended to add both `.distribution.env` and the `distribution` directory to your `.gitignore` file to prevent committing sensitive information:
-
-```gitignore
-.distribution.env
-distribution/
-dist
-```
 
 ### Populating the `.distribution.env` File
 
@@ -130,122 +178,14 @@ your_project_directory
       ├── fastlane.json
 ```
 
-## Usage Instructions
+## Logs
 
-1. **Install the CLI**  
-   Run the following command to globally install `distribute_cli`:
-   ```bash
-   dart pub global activate distribute_cli
-   ```
+All logs are saved to `distribution.log` in the root directory. Use this file to debug issues or review the build and distribution process.
 
-2. **Initialize Distribution**  
-   Execute this command in your project directory to set up the distribution environment:
-   ```bash
-   distribute init
-   ```
+## Contributing
 
-3. **Build Your Project**  
-   Use the following command to build your project. Include the `-p` flag to automatically upload the build:
-   ```bash
-   distribute build -p
-   ```
-
-4. **Publish Your Project**  
-   To publish your project without building, run:
-   ```bash
-   distribute publish
-   ```
-
-For additional arguments and details, refer to the sections below.
-
-## Command Reference
-
-Run commands to build and distribute your app packages:
-
-```bash
-distribute <command> [arguments]
-```
-
-### Global Options
-
-- `-h, --help`  
-  Display usage information.
-  
-- `--config_path`  
-  Specify the path to the configuration file.  
-  *(defaults to `.distribution.env`)*
-
-- `-v, --[no-]verbose`  
-  Enable verbose output.
-
-### Available Commands
-
-#### `init`
-
-Initialize the distribution tool:
-
-```bash
-distribute init
-```
-
-#### `build`
-
-Build the application:
-
-```bash
-distribute build [arguments]
-```
-
-**Options:**
-
-- `-p, --[no-]publish`  
-  Automatically distribute Android builds.
-
-- `--[no]-android`  
-  Build Android.  
-  *(enabled by default)*
-
-- `--[no]-ios`  
-  Build iOS.  
-  *(enabled by default)*
-
-- `--android_args`  
-  Specify additional arguments for Android builds.  
-  *(defaults to `""`)*
-
-- `--ios_args`  
-  Specify additional arguments for iOS builds.  
-  *(defaults to `""`)*
-
-- `--custom_args=<macos:macos,windows:windows,ios:ipa,android_apk:apk>`  
-  Provide custom arguments in the format `key:args,key:args`. These will be executed as `flutter build <args>`.  
-  *(defaults to `""`)*
-
-#### `publish`
-
-Distribute the application:
-
-```bash
-distribute publish [arguments]
-```
-
-**Options:**
-
-- `--[no-]android`  
-  Build and distribute Android.  
-  *(enabled by default)*
-
-- `--[no-]ios`  
-  Build and distribute iOS.  
-  *(enabled by default)*
-
-- `--[no-]firebase`  
-  Use Firebase for distribution.
-
-- `--[no-]fastlane`  
-  Use Fastlane for distribution.  
-  *(enabled by default)*
+Contributions are welcome! Feel free to submit issues or pull requests to improve the tool.
 
 ## License
 
-This project is licensed under the MIT License. For more details, refer to the LICENSE file.
+This project is licensed under the MIT License. See the [LICENSE](../LICENSE) file for details.
