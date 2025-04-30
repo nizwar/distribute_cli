@@ -1,3 +1,6 @@
+## 1.0.4+3
+* Update code docs
+
 ## 1.0.4+2
 * Update changelogs
 * Update readme.md
