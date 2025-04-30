@@ -323,7 +323,7 @@ class Builder extends Command {
         logger.logSuccess('Android build completed successfully.');
         return await _moveAndroidBinaries();
       } else {
-        logger.logError(await process.stderr.join("\n"));
+        logger.logError(await process.stderr.transform(utf8.decoder).join("\n"));
       }
       return exitCode;
     }
@@ -346,7 +346,7 @@ class Builder extends Command {
         logger.logSuccess('iOS build completed successfully.');
         return await _moveIOSBinaries();
       } else {
-        logger.logError(await process.stderr.join("\n"));
+        logger.logError(await process.stderr.transform(utf8.decoder).join("\n"));
       }
       return exitCode;
     }
