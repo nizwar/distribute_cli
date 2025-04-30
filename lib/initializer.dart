@@ -21,6 +21,7 @@ class InitCommand extends Command {
   /// Initializes the `InitCommand` class.
   InitCommand();
 
+  /// Logger for logging messages.
   late final ColorizeLogger logger;
 
   @override
@@ -69,12 +70,14 @@ class InitCommand extends Command {
     exit(0);
   }
 
+  /// Logs the operating system information.
   void _logOSInfo() {
     final os = Platform.operatingSystem;
     logger
         .logInfo("Operating System: ${os[0].toUpperCase()}${os.substring(1)}");
   }
 
+  /// Checks if the `pubspec.yaml` file exists.
   void _checkPubspecFile() {
     if (!File('pubspec.yaml').existsSync()) {
       logger.logError(
@@ -83,6 +86,11 @@ class InitCommand extends Command {
     }
   }
 
+  /// Creates a directory if it does not exist.
+  ///
+  /// [path] is the directory path.
+  /// [initialized] is the map to track initialization status.
+  /// [key] is the key for the directory in the map.
   Future<void> _createDirectory(
       String path, Map<String, bool> initialized, String key) async {
     final directory = Directory(path);
@@ -93,6 +101,12 @@ class InitCommand extends Command {
     }
   }
 
+  /// Checks if a tool is installed.
+  ///
+  /// [command] is the tool's command.
+  /// [toolName] is the name of the tool.
+  /// [initialized] is the map to track initialization status.
+  /// [args] are additional arguments for the tool.
   Future<void> _checkTool(
       String command, String toolName, Map<String, bool> initialized,
       {List<String> args = const []}) async {
@@ -109,6 +123,9 @@ class InitCommand extends Command {
     });
   }
 
+  /// Validates the Fastlane JSON key.
+  ///
+  /// [initialized] is the map to track initialization status.
   Future<void> _validateFastlaneJson(Map<String, bool> initialized) async {
     await Process.run("fastlane", [
       'run',
@@ -126,6 +143,9 @@ class InitCommand extends Command {
     });
   }
 
+  /// Downloads Android metadata from the Play Store.
+  ///
+  /// [environment] is the environment configuration.
   Future<void> _downloadAndroidMetaData(Environment environment) async {
     if (await Files.androidDistributionMetadataDir.exists()) {
       await Files.androidDistributionMetadataDir.delete(recursive: true);

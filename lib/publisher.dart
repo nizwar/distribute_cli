@@ -9,30 +9,36 @@ import 'environment.dart';
 import 'files.dart';
 import 'logger.dart';
 
-/// A command to handle the publishing process of the app.
-///
-/// The `Publisher` class provides functionality to build and distribute
-/// Android and iOS apps using Firebase or Fastlane. It supports configuration
-/// through command-line arguments and environment settings.
-///
-/// To use this class, invoke the `publish` command with the desired flags:
-/// ```
-/// distribute publish --android --firebase
-/// ```
+/// Handles app publishing for Android and iOS.
 class Publisher extends Command {
+  /// Environment configuration.
   late Environment environment;
+
+  /// Logger for logging messages.
   late final ColorizeLogger logger;
 
-  /// Distribution flags and configurations.
+  /// Enables Android distribution.
   bool isAndroidDistribute = false;
+
+  /// Enables iOS distribution.
   bool isIOSDistribute = false;
+
+  /// Uses Firebase for distribution.
   bool useFirebase = false;
+
+  /// Uses Fastlane for distribution.
   bool useFastlane = false;
+
+  /// Fastlane track for distribution.
   String fastlaneTrack = "internal";
+
+  /// Fastlane track for promotion.
   String fastlanePromoteTrackTo = "production";
 
+  /// Default constructor.
   Publisher();
 
+  /// Creates a `Publisher` instance from command-line arguments.
   factory Publisher.fromArgResults(ArgResults? argResults) {
     final instance = Publisher();
     instance.environment = Environment.fromArgResults(argResults);
@@ -41,6 +47,7 @@ class Publisher extends Command {
     return instance;
   }
 
+  /// Initializes flags from arguments or environment.
   void _initializeFlags() {
     isAndroidDistribute = argResults?["android"] ?? environment.isAndroidBuild;
     isIOSDistribute = argResults?["ios"] ?? environment.isIOSBuild;
@@ -52,6 +59,7 @@ class Publisher extends Command {
         environment.androidPlaystoreTrackPromoteTo;
   }
 
+  /// Configures command-line arguments.
   @override
   ArgParser get argParser {
     environment = Environment.fromArgResults(argResults ?? globalResults);
@@ -80,12 +88,15 @@ class Publisher extends Command {
     return argParser;
   }
 
+  /// Command description.
   @override
   String get description => "Distribute the apps";
 
+  /// Command name.
   @override
   String get name => "publish";
 
+  /// Executes the publishing process.
   @override
   Future? run() async {
     environment = Environment.fromArgResults(globalResults);
@@ -109,6 +120,7 @@ class Publisher extends Command {
     }
   }
 
+  /// Executes a task with optional pre-task.
   Future<void> _executeTask(Future<int> Function()? preTask,
       Future<int> Function() task, String platform) async {
     if (preTask != null) await preTask();
@@ -121,6 +133,7 @@ class Publisher extends Command {
     }
   }
 
+  /// Builds Android changelogs.
   Future<int> buildAndroidDocs() async {
     logger.logDebug("[ANDROID] Start building Android changelogs...");
     final docs = await Process.run(
@@ -151,6 +164,7 @@ class Publisher extends Command {
     return 0;
   }
 
+  /// Distributes Android binaries.
   Future<int> distributeAndroid() async {
     final binaries = await _collectBinaries(
         Files.androidDistributionOutputDir, ["aab", "apk"]);
@@ -166,6 +180,7 @@ class Publisher extends Command {
     return 0;
   }
 
+  /// Distributes iOS binaries.
   Future<int> distributeIOS() async {
     if (!Platform.isMacOS) {
       logger.logError("[iOS] iOS distribution is only supported on macOS.");
@@ -185,6 +200,7 @@ class Publisher extends Command {
     return 0;
   }
 
+  /// Collects binaries from the specified directory.
   Future<List<File>> _collectBinaries(
       Directory outputDir, List<String> extensions) async {
     if (!await outputDir.exists()) await outputDir.create(recursive: true);
@@ -195,6 +211,7 @@ class Publisher extends Command {
         .toList();
   }
 
+  /// Distributes a binary using the specified function.
   Future<void> _distributeBinary(
       File file, Future<int> Function(File) distributeFunction) async {
     final result = await distributeFunction(file);
@@ -203,6 +220,7 @@ class Publisher extends Command {
     }
   }
 
+  /// Distributes an Android binary.
   Future<int> _distributeAndroidBinary(File file) async {
     int output = 0;
     List<Future<(String, int)>> tasks = [];
@@ -266,6 +284,7 @@ class Publisher extends Command {
     return output;
   }
 
+  /// Distributes an iOS binary.
   Future<int> _distributeIosBinary(File file) async {
     logger.logDebug("Distributing iOS binary using xcrun");
     return await _runProcess(
@@ -287,6 +306,7 @@ class Publisher extends Command {
         "iOS");
   }
 
+  /// Runs a process with the specified arguments.
   Future<int> _runProcess(String executable, List<String> arguments,
       String taskName, String platform) async {
     try {

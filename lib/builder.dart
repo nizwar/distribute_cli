@@ -22,10 +22,19 @@ import 'publisher.dart';
 class Builder extends Command {
   /// The publisher instance for distributing the app.
   late final Publisher publisher;
+
+  /// Logger instance for logging messages.
   late final ColorizeLogger logger;
 
   /// The environment configuration for the build process.
   late Environment environment;
+
+  /// Initializes the `Builder` class.
+  ///
+  /// This constructor sets up the necessary configurations for building and
+  /// distributing apps. It uses the `Environment` class to load settings and
+  /// the `ColorizeLogger` for logging messages.
+  Builder();
 
   /// Checks if the Android build flag is enabled.
   bool get buildAndroid => argResults?['android'] as bool? ?? true;
@@ -36,6 +45,10 @@ class Builder extends Command {
   /// Checks if the publish flag is enabled.
   bool get publish => argResults?['publish'] as bool? ?? false;
 
+  /// The Android binary type (APK or AAB).
+  ///
+  /// This property determines the type of Android binary to build. It defaults
+  /// to "aab" if not specified in the command-line arguments.
   String get androidBinary => argResults?['android_binary'] as String? ?? "aab";
 
   @override

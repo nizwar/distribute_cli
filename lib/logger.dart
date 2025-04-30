@@ -9,12 +9,21 @@ import 'package:distribute_cli/environment.dart';
 /// is associated with a specific color for better visibility in the terminal.
 ///
 /// Example usage:
+/// ```dart
+/// final logger = ColorizeLogger(environment);
+/// logger.logInfo("This is an informational message.");
+/// logger.logError("This is an error message.");
 /// ```
-/// ColorizeLogger.logInfo("This is an informational message.");
-/// ColorizeLogger.logError("This is an error message.");
-/// ```
+///
+/// The logger writes messages to both the terminal and a log file named `distribution.log`.
+/// Verbose logging can be controlled via the provided [Environment] instance.
 class ColorizeLogger {
+  /// The current environment configuration
   final Environment environment;
+
+  /// Initializes the `ColorizeLogger` with the given [environment].
+  /// The [environment] parameter is used to determine if verbose logging is enabled.
+  /// If verbose logging is enabled, all log messages will be displayed.
   ColorizeLogger(this.environment);
 
   /// ANSI reset code to reset terminal colors.
@@ -72,5 +81,7 @@ enum LogLevel {
 
   /// The ANSI color code for the log level.
   final String color;
+
+  /// Constructor for the `LogLevel` enum.
   const LogLevel(this.color);
 }

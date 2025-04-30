@@ -12,7 +12,7 @@ import 'logger.dart';
 /// Fastlane configuration. It also validates the environment setup.
 ///
 /// Example usage:
-/// ```
+/// ```dart
 /// final environment = Environment.fromArgResults(argResults);
 /// if (environment.isAndroidBuild) {
 ///   print("Android build is enabled.");
@@ -73,6 +73,10 @@ class Environment {
   /// The path to the configuration file.
   late String configPath;
 
+  /// The constructor for the `Environment` class.
+  ///
+  /// This initializes the `distributionInitResult` property by calling
+  /// the `instance` method of the `DistributionInitResult` class.
   Environment() {
     distributionInitResult = DistributionInitResult.instance();
   }
