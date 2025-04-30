@@ -1,3 +1,6 @@
+## 1.0.4+4
+* Fix Android and iOS build error logs
+
 ## 1.0.4+3
 * Update code docs
 
