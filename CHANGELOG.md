@@ -2,7 +2,7 @@
 * Enhance distribution.log and terminal logs
 * Run firebase and fastlane same time for quick process
 * Publish git logs on fastlane
-* 
+* Update readme.md and add example.md
 
 ## 1.0.3+1
 * Create distribution.log to record the logs
