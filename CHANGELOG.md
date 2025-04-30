@@ -1,3 +1,7 @@
+## 1.0.4+2
+* Update changelogs
+* Update readme.md
+
 ## 1.0.4+1
 * Enhance distribution.log and terminal logs
 * Run firebase and fastlane same time for quick process
