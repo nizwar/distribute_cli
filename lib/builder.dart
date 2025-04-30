@@ -131,8 +131,9 @@ class Builder extends Command {
         }
       }
     }
-    if (androidArgs.isNotEmpty)
+    if (androidArgs.isNotEmpty) {
       customBuildArgs['android'] = androidArgs.split(',');
+    }
     if (iosArgs.isNotEmpty) customBuildArgs['ios'] = iosArgs.split(',');
 
     return customBuildArgs;
@@ -373,8 +374,9 @@ class Builder extends Command {
     }
 
     final distributionDir = Files.androidDistributionOutputDir;
-    if (await distributionDir.exists())
+    if (await distributionDir.exists()) {
       await distributionDir.delete(recursive: true);
+    }
     await distributionDir.create(recursive: true);
 
     final files = await outputDir
@@ -395,8 +397,9 @@ class Builder extends Command {
 
     logger.logDebug('Moving iOS binaries to the distribution directory...');
     final distributionDir = Files.iosDistributionOutputDir;
-    if (await distributionDir.exists())
+    if (await distributionDir.exists()) {
       await distributionDir.delete(recursive: true);
+    }
     await distributionDir.create(recursive: true);
 
     final outputDir = Files.iosOutputIPA;
