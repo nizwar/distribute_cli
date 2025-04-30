@@ -85,8 +85,6 @@ class Environment {
     final isVerbose = argResults?['verbose'] as bool? ?? false;
     if (!configFile.existsSync()) {
       configFile.createSync();
-      ColorizeLogger.logDebug(
-          'Configuration file created at ${configFile.path}');
     }
 
     if ((configFile.readAsStringSync()).isEmpty) {
@@ -115,7 +113,7 @@ class Environment {
   void _loadEnv(path) {
     final envFile = File(path);
     if (!envFile.existsSync()) {
-      ColorizeLogger.logError(
+      ColorizeLogger(this).logError(
           'Environment file not found: $path, please run distribute init first');
       exit(1);
     }

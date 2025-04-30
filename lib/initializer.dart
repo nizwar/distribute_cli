@@ -21,6 +21,8 @@ class InitCommand extends Command {
   /// Initializes the `InitCommand` class.
   InitCommand();
 
+  late final ColorizeLogger logger;
+
   @override
 
   /// Provides a description of the `init` command.
@@ -37,6 +39,8 @@ class InitCommand extends Command {
   Future? run() async {
     final environment = Environment.fromArgResults(globalResults);
     final initialized = <String, bool>{};
+
+    logger = ColorizeLogger(environment);
 
     _logOSInfo();
     _checkPubspecFile();
@@ -58,23 +62,23 @@ class InitCommand extends Command {
 
     await File("dist").writeAsString(jsonEncode(initialized),
         flush: true, mode: FileMode.write, encoding: utf8);
-    ColorizeLogger.logDebug("==========================");
-    ColorizeLogger.logDebug(
-        "[Info] Make sure you follow the instructions to setup fastlane and configuration");
-    ColorizeLogger.logDebug(
-        "[Info] Please fill in the configuration file: ${environment.configPath}");
+    logger.logInfo(
+        "Make sure you follow the instructions to setup configurations");
+    logger.logInfo(
+        "Please fill in the configuration file: ${environment.configPath}");
+    exit(0);
   }
 
   void _logOSInfo() {
     final os = Platform.operatingSystem;
-    ColorizeLogger.logDebug(
-        "Operating System: ${os[0].toUpperCase()}${os.substring(1)}");
+    logger
+        .logInfo("Operating System: ${os[0].toUpperCase()}${os.substring(1)}");
   }
 
   void _checkPubspecFile() {
     if (!File('pubspec.yaml').existsSync()) {
-      ColorizeLogger.logError(
-          '[ERROR] The "pubspec.yaml" file was not found. Please ensure this command is executed in the root directory of your Flutter project.');
+      logger.logError(
+          'The "pubspec.yaml" file was not found. Please ensure this command is executed in the root directory of your Flutter project.');
       exit(1);
     }
   }
@@ -85,7 +89,7 @@ class InitCommand extends Command {
     if (!await directory.exists()) {
       await directory.create(recursive: true);
       initialized[key] = true;
-      ColorizeLogger.logSuccess('[SUCCESS] Created directory: $path');
+      logger.logSuccess('Created directory: $path');
     }
   }
 
@@ -95,12 +99,12 @@ class InitCommand extends Command {
     await Process.run(command, args).then((value) {
       if (value.exitCode != 0) {
         initialized[toolName.toLowerCase()] = false;
-        ColorizeLogger.logError(
-            '[ERROR] $toolName is not installed. Please install $toolName to proceed.');
+        logger.logError(
+            '$toolName is not installed. Please install $toolName to proceed.');
         if (toolName == "Git") exit(1);
       } else {
         initialized[toolName.toLowerCase()] = true;
-        ColorizeLogger.logSuccess('[SUCCESS] $toolName is installed.');
+        logger.logSuccess('$toolName is installed.');
       }
     });
   }
@@ -113,11 +117,11 @@ class InitCommand extends Command {
     ]).then((value) {
       if (value.exitCode != 0) {
         initialized["fastlane_json"] = false;
-        ColorizeLogger.logError(
+        logger.logError(
             "[ERROR] The Fastlane JSON key is invalid. Please ensure it is correctly configured.");
       } else {
         initialized["fastlane_json"] = true;
-        ColorizeLogger.logSuccess('[SUCCESS] The Fastlane JSON key is valid.');
+        logger.logSuccess('[SUCCESS] The Fastlane JSON key is valid.');
       }
     });
   }
@@ -134,10 +138,10 @@ class InitCommand extends Command {
       "metadata_path:${Files.androidDistributionMetadataDir.path}"
     ]).then((value) {
       if (value.exitCode != 0) {
-        ColorizeLogger.logError("[ERROR] Failed to download Android metadata.");
+        logger.logError("[ERROR] Failed to download Android metadata.");
       } else {
-        ColorizeLogger.logSuccess(
-            "[SUCCESS] Android metadata downloaded successfully.");
+        logger
+            .logSuccess("[SUCCESS] Android metadata downloaded successfully.");
       }
     });
   }

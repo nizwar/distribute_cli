@@ -22,6 +22,7 @@ import 'publisher.dart';
 class Builder extends Command {
   /// The publisher instance for distributing the app.
   late final Publisher publisher;
+  late final ColorizeLogger logger;
 
   /// The environment configuration for the build process.
   late Environment environment;
@@ -86,25 +87,26 @@ class Builder extends Command {
   Future run() async {
     environment = Environment.fromArgResults(globalResults);
     publisher = Publisher.fromArgResults(globalResults);
+    logger = ColorizeLogger(environment);
 
     final customBuildArgs = _parseCustomArgs();
     if (!await environment.initialized) {
-      ColorizeLogger.logError("[ERROR] Please run distribute init first");
+      logger.logError("Please run distribute init first");
       exit(1);
     }
 
     return _executeBuild(customBuildArgs).then((value) {
       if (value != 0) {
-        ColorizeLogger.logError('[ERROR] Build failed.');
+        logger.logError('Build failed.');
         exit(1);
       } else {
-        ColorizeLogger.logSuccess('Build completed successfully.');
+        logger.logSuccess('Build completed successfully.');
       }
     }).catchError((e) {
-      ColorizeLogger.logError('[ERROR] An error occurred: $e');
+      logger.logError('An error occurred: $e');
       exit(1);
     }).whenComplete(() {
-      ColorizeLogger.logSuccess('Process completed.');
+      logger.logSuccess('Process completed.');
     });
   }
 
@@ -123,10 +125,9 @@ class Builder extends Command {
       for (var arg in customArgs.split(',')) {
         final keyValue = arg.split(':');
         if (keyValue.length == 2) {
-          customBuildArgs[keyValue[0]] = keyValue[1].split(',');
+          customBuildArgs[keyValue[0]] = keyValue[1].split(' ');
         } else {
-          ColorizeLogger.logError(
-              '[ERROR] Invalid custom argument format: $arg');
+          logger.logError('Invalid custom argument format: $arg');
         }
       }
     }
@@ -196,8 +197,7 @@ class Builder extends Command {
         return (platform, await _buildCustom(platform, args));
       }
     } catch (e) {
-      ColorizeLogger.logError(
-          '[ERROR] An error occurred during $platform build: $e');
+      logger.logError('An error occurred during $platform build: $e');
       return (platform, 1);
     }
   }
@@ -222,30 +222,30 @@ class Builder extends Command {
       if (platform == 'android') {
         buildResults.add(await _buildAndroid(args: args).then((value) {
           if (value == 0) {
-            ColorizeLogger.logInfo('Android build success.');
+            logger.logInfo('Android build success.');
           } else {
-            ColorizeLogger.logError('[ERROR] Android build failed.');
+            logger.logError('Android build failed.');
           }
           return (platform, value);
         }).catchError((e) {
-          ColorizeLogger.logError('[ERROR] An error occurred: $e');
+          logger.logError('An error occurred: $e');
           return (platform, 1);
         }));
       } else if (platform == 'ios') {
         buildResults.add(await _buildIOS(args: args).then((value) {
           if (value == 0) {
-            ColorizeLogger.logInfo('iOS build success.');
+            logger.logInfo('iOS build success.');
           } else {
-            ColorizeLogger.logError('[ERROR] iOS build failed.');
+            logger.logError('iOS build failed.');
           }
           return (platform, value);
         }).catchError((e) => (platform, 1)));
       } else {
         buildResults.add(await _buildCustom(platform, args).then((value) {
           if (value == 0) {
-            ColorizeLogger.logInfo('$platform build success.');
+            logger.logInfo('$platform build success.');
           } else {
-            ColorizeLogger.logError('[ERROR] $platform build failed.');
+            logger.logError('$platform build failed.');
           }
           return (platform, value);
         }).catchError((e) => (platform, 1)));
@@ -278,16 +278,15 @@ class Builder extends Command {
       if (distributionResults.isNotEmpty) {
         for (var result in distributionResults) {
           if (result.$2 != 0) {
-            ColorizeLogger.logError(
-                '[ERROR] Distribution failed for ${result.$1}.');
+            logger.logError('Distribution failed for ${result.$1}.');
             exitCode = 1;
           } else {
-            ColorizeLogger.logSuccess(
+            logger.logSuccess(
                 'Distribution completed successfully for ${result.$1}.');
           }
         }
       } else {
-        ColorizeLogger.logDebug('No distribution tasks to execute.');
+        logger.logInfo('No distribution tasks to execute.');
       }
     }
 
@@ -297,21 +296,20 @@ class Builder extends Command {
   /// Builds the Android app with the specified [args].
   Future<int> _buildAndroid({final List<String>? args}) async {
     if (buildAndroid) {
-      ColorizeLogger.logDebug('Starting Android build process...');
+      logger.logInfo('Starting Android build process...');
       final process = await Process.start(
           'flutter', ['build', androidBinary, if (args != null) ...args]);
-      if (environment.isVerbose) {
-        process.stdout.transform(utf8.decoder).listen((data) {
-          if (data.trim().isNotEmpty)
-            ColorizeLogger.logDebug("[Android] $data");
-        });
-      }
+
+      process.stdout.transform(utf8.decoder).listen((data) {
+        if (data.trim().isNotEmpty) logger.logDebug("[Android] $data");
+      });
+
       final exitCode = await process.exitCode;
       if (exitCode == 0) {
-        ColorizeLogger.logSuccess('Android build completed successfully.');
+        logger.logSuccess('Android build completed successfully.');
         return await _moveAndroidBinaries();
       } else {
-        ColorizeLogger.logError(await process.stderr.join("\n"));
+        logger.logError(await process.stderr.join("\n"));
       }
       return exitCode;
     }
@@ -321,20 +319,20 @@ class Builder extends Command {
   /// Builds the iOS app with the specified [args].
   Future<int> _buildIOS({final List<String>? args}) async {
     if (buildIOS) {
-      ColorizeLogger.logDebug('Starting iOS build process...');
+      logger.logInfo('Starting iOS build process...');
       final process = await Process.start(
           'flutter', ['build', 'ipa', if (args != null) ...args]);
-      if (environment.isVerbose) {
-        process.stdout.transform(utf8.decoder).listen((data) {
-          if (data.trim().isNotEmpty) ColorizeLogger.logDebug("[iOS] $data");
-        });
-      }
+
+      process.stdout.transform(utf8.decoder).listen((data) {
+        if (data.trim().isNotEmpty) logger.logDebug("[iOS] $data");
+      });
+
       final exitCode = await process.exitCode;
       if (exitCode == 0) {
-        ColorizeLogger.logSuccess('iOS build completed successfully.');
+        logger.logSuccess('iOS build completed successfully.');
         return await _moveIOSBinaries();
       } else {
-        ColorizeLogger.logError(await process.stderr.join("\n"));
+        logger.logError(await process.stderr.join("\n"));
       }
       return exitCode;
     }
@@ -343,18 +341,18 @@ class Builder extends Command {
 
   /// Builds a custom platform with the specified [key] and [args].
   Future<int> _buildCustom(String key, List<String> args) async {
-    ColorizeLogger.logInfo('Start $key build...');
+    logger.logInfo('Start $key build...');
     final process = await Process.start('flutter', ['build', ...args]);
-    if (environment.isVerbose) {
-      process.stdout.transform(utf8.decoder).listen((data) {
-        if (data.trim().isNotEmpty) ColorizeLogger.logDebug("[$key] $data");
-      });
-    }
+
+    process.stdout.transform(utf8.decoder).listen((data) {
+      if (data.trim().isNotEmpty) logger.logDebug("[$key] $data");
+    });
+
     final exitCode = await process.exitCode;
     if (exitCode == 0) {
-      ColorizeLogger.logSuccess('[$key] Build completed successfully.');
+      logger.logSuccess('[$key] Build completed successfully.');
     } else {
-      ColorizeLogger.logError(await process.stderr.join("\n"));
+      logger.logError(await process.stderr.transform(utf8.decoder).join("\n"));
     }
     return exitCode;
   }
@@ -363,15 +361,14 @@ class Builder extends Command {
   Future<int> _moveAndroidBinaries() async {
     if (!buildAndroid) return 0;
 
-    ColorizeLogger.logDebug(
-        'Moving Android binaries to the distribution directory...');
+    logger.logDebug('Moving Android binaries to the distribution directory...');
     final isAppBundle = androidBinary == "appbundle" || androidBinary == "aab";
     final outputDir =
         isAppBundle ? Files.androidOutputAppbundles : Files.androidOutputApks;
     final extension = isAppBundle ? ".aab" : ".apk";
 
     if (!await outputDir.exists()) {
-      ColorizeLogger.logError('[ERROR] No binaries found in ${outputDir.path}');
+      logger.logError('No binaries found in ${outputDir.path}');
       return 1;
     }
 
@@ -388,8 +385,7 @@ class Builder extends Command {
       await file.copy("${distributionDir.path}/${file.uri.pathSegments.last}");
     }
 
-    ColorizeLogger.logDebug(
-        "${files.length} files copied to ${distributionDir.path}");
+    logger.logDebug("${files.length} files copied to ${distributionDir.path}");
     return 0;
   }
 
@@ -397,8 +393,7 @@ class Builder extends Command {
   Future<int> _moveIOSBinaries() async {
     if (!buildIOS) return 0;
 
-    ColorizeLogger.logDebug(
-        'Moving iOS binaries to the distribution directory...');
+    logger.logDebug('Moving iOS binaries to the distribution directory...');
     final distributionDir = Files.iosDistributionOutputDir;
     if (await distributionDir.exists())
       await distributionDir.delete(recursive: true);
@@ -406,7 +401,7 @@ class Builder extends Command {
 
     final outputDir = Files.iosOutputIPA;
     if (!await outputDir.exists()) {
-      ColorizeLogger.logError('[ERROR] No ipa found in build/ios/ipa');
+      logger.logError('No ipa found in build/ios/ipa');
       return 1;
     }
 
@@ -420,8 +415,7 @@ class Builder extends Command {
       await ipa.copy("${distributionDir.path}/${ipa.uri.pathSegments.last}");
     }
 
-    ColorizeLogger.logDebug(
-        "${ipas.length} files copied to ${distributionDir.path}");
+    logger.logDebug("${ipas.length} files copied to ${distributionDir.path}");
     return 0;
   }
 }

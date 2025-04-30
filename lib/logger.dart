@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:distribute_cli/environment.dart';
+
 /// A utility class for logging messages with ANSI color codes.
 ///
 /// The `ColorizeLogger` class provides methods to log messages with different
@@ -12,32 +14,39 @@ import 'dart:io';
 /// ColorizeLogger.logError("This is an error message.");
 /// ```
 class ColorizeLogger {
+  final Environment environment;
+  ColorizeLogger(this.environment);
+
   /// ANSI reset code to reset terminal colors.
-  static const String _reset = '\x1B[0m';
+  final String _reset = '\x1B[0m';
 
   /// Logs a message with the specified [color].
-  static void log(String message, {LogLevel color = LogLevel.info}) {
-    stdout.writeln('${color.color}$message$_reset');
+  void log(String message, {LogLevel color = LogLevel.info}) {
+    if (environment.isVerbose || color != LogLevel.debug) {
+      stdout.writeln('${color.color}$message$_reset');
+    }
     File("distribution.log")
         .writeAsStringSync("$message\n", mode: FileMode.append);
   }
 
   /// Logs an error message in red.
-  static void logError(String message) => log(message, color: LogLevel.error);
+  void logError(String message) =>
+      log("[ERROR] $message", color: LogLevel.error);
 
   /// Logs a warning message in yellow.
-  static void logWarning(String message) =>
-      log(message, color: LogLevel.warning);
+  void logWarning(String message) =>
+      log("[WARNING] $message", color: LogLevel.warning);
 
   /// Logs a success message in green.
-  static void logSuccess(String message) =>
-      log(message, color: LogLevel.success);
+  void logSuccess(String message) =>
+      log("[SUCCESS] $message", color: LogLevel.success);
 
   /// Logs an informational message in green.
-  static void logInfo(String message) => log(message, color: LogLevel.info);
+  void logInfo(String message) => log("[INFO] $message", color: LogLevel.info);
 
   /// Logs a debug message in the default terminal color.
-  static void logDebug(String message) => log(message, color: LogLevel.debug);
+  void logDebug(String message) =>
+      log("[VERBOSE] $message", color: LogLevel.debug);
 }
 
 /// Represents the log levels with associated ANSI color codes.
@@ -46,8 +55,8 @@ class ColorizeLogger {
 /// `success`, `debug`, and `error`. Each log level is associated with a specific
 /// ANSI color code for better visibility in the terminal.
 enum LogLevel {
-  /// Informational log level with green color.
-  info('\x1B[32m'),
+  /// Informational log level with orange color.
+  info('\x1B[33m'),
 
   /// Warning log level with yellow color.
   warning('\x1B[33m'),
