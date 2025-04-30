@@ -57,18 +57,28 @@ class Builder extends Command {
   ArgParser get argParser {
     environment = Environment.fromArgResults(globalResults);
     final argParser = ArgParser();
-    argParser.addFlag("publish", abbr: "p", defaultsTo: false, help: "Distribute Android");
-    argParser.addFlag("android", defaultsTo: environment.isAndroidBuild, help: "Build Android (Default value follows the config file)");
+    argParser.addFlag("publish",
+        abbr: "p", defaultsTo: false, help: "Distribute Android");
+    argParser.addFlag("android",
+        defaultsTo: environment.isAndroidBuild,
+        help: "Build Android (Default value follows the config file)");
     if (Platform.isMacOS) {
-      argParser.addFlag("ios", defaultsTo: environment.isIOSBuild, help: "Build iOS (Default value follows the config file)");
+      argParser.addFlag("ios",
+          defaultsTo: environment.isIOSBuild,
+          help: "Build iOS (Default value follows the config file)");
     }
-    argParser.addOption("android_binary", defaultsTo: environment.androidBinary, help: "Arguments for Android build.");
-    argParser.addOption("android_args", defaultsTo: "", help: "Arguments for Android build.");
-    argParser.addOption("ios_args", defaultsTo: "", help: "Arguments for iOS build.");
+    argParser.addOption("android_binary",
+        defaultsTo: environment.androidBinary,
+        help: "Arguments for Android build.");
+    argParser.addOption("android_args",
+        defaultsTo: "", help: "Arguments for Android build.");
+    argParser.addOption("ios_args",
+        defaultsTo: "", help: "Arguments for iOS build.");
     argParser.addOption(
       'custom_args',
       defaultsTo: "",
-      help: "Custom arguments key:args,key:args, it will executed as `flutter build <args>`",
+      help:
+          "Custom arguments key:args,key:args, it will executed as `flutter build <args>`",
       valueHelp: "macos:macos,windows:windows,ios:ipa,android_apk:apk",
     );
     return argParser;
@@ -149,7 +159,8 @@ class Builder extends Command {
   /// optional distribution process if the `publish` flag is enabled.
   Future<int> _executeBuild(Map<String, List<String>> customBuildArgs) async {
     int exitCode = 0;
-    final buildResults = await Future.wait(customBuildArgs.entries.map((entry) async {
+    final buildResults =
+        await Future.wait(customBuildArgs.entries.map((entry) async {
       final platform = entry.key;
       final args = entry.value;
       return await _buildPlatform(platform, args);
@@ -164,7 +175,8 @@ class Builder extends Command {
   ///
   /// This method determines the appropriate build method to invoke based on
   /// the platform name (e.g., `android`, `ios`, or custom platforms).
-  Future<(String, int)> _buildPlatform(String platform, List<String> args) async {
+  Future<(String, int)> _buildPlatform(
+      String platform, List<String> args) async {
     try {
       if (platform == 'android') {
         return (
@@ -258,14 +270,22 @@ class Builder extends Command {
       List<(String, int)> distributionResults = [];
       for (var buildResult in buildResults) {
         stdout.writeln("Build result ${buildResult.$1} ${buildResult.$2}");
-        if (buildAndroid && buildResult.$1 == "android" && buildResult.$2 == 0) {
+        if (buildAndroid &&
+            buildResult.$1 == "android" &&
+            buildResult.$2 == 0) {
           if (environment.distributionInitResult!.git) {
             await publisher.buildAndroidDocs();
           }
-          distributionResults.add(await publisher.distributeAndroid().then((value) => (buildResult.$1, value)).catchError((e) => (buildResult.$1, 1)));
+          distributionResults.add(await publisher
+              .distributeAndroid()
+              .then((value) => (buildResult.$1, value))
+              .catchError((e) => (buildResult.$1, 1)));
         }
         if (buildIOS && buildResult.$1 == "ios" && buildResult.$2 == 0) {
-          distributionResults.add(await publisher.distributeIOS().then((value) => (buildResult.$1, value)).catchError((e) => (buildResult.$1, 1)));
+          distributionResults.add(await publisher
+              .distributeIOS()
+              .then((value) => (buildResult.$1, value))
+              .catchError((e) => (buildResult.$1, 1)));
         }
       }
 
@@ -275,7 +295,8 @@ class Builder extends Command {
             logger.logError('Distribution failed for ${result.$1}.');
             exitCode = 1;
           } else {
-            logger.logSuccess('Distribution completed successfully for ${result.$1}.');
+            logger.logSuccess(
+                'Distribution completed successfully for ${result.$1}.');
           }
         }
       } else {
@@ -290,7 +311,8 @@ class Builder extends Command {
   Future<int> _buildAndroid({final List<String>? args}) async {
     if (buildAndroid) {
       logger.logInfo('Starting Android build process...');
-      final process = await Process.start('flutter', ['build', androidBinary, if (args != null) ...args]);
+      final process = await Process.start(
+          'flutter', ['build', androidBinary, if (args != null) ...args]);
 
       process.stdout.transform(utf8.decoder).listen((data) {
         if (data.trim().isNotEmpty) logger.logDebug("[Android] $data");
@@ -312,7 +334,8 @@ class Builder extends Command {
   Future<int> _buildIOS({final List<String>? args}) async {
     if (buildIOS) {
       logger.logInfo('Starting iOS build process...');
-      final process = await Process.start('flutter', ['build', 'ipa', if (args != null) ...args]);
+      final process = await Process.start(
+          'flutter', ['build', 'ipa', if (args != null) ...args]);
 
       process.stdout.transform(utf8.decoder).listen((data) {
         if (data.trim().isNotEmpty) logger.logDebug("[iOS] $data");
@@ -354,7 +377,8 @@ class Builder extends Command {
 
     logger.logDebug('Moving Android binaries to the distribution directory...');
     final isAppBundle = androidBinary == "appbundle" || androidBinary == "aab";
-    final outputDir = isAppBundle ? Files.androidOutputAppbundles : Files.androidOutputApks;
+    final outputDir =
+        isAppBundle ? Files.androidOutputAppbundles : Files.androidOutputApks;
     final extension = isAppBundle ? ".aab" : ".apk";
 
     if (!await outputDir.exists()) {
@@ -368,7 +392,10 @@ class Builder extends Command {
     }
     await distributionDir.create(recursive: true);
 
-    final files = await outputDir.list(recursive: true).where((item) => item.path.endsWith(extension)).toList();
+    final files = await outputDir
+        .list(recursive: true)
+        .where((item) => item.path.endsWith(extension))
+        .toList();
     for (var file in files.whereType<File>()) {
       await file.copy("${distributionDir.path}/${file.uri.pathSegments.last}");
     }
@@ -394,7 +421,11 @@ class Builder extends Command {
       return 1;
     }
 
-    final ipas = await outputDir.list(recursive: true).where((item) => item.path.endsWith(".ipa")).cast<File>().toList();
+    final ipas = await outputDir
+        .list(recursive: true)
+        .where((item) => item.path.endsWith(".ipa"))
+        .cast<File>()
+        .toList();
 
     for (var ipa in ipas) {
       await ipa.copy("${distributionDir.path}/${ipa.uri.pathSegments.last}");
