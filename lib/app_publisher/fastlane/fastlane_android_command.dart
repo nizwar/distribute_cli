@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:distribute_cli/app_publisher/fastlane/fastlane_android_publisher_arguments.dart';
@@ -20,6 +21,6 @@ class FastlaneAndroidCommand extends Commander {
   @override
   Future? run() async {
     final arguments = FastlaneAndroidPublisherArguments.fromArgResults(argResults!);
-    return AppPublisher(arguments).publish(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
+    return AppPublisher(arguments, Platform.environment).publish(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
   }
 }

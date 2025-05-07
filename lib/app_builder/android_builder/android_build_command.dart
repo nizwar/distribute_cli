@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:args/args.dart';
 import 'package:distribute_cli/logger.dart';
 
@@ -19,7 +21,7 @@ class AndroidBuildCommand extends Commander {
   Future? run() async {
     final arguments = AndroidBuildArgument.fromArgResults(argResults!);
     final logger = ColorizeLogger(globalResults?['verbose'] ?? false);
-    return AppBuilder(arguments).build(onVerbose: logger.logDebug, onError: logger.logErrorVerbose).then((value) {
+    return AppBuilder(arguments, Platform.environment).build(onVerbose: logger.logDebug, onError: logger.logErrorVerbose).then((value) {
       if (value == 0) {
         logger.logSuccess("Android build completed successfully.");
       } else {

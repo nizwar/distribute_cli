@@ -81,7 +81,8 @@ class FirebaseAndroidPublisherArguments extends PublisherArguments {
 
   static ArgParser parser = ArgParser()
     ..addOption('file-path', abbr: 'f', help: 'Path to the file to upload', defaultsTo: Files.androidDistributionOutputDir.path)
-    ..addOption('app-id', abbr: 'a', help: 'The app id of your Firebase app')
+    ..addOption('binary-type', abbr: 'b', help: 'The binary type of the application to use. Valid values are apk, aab.', defaultsTo: 'apk')
+    ..addOption('app-id', abbr: 'a', help: 'The app id of your Firebase app', mandatory: true)
     ..addOption('release-notes', abbr: 'r', help: 'Release notes to include')
     ..addOption('release-notes-file', help: 'Path to file with release notes')
     ..addOption('testers', abbr: 't', help: 'A comma-separated list of tester emails to distribute to')
@@ -111,5 +112,4 @@ class FirebaseAndroidPublisherArguments extends PublisherArguments {
         'groups-file': groupsFile,
         'publishers': [publisher],
       };
- 
 }

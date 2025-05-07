@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:args/args.dart';
 import 'package:distribute_cli/app_builder/app_builder.dart';
 import 'package:distribute_cli/app_builder/custom_builder/custom_build_arguments.dart';
@@ -17,6 +19,6 @@ class CustomBuildCommand extends Commander {
   @override
   Future? run() async {
     final arguments = CustomBuildArgument.fromArgResults(argResults!);
-    return AppBuilder(arguments).build(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
+    return AppBuilder(arguments, Platform.environment).build(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
   }
 }

@@ -10,6 +10,7 @@ The **Distribute CLI** is a command-line tool designed to simplify the process o
 - **Tool Integration**: Supports Firebase App Distribution and Fastlane for publishing.
 - **Metadata Management**: Validate and download metadata for the Google Play Store.
 - **Custom Configurations**: Define tasks and jobs in a `distribution.yaml` file.
+- **Environment Variable Support**: Use `${{KEY}}` to reference environment variables or custom variables from `distribution.yaml`.
 - **Logging**: Detailed logs for debugging and tracking the build and distribution process.
 
 ---
@@ -71,6 +72,35 @@ This command will:
 
 ---
 
+### Using `${{KEY}}` for Variables
+
+The `distribution.yaml` file supports the use of `${{KEY}}` to reference variables from two sources:
+
+1. **Environment Variables**:  
+   Variables from the system environment (e.g., `PATH`, `HOME`) can be accessed using `${{KEY}}`. For example:
+   ```yaml
+   package_name: "${{HOME}}/myapp"
+   ```
+
+2. **Custom Variables in `distribution.yaml`**:  
+   You can define custom variables under the `variables` section in `distribution.yaml`. These variables can be referenced throughout the file. For example:
+   ```yaml
+   variables:
+     APP_NAME: "MyApp"
+     ANDROID_PACKAGE: "com.example.myapp"
+   ```
+
+   Then, use `${{ANDROID_PACKAGE}}` in tasks or jobs:
+   ```yaml
+   package_name: "${{ANDROID_PACKAGE}}"
+   ```
+
+#### Variable Substitution
+
+When the CLI processes the `distribution.yaml` file, it substitutes `${{KEY}}` with the corresponding value from the environment or the `variables` section. If a variable is not found, the placeholder remains unchanged.
+
+---
+
 ### `distribution.yaml`
 
 The `distribution.yaml` file is automatically generated during the `init` command. It defines the tasks and jobs for building and publishing your application.
@@ -80,15 +110,21 @@ The `distribution.yaml` file is automatically generated during the `init` comman
 ```yaml
 name: "Distribution CLI"
 description: "A CLI tool to build and publish your application."
+variables:
+  APP_NAME: "MyApp"
+  ANDROID_PACKAGE: "com.example.myapp"
+  IOS_PACKAGE: "com.example.myapp.ios"
+  APPLE_ID: "your-apple-id"
+  APP_SPECIFIC_PASSWORD: "your-app-specific-password"
 tasks:
   - name: "Android Build and deploy"
     key: "android"
-    description: "Build and deploy the Android application to playstore."
+    description: "Build and deploy the Android application to the Play Store."
     jobs:
       - name: "Build Android"
         key: "build"
         description: "Build the Android application using Gradle."
-        package_name: "com.example.app"
+        package_name: "${{ANDROID_PACKAGE}}"
         platform: "android"
         mode: "build"
         arguments:
@@ -105,8 +141,8 @@ tasks:
           arguments: null
       - name: "Publish Android"
         key: "publish"
-        description: "Publish the Android application to playstore as internal test track."
-        package_name: "com.example.app"
+        description: "Publish the Android application to the Play Store as an internal test track."
+        package_name: "${{ANDROID_PACKAGE}}"
         platform: "android"
         mode: "publish"
         arguments:
@@ -172,13 +208,13 @@ tasks:
       - name: "Publish iOS"
         key: "publish"
         description: "Publish the iOS application to app store."
-        package_name: "com.example.app"
+        package_name: "${{IOS_PACKAGE}}"
         platform: "ios"
         mode: "publish"
         arguments:
           file-path: "distribution/ios/output"
-          username: "your-apple-id"
-          password: "your-app-specific-password"
+          username: ${{APPLE_ID}}
+          password: ${{APP_SPECIFIC_PASSWORD}}
           binary-type: "ipa"
           api-key: null
           api-issuer: null

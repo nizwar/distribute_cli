@@ -23,6 +23,6 @@ class IOSBuildCommand extends Commander {
       logger.logError("This command is only supported on macOS.");
       return 1;
     }
-    return AppBuilder(arguments).build(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
+    return AppBuilder(arguments, Platform.environment).build(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
   }
 }
