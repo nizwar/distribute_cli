@@ -20,7 +20,9 @@ class FastlaneAndroidCommand extends Commander {
 
   @override
   Future? run() async {
-    final arguments = FastlaneAndroidPublisherArguments.fromArgResults(argResults!);
-    return AppPublisher(arguments, Platform.environment).publish(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
+    final arguments =
+        FastlaneAndroidPublisherArguments.fromArgResults(argResults!);
+    return AppPublisher(arguments, Platform.environment)
+        .publish(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
   }
 }

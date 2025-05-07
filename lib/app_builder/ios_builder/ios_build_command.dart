@@ -8,7 +8,8 @@ import '../app_builder.dart';
 
 class IOSBuildCommand extends Commander {
   @override
-  String get description => "Build an iOS application using the specified configuration and parameters provided in the command-line arguments.";
+  String get description =>
+      "Build an iOS application using the specified configuration and parameters provided in the command-line arguments.";
 
   @override
   String get name => "ios";
@@ -23,6 +24,7 @@ class IOSBuildCommand extends Commander {
       logger.logError("This command is only supported on macOS.");
       return 1;
     }
-    return AppBuilder(arguments, Platform.environment).build(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
+    return AppBuilder(arguments, Platform.environment)
+        .build(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
   }
 }

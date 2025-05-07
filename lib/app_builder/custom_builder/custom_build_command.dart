@@ -8,7 +8,8 @@ import '../../command.dart';
 
 class CustomBuildCommand extends Commander {
   @override
-  String get description => "Build a custom application by selecting specific configurations and options tailored to your requirements.";
+  String get description =>
+      "Build a custom application by selecting specific configurations and options tailored to your requirements.";
 
   @override
   String get name => "custom";
@@ -19,6 +20,7 @@ class CustomBuildCommand extends Commander {
   @override
   Future? run() async {
     final arguments = CustomBuildArgument.fromArgResults(argResults!);
-    return AppBuilder(arguments, Platform.environment).build(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
+    return AppBuilder(arguments, Platform.environment)
+        .build(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
   }
 }

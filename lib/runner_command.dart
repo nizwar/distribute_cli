@@ -12,22 +12,31 @@ import 'parsers/job_arguments.dart';
 
 class RunnerCommand extends Commander {
   @override
-  String get description => "Command to run the application using the selected platform or custom configuration. ";
+  String get description =>
+      "Command to run the application using the selected platform or custom configuration. ";
 
   @override
   String get name => "run";
 
   @override
   ArgParser get argParser => ArgParser()
-    ..addOption('config', abbr: 'c', help: 'Path to the configuration file.', defaultsTo: 'distribution.yaml')
-    ..addOption('operation', abbr: 'o', help: 'Key of the operation to run, use OperationKey.JobKey to run spesifict job.', defaultsTo: '');
+    ..addOption('config',
+        abbr: 'c',
+        help: 'Path to the configuration file.',
+        defaultsTo: 'distribution.yaml')
+    ..addOption('operation',
+        abbr: 'o',
+        help:
+            'Key of the operation to run, use OperationKey.JobKey to run spesifict job.',
+        defaultsTo: '');
 
   @override
   Future? run() async {
     final logger = ColorizeLogger(globalResults?['verbose'] ?? false);
     final operationKey = argResults!['operation'] as String;
     try {
-      final configParser = ConfigParser.distributeYaml(argResults?['config'] as String? ?? 'distribution.yaml');
+      final configParser = ConfigParser.distributeYaml(
+          argResults?['config'] as String? ?? 'distribution.yaml');
 
       if (operationKey.isNotEmpty) {
         if (operationKey.contains(".")) {
@@ -38,7 +47,8 @@ class RunnerCommand extends Commander {
               task.jobs.removeWhere((job) => job.key != key[1]);
             }
             if (configParser.tasks.every((task) => task.jobs.isEmpty)) {
-              logger.logError("No jobs found for the specified operation key: $operationKey");
+              logger.logError(
+                  "No jobs found for the specified operation key: $operationKey");
               return 1;
             }
           }
@@ -52,17 +62,23 @@ class RunnerCommand extends Commander {
         }
       }
 
-      logger.logInfo('Running application with configuration: ${argResults!['config'] as String}');
+      logger.logInfo(
+          'Running application with configuration: ${argResults!['config'] as String}');
       logger.logInfo("======= Running tasks =======");
       for (var task in configParser.tasks) {
         logger.logInfo(task.name);
         if (task.description != null) logger.logInfo('${task.description}');
         logger.logEmpty();
         for (var value in task.jobs) {
-          logger.logInfo("[Job] : ${value.name} ${value.description != null ? "(${value.description})" : ""}");
+          logger.logInfo(
+              "[Job] : ${value.name} ${value.description != null ? "(${value.description})" : ""}");
           logger.logEmpty();
           if (value.arguments.jobMode == JobMode.build) {
-            await AppBuilder(value.arguments as BuildArguments, configParser.environments).build(onError: logger.logErrorVerbose, onVerbose: logger.logDebug).then((value) {
+            await AppBuilder(value.arguments as BuildArguments,
+                    configParser.environments)
+                .build(
+                    onError: logger.logErrorVerbose, onVerbose: logger.logDebug)
+                .then((value) {
               logger.logEmpty();
               logger.logSuccess("Build completed successfully.");
             }).catchError((error) {
@@ -70,7 +86,11 @@ class RunnerCommand extends Commander {
               logger.logError("Build failed with error: $error");
             });
           } else if (value.arguments.jobMode == JobMode.publish) {
-            await AppPublisher(value.arguments as PublisherArguments, configParser.environments).publish(onError: logger.logErrorVerbose, onVerbose: logger.logDebug).then((value) {
+            await AppPublisher(value.arguments as PublisherArguments,
+                    configParser.environments)
+                .publish(
+                    onError: logger.logErrorVerbose, onVerbose: logger.logDebug)
+                .then((value) {
               logger.logEmpty();
               logger.logSuccess("Publish completed successfully.");
             }).catchError((error) {

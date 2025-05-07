@@ -58,9 +58,11 @@ class Job {
     final key = json["key"];
 
     if (mode == null) throw Exception("mode is required for each job");
-    if (mode != "build" && mode != "publish") throw Exception("Invalid mode for each job");
+    if (mode != "build" && mode != "publish")
+      throw Exception("Invalid mode for each job");
     if (platform == null) throw Exception("platform is required for each job");
-    if (packageName == null) throw Exception("package_name is required for each job");
+    if (packageName == null)
+      throw Exception("package_name is required for each job");
 
     JobArguments? task;
     final isBuildMode = mode == "build";

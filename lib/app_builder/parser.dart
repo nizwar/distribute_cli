@@ -32,7 +32,8 @@ abstract class BuildArguments extends JobArguments {
         if (buildMode?.isNotEmpty ?? false) '--$buildMode',
         if (flavor?.isNotEmpty ?? false) '--flavor=$flavor',
         if (dartDefines?.isNotEmpty ?? false) '--dart-defines=$dartDefines',
-        if (dartDefinesFile?.isNotEmpty ?? false) '--dart-defines-file=$dartDefinesFile',
+        if (dartDefinesFile?.isNotEmpty ?? false)
+          '--dart-defines-file=$dartDefinesFile',
         if (buildName?.isNotEmpty ?? false) '--build-name=$buildName',
         if (buildNumber?.isNotEmpty ?? false) '--build-number=$buildNumber',
         if (pub) '--pub' else '--no-pub',

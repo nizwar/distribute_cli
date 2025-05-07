@@ -7,7 +7,8 @@ import '../app_publisher.dart';
 
 class FirebaseAndroidCommand extends Commander {
   @override
-  String get description => "Publish an Android application to Firebase App Distribution, allowing you to distribute your app to testers quickly and efficiently.";
+  String get description =>
+      "Publish an Android application to Firebase App Distribution, allowing you to distribute your app to testers quickly and efficiently.";
 
   @override
   String get name => "firebase";
@@ -17,7 +18,9 @@ class FirebaseAndroidCommand extends Commander {
 
   @override
   Future? run() async {
-    final arguments = FirebaseAndroidPublisherArguments.fromArgResults(argResults!);
-    return AppPublisher(arguments, Platform.environment).publish(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
+    final arguments =
+        FirebaseAndroidPublisherArguments.fromArgResults(argResults!);
+    return AppPublisher(arguments, Platform.environment)
+        .publish(onVerbose: logger.logDebug, onError: logger.logErrorVerbose);
   }
 }

@@ -38,13 +38,15 @@ class AppPublisher<T extends PublisherArguments> {
   ///
   /// * `onVerbose` is called with the output of the process
   /// * `onError` is called with the error output of the process
-  Future<int> publish({Function(String)? onVerbose, Function(String)? onError}) async {
+  Future<int> publish(
+      {Function(String)? onVerbose, Function(String)? onError}) async {
     if (args.filePath.isEmpty) {
       onError?.call("File path is empty");
       return 1;
     }
 
-    Future<String?> copyFiles(Directory sourceDir, String fileType, String errorMessage, String target) async {
+    Future<String?> copyFiles(Directory sourceDir, String fileType,
+        String errorMessage, String target) async {
       final files = await sourceDir.list().toList();
       final output = <String>[];
       if (files.isEmpty) {
@@ -71,17 +73,26 @@ class AppPublisher<T extends PublisherArguments> {
       return output.first;
     }
 
-    if (args is FastlaneAndroidPublisherArguments || args is FirebaseAndroidPublisherArguments) {
+    if (args is FastlaneAndroidPublisherArguments ||
+        args is FirebaseAndroidPublisherArguments) {
       if (args.binaryType == "aab" || args.binaryType == "appbundle") {
-        onVerbose?.call("Scanning aab on ${Files.androidOutputAppbundles.path}");
-        args.filePath = await copyFiles(Files.androidOutputAppbundles, ".aab", "No aab found in ${Files.androidOutputAppbundles.path}", args.filePath) ?? "";
+        onVerbose
+            ?.call("Scanning aab on ${Files.androidOutputAppbundles.path}");
+        args.filePath = await copyFiles(
+                Files.androidOutputAppbundles,
+                ".aab",
+                "No aab found in ${Files.androidOutputAppbundles.path}",
+                args.filePath) ??
+            "";
       } else if (args.binaryType == "apk") {
         onVerbose?.call("Scanning apk on ${Files.androidOutputApks.path}");
         final outputApks = await Files.androidOutputApks.list().toList();
         String filePath = "";
         for (var dir in outputApks) {
           if (dir is Directory) {
-            filePath = await copyFiles(dir, ".apk", "No apk found in ${dir.path}", args.filePath) ?? "";
+            filePath = await copyFiles(dir, ".apk",
+                    "No apk found in ${dir.path}", args.filePath) ??
+                "";
             break;
           }
         }
@@ -97,7 +108,9 @@ class AppPublisher<T extends PublisherArguments> {
     } else if (args is XcrunIosPublisherArguments) {
       if (args.binaryType == "ipa") {
         onVerbose?.call("Scanning ipa on ${Files.iosOutputIPA.path}");
-        args.filePath = await copyFiles(Files.iosOutputIPA, ".ipa", "No ipa found in ${Files.iosOutputIPA.path}", args.filePath) ?? "";
+        args.filePath = await copyFiles(Files.iosOutputIPA, ".ipa",
+                "No ipa found in ${Files.iosOutputIPA.path}", args.filePath) ??
+            "";
       } else {
         onError?.call("Invalid binary type: ${args.binaryType}");
         return 1;
@@ -111,7 +124,8 @@ class AppPublisher<T extends PublisherArguments> {
 
     ColorizeLogger logger = ColorizeLogger(true);
     final rawArguments = args.toJson();
-    rawArguments.removeWhere((key, value) => value == null || ((value is List) && value.isEmpty) || value == "");
+    rawArguments.removeWhere((key, value) =>
+        value == null || ((value is List) && value.isEmpty) || value == "");
     if (logger.isVerbose) {
       logger.logInfo("Running Publish with configurations:");
       for (var value in rawArguments.keys) {
@@ -119,8 +133,10 @@ class AppPublisher<T extends PublisherArguments> {
       }
       logger.logEmpty();
     }
-    onVerbose?.call("Starting upload with `${args.publisher} ${substituteVariables(args.results.join(" "), environments)}`");
-    final process = await Process.start(args.publisher, args.results.map((e) => substituteVariables(e, environments)).toList());
+    onVerbose?.call(
+        "Starting upload with `${args.publisher} ${substituteVariables(args.results.join(" "), environments)}`");
+    final process = await Process.start(args.publisher,
+        args.results.map((e) => substituteVariables(e, environments)).toList());
     process.stdout.transform(utf8.decoder).listen(onVerbose);
     process.stderr.transform(utf8.decoder).listen(onError);
 
@@ -139,7 +155,8 @@ abstract class PublisherArguments extends JobArguments {
   final String binaryType;
 
   /// Constructor for the app publisher argument
-  PublisherArguments(this.publisher, {required this.filePath, required this.binaryType});
+  PublisherArguments(this.publisher,
+      {required this.filePath, required this.binaryType});
 
   @override
   JobMode get jobMode => JobMode.publish;

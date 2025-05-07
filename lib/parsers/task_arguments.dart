@@ -14,9 +14,9 @@ class Task {
   });
 
   Map<String, dynamic> toJson() => {
-      "name": name,
-      "key": key,
-      "description": description,
-      "jobs": jobs.map((job) => job.toJson()).toList(),
-    };
+        "name": name,
+        "key": key,
+        "description": description,
+        "jobs": jobs.map((job) => job.toJson()).toList(),
+      };
 }

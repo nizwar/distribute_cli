@@ -9,7 +9,8 @@ import 'android_build_arguments.dart';
 
 class AndroidBuildCommand extends Commander {
   @override
-  String get description => "Build an Android application using the specified configuration and options provided in the arguments.";
+  String get description =>
+      "Build an Android application using the specified configuration and options provided in the arguments.";
 
   @override
   String get name => "android";
@@ -21,7 +22,9 @@ class AndroidBuildCommand extends Commander {
   Future? run() async {
     final arguments = AndroidBuildArgument.fromArgResults(argResults!);
     final logger = ColorizeLogger(globalResults?['verbose'] ?? false);
-    return AppBuilder(arguments, Platform.environment).build(onVerbose: logger.logDebug, onError: logger.logErrorVerbose).then((value) {
+    return AppBuilder(arguments, Platform.environment)
+        .build(onVerbose: logger.logDebug, onError: logger.logErrorVerbose)
+        .then((value) {
       if (value == 0) {
         logger.logSuccess("Android build completed successfully.");
       } else {

@@ -31,7 +31,8 @@ class ConfigParser {
     return ConfigParser(
       tasks: json["tasks"],
       environments: json["variables"] as Map<String, dynamic>,
-      arguments: (json["arguments"] as Map<String, dynamic>).map((key, value) => MapEntry(key, value as dynamic)),
+      arguments: (json["arguments"] as Map<String, dynamic>)
+          .map((key, value) => MapEntry(key, value as dynamic)),
     );
   }
 
@@ -40,13 +41,15 @@ class ConfigParser {
     if (!file.existsSync()) {
       throw Exception("$path file not found, please run init command");
     }
-    Map<String, dynamic> configJson = jsonDecode(jsonEncode(loadYaml(file.readAsStringSync())));
+    Map<String, dynamic> configJson =
+        jsonDecode(jsonEncode(loadYaml(file.readAsStringSync())));
     List<Task> jobTasks;
 
     final environments = Map<String, dynamic>.from(Platform.environment.cast())
       ..addAll(
         (configJson["variables"] as Map<String, dynamic>? ?? {}).map(
-          (key, value) => MapEntry(key, substituteVariables(value.toString(), Platform.environment)),
+          (key, value) => MapEntry(
+              key, substituteVariables(value.toString(), Platform.environment)),
         ),
       );
 
@@ -68,9 +71,12 @@ class ConfigParser {
       final key = json["key"];
 
       if (mode == null) throw Exception("mode is required for each job");
-      if (mode != "build" && mode != "publish") throw Exception("Invalid mode for each job");
-      if (platform == null) throw Exception("platform is required for each job");
-      if (packageName == null) throw Exception("package_name is required for each job");
+      if (mode != "build" && mode != "publish")
+        throw Exception("Invalid mode for each job");
+      if (platform == null)
+        throw Exception("platform is required for each job");
+      if (packageName == null)
+        throw Exception("package_name is required for each job");
 
       JobArguments? jobArgument;
       final isBuildMode = mode == "build";
@@ -83,35 +89,44 @@ class ConfigParser {
         case "android":
           if (isBuildMode) {
             if (arguments != null) {
-              jobArgument = AndroidBuildArgument.fromJson({...arguments, "package-name": packageName});
+              jobArgument = AndroidBuildArgument.fromJson(
+                  {...arguments, "package-name": packageName});
             } else {
               jobArgument = AndroidBuildArgument.defaultConfigs();
             }
           } else if (isPublishMode) {
-            List<String>? publishers = arguments != null ? (arguments["publishers"] as List).map((item) => item.toString()).toList() : null;
+            List<String>? publishers = arguments != null
+                ? (arguments["publishers"] as List)
+                    .map((item) => item.toString())
+                    .toList()
+                : null;
             if ((publishers)?.contains("fastlane") ?? false) {
               if (arguments != null) {
                 jobArgument = FastlaneAndroidPublisherArguments.fromJson({
                   ...arguments,
                   "package-name": packageName,
-                  "file-path": arguments["file-path"] ?? Files.androidOutputApks.path,
+                  "file-path":
+                      arguments["file-path"] ?? Files.androidOutputApks.path,
                 });
               } else {
-                jobArgument = FastlaneAndroidPublisherArguments.defaultConfigs(packageName);
+                jobArgument = FastlaneAndroidPublisherArguments.defaultConfigs(
+                    packageName);
               }
             } else if ((publishers)?.contains("firebase") ?? false) {
               if (arguments != null) {
                 jobArgument = FirebaseAndroidPublisherArguments.fromJson({
                   ...arguments,
                   "package-name": packageName,
-                  "file-path": arguments["file-path"] ?? Files.androidOutputApks.path,
+                  "file-path":
+                      arguments["file-path"] ?? Files.androidOutputApks.path,
                 });
               } else {
                 final appId = arguments?["app"] as String?;
                 if (appId == null) {
                   throw Exception("app id is required for firebase publisher");
                 }
-                jobArgument = FirebaseAndroidPublisherArguments.defaultConfigs(appId);
+                jobArgument =
+                    FirebaseAndroidPublisherArguments.defaultConfigs(appId);
               }
             } else {
               throw Exception("Invalid publisher for android");
@@ -134,7 +149,8 @@ class ConfigParser {
                 ? XcrunIosPublisherArguments.fromJson({
                     ...arguments,
                     "package-name": packageName,
-                    "file-path": arguments["file-path"] ?? Files.iosDistributionOutputDir.path,
+                    "file-path": arguments["file-path"] ??
+                        Files.iosDistributionOutputDir.path,
                   })
                 : XcrunIosPublisherArguments.defaultConfigs();
           }
@@ -143,11 +159,13 @@ class ConfigParser {
           if (arguments == null) {
             throw Exception("Custom build job must have arguments");
           }
-          jobArgument = CustomBuildArgument.fromJson({...arguments, "package-name": packageName});
+          jobArgument = CustomBuildArgument.fromJson(
+              {...arguments, "package-name": packageName});
           break;
 
         default:
-          throw Exception("Invalid platform for ${isBuildMode ? "build" : "publish"} mode");
+          throw Exception(
+              "Invalid platform for ${isBuildMode ? "build" : "publish"} mode");
       }
 
       final output = Job(
@@ -167,18 +185,25 @@ class ConfigParser {
         .map<Task>(
           (item) => Task(
             name: item["name"],
-            jobs: (item["jobs"] as List).map<Job>((item) => parseJob(item)).toList(),
+            jobs: (item["jobs"] as List)
+                .map<Job>((item) => parseJob(item))
+                .toList(),
             key: item["key"],
             description: item["description"],
           ),
         )
         .toList();
 
-    return ConfigParser(tasks: jobTasks, arguments: (configJson["arguments"] as Map<String, dynamic>?)?.map((key, value) => MapEntry(key, value as dynamic)), environments: environments);
+    return ConfigParser(
+        tasks: jobTasks,
+        arguments: (configJson["arguments"] as Map<String, dynamic>?)
+            ?.map((key, value) => MapEntry(key, value as dynamic)),
+        environments: environments);
   }
 }
 
-String substituteVariables(String? input, [Map<String, dynamic> variables = const {}]) {
+String substituteVariables(String? input,
+    [Map<String, dynamic> variables = const {}]) {
   if (input == null) return "";
 
   // Pattern matches ${{VAR_NAME}} OR ${VAR_NAME}

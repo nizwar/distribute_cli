@@ -32,15 +32,26 @@ class CustomBuildArgument extends BuildArguments {
   }
 
   static ArgParser parser = ArgParser()
-    ..addOption('target', abbr: 't', help: 'The main entry-point file of the application, as run on the device.')
-    ..addOption('binary-type', abbr: 'b', help: 'Binary type (apk, aab, ipa, ios, macos, etc)', defaultsTo: 'apk')
-    ..addOption('build-mode', abbr: 'm', help: 'Build mode (debug, profile, release)', defaultsTo: 'release')
+    ..addOption('target',
+        abbr: 't',
+        help:
+            'The main entry-point file of the application, as run on the device.')
+    ..addOption('binary-type',
+        abbr: 'b',
+        help: 'Binary type (apk, aab, ipa, ios, macos, etc)',
+        defaultsTo: 'apk')
+    ..addOption('build-mode',
+        abbr: 'm',
+        help: 'Build mode (debug, profile, release)',
+        defaultsTo: 'release')
     ..addOption('flavor', abbr: 'f', help: 'Build flavor')
-    ..addOption('arguments', abbr: 'a', help: 'Custom arguments to pass to the build command')
+    ..addOption('arguments',
+        abbr: 'a', help: 'Custom arguments to pass to the build command')
     ..addOption('dart-defines', abbr: 'd', help: 'Dart defines')
     ..addOption('build-name', abbr: 'n', help: 'Build name')
     ..addOption('build-number', abbr: 'N', help: 'Build number')
-    ..addFlag('pub', abbr: 'p', help: 'Run pub get before building', defaultsTo: true)
+    ..addFlag('pub',
+        abbr: 'p', help: 'Run pub get before building', defaultsTo: true)
     ..addOption('dart-defines-file', help: 'Dart defines file');
 
   factory CustomBuildArgument.fromArgResults(ArgResults results) {
@@ -76,18 +87,17 @@ class CustomBuildArgument extends BuildArguments {
   @override
   List<String> get argKeys => parser.options.keys.toList();
 
-
   @override
   Map<String, dynamic> toJson() => {
-    'binary-type': binaryType,
-    'build-mode': buildMode,
-    'target': target,
-    'flavor': flavor,
-    'dart-defines': dartDefines,
-    'dart-defines-file': dartDefinesFile,
-    'build-name': buildName,
-    'build-number': buildNumber,
-    'pub': pub,
-    'arguments': customArgs,
-  };
+        'binary-type': binaryType,
+        'build-mode': buildMode,
+        'target': target,
+        'flavor': flavor,
+        'dart-defines': dartDefines,
+        'dart-defines-file': dartDefinesFile,
+        'build-name': buildName,
+        'build-number': buildNumber,
+        'pub': pub,
+        'arguments': customArgs,
+      };
 }

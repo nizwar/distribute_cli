@@ -16,27 +16,36 @@ import 'command.dart';
 
 class InitializerCommand extends Commander {
   @override
-  String get description => "Initialize the project with the necessary configuration files and directories.";
+  String get description =>
+      "Initialize the project with the necessary configuration files and directories.";
 
   @override
   String get name => "init";
 
   @override
   ArgParser get argParser => ArgParser()
-    ..addOption("package-name", abbr: 'p', help: 'Package name for the application.', mandatory: true)
-    ..addFlag("skip-tools", abbr: 's', help: 'Skip tool validation.', defaultsTo: false)
-    ..addOption("google-service-account", abbr: 'g', help: 'Google service for fastlane, if it validated it will be copied to the fastlane directory.');
+    ..addOption("package-name",
+        abbr: 'p', help: 'Package name for the application.', mandatory: true)
+    ..addFlag("skip-tools",
+        abbr: 's', help: 'Skip tool validation.', defaultsTo: false)
+    ..addOption("google-service-account",
+        abbr: 'g',
+        help:
+            'Google service for fastlane, if it validated it will be copied to the fastlane directory.');
 
   @override
   Future? run() async {
     final initialized = <String, bool>{};
-    String configFilePath = globalResults?['config'] as String? ?? 'distribution.yaml';
+    String configFilePath =
+        globalResults?['config'] as String? ?? 'distribution.yaml';
 
     _logWelcome();
     _checkPubspecFile();
-    await _createDirectory("distribution/android/output", initialized, "android_directory");
+    await _createDirectory(
+        "distribution/android/output", initialized, "android_directory");
     if (Platform.isMacOS) {
-      await _createDirectory("distribution/ios/output", initialized, "ios_directory");
+      await _createDirectory(
+          "distribution/ios/output", initialized, "ios_directory");
     }
 
     if (!(argResults!['skip-tools'] as bool)) {
@@ -52,7 +61,8 @@ class InitializerCommand extends Commander {
     }
 
     final yaml = File(configFilePath);
-    if (!yaml.existsSync()) yaml.writeAsString(yamlEncode(structures), flush: true);
+    if (!yaml.existsSync())
+      yaml.writeAsString(yamlEncode(structures), flush: true);
 
     return;
   }
@@ -69,7 +79,8 @@ class InitializerCommand extends Commander {
   /// Checks if the `pubspec.yaml` file exists.
   void _checkPubspecFile() {
     if (!File('pubspec.yaml').existsSync()) {
-      logger.logError('The "pubspec.yaml" file was not found. Please ensure this command is executed in the root directory of your Flutter project.');
+      logger.logError(
+          'The "pubspec.yaml" file was not found. Please ensure this command is executed in the root directory of your Flutter project.');
       exit(1);
     }
   }
@@ -79,7 +90,8 @@ class InitializerCommand extends Commander {
   /// [path] is the directory path.
   /// [initialized] is the map to track initialization status.
   /// [key] is the key for the directory in the map.
-  Future<void> _createDirectory(String path, Map<String, bool> initialized, String key) async {
+  Future<void> _createDirectory(
+      String path, Map<String, bool> initialized, String key) async {
     final directory = Directory(path);
     if (!await directory.exists()) {
       await directory.create(recursive: true);
@@ -94,14 +106,17 @@ class InitializerCommand extends Commander {
   /// [toolName] is the name of the tool.
   /// [initialized] is the map to track initialization status.
   /// [args] are additional arguments for the tool.
-  Future<void> _checkTool(String command, String toolName, Map<String, bool> initialized, {List<String> args = const []}) async {
+  Future<void> _checkTool(
+      String command, String toolName, Map<String, bool> initialized,
+      {List<String> args = const []}) async {
     logger.logDebug("Checking if $toolName is installed...");
     logger.logDebug("Command: $command ${args.join(" ")}");
     await Process.start(command, args).then((value) async {
       value.stdout.transform(utf8.decoder).listen(logger.logDebug);
       if (await value.exitCode != 0) {
         initialized[toolName.toLowerCase()] = false;
-        logger.logError('$toolName is not installed. Please install $toolName to proceed.');
+        logger.logError(
+            '$toolName is not installed. Please install $toolName to proceed.');
         if (toolName == "Git") exit(1);
       } else {
         initialized[toolName.toLowerCase()] = true;
@@ -114,9 +129,14 @@ class InitializerCommand extends Commander {
   ///
   /// [initialized] is the map to track initialization status.
   Future<void> _validateFastlaneJson(Map<String, bool> initialized) async {
-    final String? jsonKeyPath = argResults?['google-service-account'] as String?;
+    final String? jsonKeyPath =
+        argResults?['google-service-account'] as String?;
     logger.logDebug("Validating Fastlane JSON key...");
-    await Process.start("fastlane", ['run', 'validate_play_store_json_key', 'json_key:${jsonKeyPath ?? Files.fastlaneJson.path}']).then((value) async {
+    await Process.start("fastlane", [
+      'run',
+      'validate_play_store_json_key',
+      'json_key:${jsonKeyPath ?? Files.fastlaneJson.path}'
+    ]).then((value) async {
       value.stdout.transform(utf8.decoder).listen(logger.logDebug);
       if (await value.exitCode != 0) {
         initialized["fastlane_json"] = false;
@@ -126,7 +146,8 @@ class InitializerCommand extends Commander {
         logger.logSuccess('The Fastlane JSON key is valid.');
         if (jsonKeyPath != null) {
           await File(jsonKeyPath).copy(Files.fastlaneJson.path).then((_) {
-            logger.logDebug("Fastlane JSON key copied to ${Files.fastlaneJson.path}");
+            logger.logDebug(
+                "Fastlane JSON key copied to ${Files.fastlaneJson.path}");
           }).catchError((error) {
             logger.logDebug("Failed to copy the Fastlane JSON key: $error");
           });
@@ -152,7 +173,8 @@ class InitializerCommand extends Commander {
     ]).then((value) async {
       value.stdout.transform(utf8.decoder).listen(logger.logDebug);
       if (await value.exitCode != 0) {
-        logger.logError("Failed to download Android metadata. ${await value.stderr.transform(utf8.decoder).join("\n")}");
+        logger.logError(
+            "Failed to download Android metadata. ${await value.stderr.transform(utf8.decoder).join("\n")}");
       } else {
         logger.logSuccess("Android metadata downloaded successfully.");
       }
@@ -172,7 +194,8 @@ class InitializerCommand extends Commander {
           Task(
             name: "Android Build and deploy",
             key: "android",
-            description: "Build and deploy the Android application to playstore.",
+            description:
+                "Build and deploy the Android application to playstore.",
             jobs: [
               Job(
                 name: "Build Android",
@@ -181,11 +204,13 @@ class InitializerCommand extends Commander {
                 platform: "android",
                 mode: JobMode.build,
                 packageName: "\${{ANDROID_PACKAGE}}",
-                arguments: AndroidBuildArgument(binaryType: "aab", buildMode: "release"),
+                arguments: AndroidBuildArgument(
+                    binaryType: "aab", buildMode: "release"),
               ),
               Job(
                 name: "Publish Android",
-                description: "Publish the Android application to playstore as internal test track.",
+                description:
+                    "Publish the Android application to playstore as internal test track.",
                 key: "publish",
                 platform: "android",
                 mode: JobMode.publish,
@@ -214,7 +239,8 @@ class InitializerCommand extends Commander {
                 platform: "ios",
                 mode: JobMode.build,
                 packageName: "\${{IOS_PACKAGE}}",
-                arguments: IOSBuildArgument(binaryType: "ipa", buildMode: "release"),
+                arguments:
+                    IOSBuildArgument(binaryType: "ipa", buildMode: "release"),
               ),
               Job(
                 name: "Publish iOS",

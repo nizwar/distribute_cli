@@ -6,7 +6,6 @@ import '../app_publisher.dart';
 /// Class for the Fastlane Android Publisher
 /// This class is used to upload the app to the Google Play Store using Fastlane.
 class FastlaneAndroidPublisherArguments extends PublisherArguments {
-
   /// Version name (used when uploading new APKs/AABs) - defaults to 'versionName' in build.gradle or AndroidManifest.xml.
   final String? versionName;
 
@@ -153,7 +152,8 @@ class FastlaneAndroidPublisherArguments extends PublisherArguments {
     this.ackBundleInstallationWarning = false,
   }) : super("fastlane");
 
-  factory FastlaneAndroidPublisherArguments.fromArgResults(ArgResults argResults) {
+  factory FastlaneAndroidPublisherArguments.fromArgResults(
+      ArgResults argResults) {
     return FastlaneAndroidPublisherArguments(
       filePath: argResults['file-path'],
       binaryType: argResults['binary-type'],
@@ -183,19 +183,29 @@ class FastlaneAndroidPublisherArguments extends PublisherArguments {
       mappingPaths: argResults['mapping-paths'],
       rootUrl: argResults['root-url'],
       timeout: int.parse(argResults['timeout']),
-      versionCodesToRetain: (argResults['version-codes-to-retain'])?.cast<int>(),
-      changesNotSentForReview: (argResults['changes-not-sent-for-review'] as bool?) ?? false,
-      rescueChangesNotSentForReview: (argResults['rescue-changes-not-sent-for-review'] as bool?) ?? true,
-      inAppUpdatePriority: int.tryParse(argResults['in-app-update-priority'].toString()),
-      obbMainReferencesVersion: int.tryParse(argResults['obb-main-references-version'].toString()),
-      obbMainFileSize: int.tryParse(argResults['obb-main-file-size'].toString()),
-      obbPatchReferencesVersion: int.tryParse(argResults['obb-patch-references-version'].toString()),
-      obbPatchFileSize: int.tryParse(argResults['obb-patch-file-size'].toString()),
-      ackBundleInstallationWarning: (argResults['ack-bundle-installation-warning'] as bool?) ?? false,
+      versionCodesToRetain:
+          (argResults['version-codes-to-retain'])?.cast<int>(),
+      changesNotSentForReview:
+          (argResults['changes-not-sent-for-review'] as bool?) ?? false,
+      rescueChangesNotSentForReview:
+          (argResults['rescue-changes-not-sent-for-review'] as bool?) ?? true,
+      inAppUpdatePriority:
+          int.tryParse(argResults['in-app-update-priority'].toString()),
+      obbMainReferencesVersion:
+          int.tryParse(argResults['obb-main-references-version'].toString()),
+      obbMainFileSize:
+          int.tryParse(argResults['obb-main-file-size'].toString()),
+      obbPatchReferencesVersion:
+          int.tryParse(argResults['obb-patch-references-version'].toString()),
+      obbPatchFileSize:
+          int.tryParse(argResults['obb-patch-file-size'].toString()),
+      ackBundleInstallationWarning:
+          (argResults['ack-bundle-installation-warning'] as bool?) ?? false,
     );
   }
 
-  factory FastlaneAndroidPublisherArguments.fromJson(Map<String, dynamic> json) {
+  factory FastlaneAndroidPublisherArguments.fromJson(
+      Map<String, dynamic> json) {
     return FastlaneAndroidPublisherArguments(
       filePath: json['file-path'] ?? "distribution/android/output/*.apk",
       binaryType: json['binary-type'],
@@ -204,7 +214,8 @@ class FastlaneAndroidPublisherArguments extends PublisherArguments {
       releaseStatus: json['release-status'],
       track: json['track'] ?? "production",
       rollout: double.tryParse(json['rollout'] ?? ''),
-      metadataPath: json['metadata-path'] ?? Files.androidDistributionMetadataDir.path,
+      metadataPath:
+          json['metadata-path'] ?? Files.androidDistributionMetadataDir.path,
       jsonKey: json['json-key'] ?? "distribution/fastlane.json",
       jsonKeyData: json['json-key-data'],
       apk: json['apk'],
@@ -226,14 +237,20 @@ class FastlaneAndroidPublisherArguments extends PublisherArguments {
       rootUrl: json['root-url'],
       timeout: int.tryParse(json['timeout'].toString()) ?? 300,
       versionCodesToRetain: (json['version-codes-to-retain'])?.cast<int>(),
-      changesNotSentForReview: (json['changes-not-sent-for-review'] as bool?) ?? false,
-      rescueChangesNotSentForReview: (json['rescue-changes-not-sent-for-review'] as bool?) ?? true,
-      inAppUpdatePriority: int.tryParse(json['in-app-update-priority'].toString()) ?? 0,
-      obbMainReferencesVersion: int.tryParse(json['obb-main-references-version'].toString()),
+      changesNotSentForReview:
+          (json['changes-not-sent-for-review'] as bool?) ?? false,
+      rescueChangesNotSentForReview:
+          (json['rescue-changes-not-sent-for-review'] as bool?) ?? true,
+      inAppUpdatePriority:
+          int.tryParse(json['in-app-update-priority'].toString()) ?? 0,
+      obbMainReferencesVersion:
+          int.tryParse(json['obb-main-references-version'].toString()),
       obbMainFileSize: int.tryParse(json['obb-main-file-size'].toString()),
-      obbPatchReferencesVersion: int.tryParse(json['obb-patch-references-version'].toString()),
+      obbPatchReferencesVersion:
+          int.tryParse(json['obb-patch-references-version'].toString()),
       obbPatchFileSize: int.tryParse(json['obb-patch-file-size'].toString()),
-      ackBundleInstallationWarning: (json['ack-bundle-installation-warning'] as bool?) ?? false,
+      ackBundleInstallationWarning:
+          (json['ack-bundle-installation-warning'] as bool?) ?? false,
     );
   }
 
@@ -253,9 +270,11 @@ class FastlaneAndroidPublisherArguments extends PublisherArguments {
         if (rollout != null) "rollout:$rollout",
         if (jsonKeyData != null) "json_key_data:$jsonKeyData",
         if (apk != null) "apk:$apk",
-        if (apkPaths != null && apkPaths!.isNotEmpty) "apk_paths:${apkPaths!.join(',')}",
+        if (apkPaths != null && apkPaths!.isNotEmpty)
+          "apk_paths:${apkPaths!.join(',')}",
         if (aab != null) "aab:$aab",
-        if (aabPaths != null && aabPaths!.isNotEmpty) "aab_paths:${aabPaths!.join(',')}",
+        if (aabPaths != null && aabPaths!.isNotEmpty)
+          "aab_paths:${aabPaths!.join(',')}",
         if (skipUploadApk) "skip_upload_apk:true",
         if (skipUploadAab) "skip_upload_aab:true",
         if (skipUploadMetadata) "skip_upload_metadata:true",
@@ -264,71 +283,172 @@ class FastlaneAndroidPublisherArguments extends PublisherArguments {
         if (skipUploadScreenshots) "skip_upload_screenshots:true",
         if (syncImageUpload) "sync_image_upload:true",
         if (trackPromoteTo != null) "track_promote_to:$trackPromoteTo",
-        if (trackPromoteReleaseStatus != null) "track_promote_release_status:$trackPromoteReleaseStatus",
+        if (trackPromoteReleaseStatus != null)
+          "track_promote_release_status:$trackPromoteReleaseStatus",
         if (validateOnly) "validate_only:true",
         if (mapping != null) "mapping:$mapping",
-        if (mappingPaths != null && mappingPaths!.isNotEmpty) "mapping_paths:${mappingPaths!.join(',')}",
+        if (mappingPaths != null && mappingPaths!.isNotEmpty)
+          "mapping_paths:${mappingPaths!.join(',')}",
         if (rootUrl != null) "root_url:$rootUrl",
-        if (versionCodesToRetain != null && versionCodesToRetain!.isNotEmpty) "version_codes_to_retain:${versionCodesToRetain!.join(',')}",
+        if (versionCodesToRetain != null && versionCodesToRetain!.isNotEmpty)
+          "version_codes_to_retain:${versionCodesToRetain!.join(',')}",
         if (changesNotSentForReview) "changes_not_sent_for_review:true",
-        if (rescueChangesNotSentForReview) "rescue_changes_not_sent_for_review:true",
-        if (inAppUpdatePriority != null) "in_app_update_priority:$inAppUpdatePriority",
-        if (obbMainReferencesVersion != null) "obb_main_references_version:$obbMainReferencesVersion",
+        if (rescueChangesNotSentForReview)
+          "rescue_changes_not_sent_for_review:true",
+        if (inAppUpdatePriority != null)
+          "in_app_update_priority:$inAppUpdatePriority",
+        if (obbMainReferencesVersion != null)
+          "obb_main_references_version:$obbMainReferencesVersion",
         if (obbMainFileSize != null) "obb_main_file_size:$obbMainFileSize",
-        if (obbPatchReferencesVersion != null) "obb_patch_references_version:$obbPatchReferencesVersion",
+        if (obbPatchReferencesVersion != null)
+          "obb_patch_references_version:$obbPatchReferencesVersion",
         if (obbPatchFileSize != null) "obb_patch_file_size:$obbPatchFileSize",
-        if (ackBundleInstallationWarning == true) "ack_bundle_installation_warning:$ackBundleInstallationWarning",
+        if (ackBundleInstallationWarning == true)
+          "ack_bundle_installation_warning:$ackBundleInstallationWarning",
       ];
 
   static ArgParser parser = ArgParser()
-    ..addOption('file-path', abbr: 'f', help: 'Path to the file to upload.', defaultsTo: Files.androidDistributionOutputDir.path)
-    ..addOption('binary-type', help: 'The binary type of the application to use. Valid values are apk, aab.', defaultsTo: "apk")
-    ..addOption('package-name', abbr: 'p', help: 'The package name of the application to use.', mandatory: true)
-    ..addOption('version-name', help: 'Version name (used when uploading new APKs/AABs) - defaults to versionName in build.gradle or AndroidManifest.xml.')
-    ..addOption('version-code', abbr: 'c', help: 'The versionCode for which to download the generated APK.')
-    ..addOption('release-status', abbr: 'r', help: 'Release status (used when uploading new APKs/AABs) - valid values are completed, draft, halted, inProgress.')
-    ..addOption('track', abbr: 't', help: 'The track of the application to use. The default available tracks are: production, beta, alpha, internal.')
-    ..addOption('rollout', abbr: 'R', help: 'The percentage of the user fraction when uploading to the rollout track (setting to 1 will complete the rollout).')
-    ..addOption('metadata-path', help: 'Path to the directory containing the metadata files.', defaultsTo: Files.androidDistributionMetadataDir.path)
-    ..addOption('json-key', abbr: 'j', help: 'The path to a file containing service account JSON, used to authenticate with Google.', defaultsTo: Files.fastlaneJson.path)
-    ..addOption('json-key-data', abbr: 'J', help: 'The raw service account JSON data used to authenticate with Google.')
+    ..addOption('file-path',
+        abbr: 'f',
+        help: 'Path to the file to upload.',
+        defaultsTo: Files.androidDistributionOutputDir.path)
+    ..addOption('binary-type',
+        help:
+            'The binary type of the application to use. Valid values are apk, aab.',
+        defaultsTo: "apk")
+    ..addOption('package-name',
+        abbr: 'p',
+        help: 'The package name of the application to use.',
+        mandatory: true)
+    ..addOption('version-name',
+        help:
+            'Version name (used when uploading new APKs/AABs) - defaults to versionName in build.gradle or AndroidManifest.xml.')
+    ..addOption('version-code',
+        abbr: 'c',
+        help: 'The versionCode for which to download the generated APK.')
+    ..addOption('release-status',
+        abbr: 'r',
+        help:
+            'Release status (used when uploading new APKs/AABs) - valid values are completed, draft, halted, inProgress.')
+    ..addOption('track',
+        abbr: 't',
+        help:
+            'The track of the application to use. The default available tracks are: production, beta, alpha, internal.')
+    ..addOption('rollout',
+        abbr: 'R',
+        help:
+            'The percentage of the user fraction when uploading to the rollout track (setting to 1 will complete the rollout).')
+    ..addOption('metadata-path',
+        help: 'Path to the directory containing the metadata files.',
+        defaultsTo: Files.androidDistributionMetadataDir.path)
+    ..addOption('json-key',
+        abbr: 'j',
+        help:
+            'The path to a file containing service account JSON, used to authenticate with Google.',
+        defaultsTo: Files.fastlaneJson.path)
+    ..addOption('json-key-data',
+        abbr: 'J',
+        help:
+            'The raw service account JSON data used to authenticate with Google.')
     ..addOption('apk', abbr: 'a', help: 'Path to the APK file to upload.')
-    ..addMultiOption('apk-paths', abbr: 'A', help: 'An array of paths to APK files to upload.')
+    ..addMultiOption('apk-paths',
+        abbr: 'A', help: 'An array of paths to APK files to upload.')
     ..addOption('aab', abbr: 'b', help: 'Path to the AAB file to upload.')
-    ..addMultiOption('aab-paths', abbr: 'B', help: 'An array of paths to AAB files to upload.')
-    ..addFlag('skip-upload-apk', negatable: false, defaultsTo: false, help: 'Whether to skip uploading APK.')
-    ..addFlag('skip-upload-aab', negatable: false, defaultsTo: false, help: 'Whether to skip uploading AAB.')
-    ..addFlag('skip-upload-metadata', negatable: false, defaultsTo: false, help: 'Whether to skip uploading metadata, changelogs not included.')
-    ..addFlag('skip-upload-changelogs', negatable: false, defaultsTo: false, help: 'Whether to skip uploading changelogs.')
-    ..addFlag('skip-upload-images', negatable: false, defaultsTo: false, help: 'Whether to skip uploading images, screenshots not included.')
-    ..addFlag('skip-upload-screenshots', negatable: false, defaultsTo: false, help: 'Whether to skip uploading screenshots.')
-    ..addFlag('sync-image-upload', negatable: false, defaultsTo: false, help: 'Whether to use sha256 comparison to skip upload of images and screenshots that are already in Play Store.')
-    ..addOption('track-promote-to', abbr: 'T', help: 'The track to promote to. The default available tracks are: production, beta, alpha, internal.')
-    ..addOption('track-promote-release-status', abbr: 's', help: 'Promoted track release status (used when promoting a track) - valid values are completed, draft, halted, inProgress.')
-    ..addFlag('validate-only', negatable: false, defaultsTo: false, help: 'Only validate changes with Google Play rather than actually publish.')
-    ..addOption('mapping', abbr: 'm', help: 'Path to the mapping file to upload (mapping.txt or native-debug-symbols.zip alike).')
-    ..addMultiOption('mapping-paths', abbr: 'M', help: 'An array of paths to mapping files to upload (mapping.txt or native-debug-symbols.zip alike).')
-    ..addOption('root-url', abbr: 'u', help: 'Root URL for the Google Play API. The provided URL will be used for API calls in place of https://www.googleapis.com/.')
-    ..addOption('timeout', defaultsTo: "300", help: 'Timeout for read, open and send (in seconds).')
-    ..addMultiOption('version-codes-to-retain', abbr: 'V', help: 'An array of version codes to retain when publishing a new APK.')
+    ..addMultiOption('aab-paths',
+        abbr: 'B', help: 'An array of paths to AAB files to upload.')
+    ..addFlag('skip-upload-apk',
+        negatable: false,
+        defaultsTo: false,
+        help: 'Whether to skip uploading APK.')
+    ..addFlag('skip-upload-aab',
+        negatable: false,
+        defaultsTo: false,
+        help: 'Whether to skip uploading AAB.')
+    ..addFlag('skip-upload-metadata',
+        negatable: false,
+        defaultsTo: false,
+        help: 'Whether to skip uploading metadata, changelogs not included.')
+    ..addFlag('skip-upload-changelogs',
+        negatable: false,
+        defaultsTo: false,
+        help: 'Whether to skip uploading changelogs.')
+    ..addFlag('skip-upload-images',
+        negatable: false,
+        defaultsTo: false,
+        help: 'Whether to skip uploading images, screenshots not included.')
+    ..addFlag('skip-upload-screenshots',
+        negatable: false,
+        defaultsTo: false,
+        help: 'Whether to skip uploading screenshots.')
+    ..addFlag('sync-image-upload',
+        negatable: false,
+        defaultsTo: false,
+        help:
+            'Whether to use sha256 comparison to skip upload of images and screenshots that are already in Play Store.')
+    ..addOption('track-promote-to',
+        abbr: 'T',
+        help:
+            'The track to promote to. The default available tracks are: production, beta, alpha, internal.')
+    ..addOption('track-promote-release-status',
+        abbr: 's',
+        help:
+            'Promoted track release status (used when promoting a track) - valid values are completed, draft, halted, inProgress.')
+    ..addFlag('validate-only',
+        negatable: false,
+        defaultsTo: false,
+        help:
+            'Only validate changes with Google Play rather than actually publish.')
+    ..addOption('mapping',
+        abbr: 'm',
+        help:
+            'Path to the mapping file to upload (mapping.txt or native-debug-symbols.zip alike).')
+    ..addMultiOption('mapping-paths',
+        abbr: 'M',
+        help:
+            'An array of paths to mapping files to upload (mapping.txt or native-debug-symbols.zip alike).')
+    ..addOption('root-url',
+        abbr: 'u',
+        help:
+            'Root URL for the Google Play API. The provided URL will be used for API calls in place of https://www.googleapis.com/.')
+    ..addOption('timeout',
+        defaultsTo: "300",
+        help: 'Timeout for read, open and send (in seconds).')
+    ..addMultiOption('version-codes-to-retain',
+        abbr: 'V',
+        help: 'An array of version codes to retain when publishing a new APK.')
     ..addFlag('changes-not-sent-for-review',
-        negatable: false, defaultsTo: false, help: 'Indicates that the changes in this edit will not be reviewed until they are explicitly sent for review from the Google Play Console UI.')
+        negatable: false,
+        defaultsTo: false,
+        help:
+            'Indicates that the changes in this edit will not be reviewed until they are explicitly sent for review from the Google Play Console UI.')
     ..addFlag('rescue-changes-not-sent-for-review',
-        negatable: false, defaultsTo: true, help: 'Catches changes_not_sent_for_review errors when an edit is committed and retries with the configuration that the error message recommended.')
-    ..addOption('in-app-update-priority', abbr: 'I', help: 'In-app update priority for all the newly added APKs in the release. Can take values between [0,5].')
-    ..addOption('obb-main-references-version', abbr: 'O', help: 'References version of main expansion file.')
-    ..addOption('obb-main-file-size', abbr: 'S', help: 'Size of main expansion file in bytes.')
-    ..addOption('obb-patch-references-version', abbr: 'P', help: 'References version of patch expansion file.')
-    ..addOption('obb-patch-file-size', abbr: 'F', help: 'Size of patch expansion file in bytes.')
+        negatable: false,
+        defaultsTo: true,
+        help:
+            'Catches changes_not_sent_for_review errors when an edit is committed and retries with the configuration that the error message recommended.')
+    ..addOption('in-app-update-priority',
+        abbr: 'I',
+        help:
+            'In-app update priority for all the newly added APKs in the release. Can take values between [0,5].')
+    ..addOption('obb-main-references-version',
+        abbr: 'O', help: 'References version of main expansion file.')
+    ..addOption('obb-main-file-size',
+        abbr: 'S', help: 'Size of main expansion file in bytes.')
+    ..addOption('obb-patch-references-version',
+        abbr: 'P', help: 'References version of patch expansion file.')
+    ..addOption('obb-patch-file-size',
+        abbr: 'F', help: 'Size of patch expansion file in bytes.')
     ..addFlag('ack-bundle-installation-warning',
         negatable: false,
         defaultsTo: false,
-        help: 'Must be set to true if the bundle installation may trigger a warning on user devices (e.g can only be downloaded over wifi). Typically this is required for bundles over 150MB.');
+        help:
+            'Must be set to true if the bundle installation may trigger a warning on user devices (e.g can only be downloaded over wifi). Typically this is required for bundles over 150MB.');
 
   @override
   List<String> get argKeys => parser.options.keys.toList();
 
-  static FastlaneAndroidPublisherArguments defaultConfigs(String packageName) => FastlaneAndroidPublisherArguments(
+  static FastlaneAndroidPublisherArguments defaultConfigs(String packageName) =>
+      FastlaneAndroidPublisherArguments(
         filePath: "${Files.androidDistributionOutputDir.path}/*.apk",
         metadataPath: Files.androidDistributionMetadataDir.path,
         jsonKey: Files.fastlaneJson.path,

@@ -13,7 +13,8 @@ class AppBuilder<T extends BuildArguments> {
 
   AppBuilder(this.args, this.environments);
 
-  Future<int> build({Function(String)? onVerbose, Function(String)? onError}) async {
+  Future<int> build(
+      {Function(String)? onVerbose, Function(String)? onError}) async {
     ColorizeLogger logger = ColorizeLogger(true);
     final rawArguments = args.toJson();
     rawArguments.removeWhere((key, value) => value == null);
@@ -24,8 +25,14 @@ class AppBuilder<T extends BuildArguments> {
       }
       logger.logEmpty();
     }
-    onVerbose?.call("Starting build with `flutter ${substituteVariables(["build", ...args.results].join(" "), environments)}`");
-    final process = await Process.start("flutter", ["build", ...args.results.map((e) => substituteVariables(e, environments))]);
+    onVerbose?.call("Starting build with `flutter ${substituteVariables([
+          "build",
+          ...args.results
+        ].join(" "), environments)}`");
+    final process = await Process.start("flutter", [
+      "build",
+      ...args.results.map((e) => substituteVariables(e, environments))
+    ]);
     process.stdout.transform(utf8.decoder).listen(onVerbose);
     process.stderr.transform(utf8.decoder).listen(onError);
     return await process.exitCode;
