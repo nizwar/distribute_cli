@@ -1,14 +1,18 @@
 # Distribute CLI
 
-The **Distribute CLI** is a command-line tool designed to streamline the process of building and distributing Flutter applications for Android and iOS platforms. It supports integration with Firebase and Fastlane for seamless app distribution.
+The **Distribute CLI** is a command-line tool designed to simplify the process of building and distributing Flutter applications for Android and iOS platforms. It integrates seamlessly with Firebase and Fastlane to provide a streamlined experience for app distribution.
+
+---
 
 ## Features
 
-- Build Android and iOS apps with custom configurations.
-- Distribute apps using Firebase App Distribution or Fastlane.
-- Automatically generate changelogs based on Git commits.
-- Validate and download metadata for Android Play Store.
-- Cross-platform support (macOS required for iOS builds).
+- **Cross-Platform Support**: Build and distribute apps for Android and iOS.
+- **Tool Integration**: Supports Firebase App Distribution and Fastlane for publishing.
+- **Metadata Management**: Validate and download metadata for the Google Play Store.
+- **Custom Configurations**: Define tasks and jobs in a `distribution.yaml` file.
+- **Logging**: Detailed logs for debugging and tracking the build and distribution process.
+
+---
 
 ## Prerequisites
 
@@ -19,172 +23,255 @@ Before using the Distribute CLI, ensure the following tools are installed:
 - [Fastlane](https://docs.fastlane.tools/)
 - [Flutter](https://flutter.dev/docs/get-started/install)
 
-For iOS builds, you must use macOS and have Xcode installed.
+For iOS builds, macOS is required along with Xcode.
+
+---
 
 ## Installation
 
-Execute the following command to globally activate `distribute_cli`:
+To install the Distribute CLI globally, run the following command:
+
 ```bash
 dart pub global activate distribute_cli
 ```
 
-Run the following command to initialize the environment:
+---
+
+## Commands
+
+### `distribute init`
+
+The `init` command initializes your project by creating the necessary configuration files and directories. It also validates the required tools and ensures your environment is ready for building and publishing.
+
+#### Usage
 
 ```bash
-distribute init
-```
-
-This will create the necessary directories and validate the required tools.
-
-## Usage
-
-### Build Apps
-
-To build Android and iOS apps, use the `build` command:
-
-```bash
-distribute build --android --ios
+distribute init --package-name=<your_package_name> [options]
 ```
 
 #### Options
 
-- `-p, --[no-]publish`: Automatically distribute Android builds.
-- `--[no]-android`: Build Android (enabled by default).
-- `--[no]-ios`: Build iOS (enabled by default).
-- `--android_binary`: Specify the Android binary type (`aab` or `apk`).
-- `--android_args`: Specify additional arguments for Android builds.
-- `--ios_args`: Specify additional arguments for iOS builds.
-- `--custom_args=<macos:macos,windows:windows,ios:ipa,android_apk:apk>`: Provide custom arguments in the format `key:args,key:args`. These will be executed as `flutter build <args>`.
+- `--package-name` (`-p`): **Required.** The package name of your application.
+- `--skip-tools` (`-s`): Skip tool validation. Defaults to `false`.
+- `--google-service-account` (`-g`): Path to the Google service account JSON file for Fastlane. If provided and valid, it will be copied to the Fastlane directory.
 
-### Distribute Apps
-
-To distribute apps, use the `publish` command:
+#### Example
 
 ```bash
-distribute publish --android --firebase
+distribute init -p com.example.app -g /path/to/service-account.json
+```
+
+This command will:
+1. Create the necessary directories:
+   - `distribution/android/output`
+   - `distribution/ios/output` (on macOS)
+2. Validate tools like Git, Firebase, Fastlane, and XCRun (on macOS).
+3. Validate the service account JSON file if provided.
+4. Generate a `distribution.yaml` file if it does not already exist.
+
+---
+
+### `distribution.yaml`
+
+The `distribution.yaml` file is automatically generated during the `init` command. It defines the tasks and jobs for building and publishing your application.
+
+#### Example Structure
+
+```yaml
+name: "Distribution CLI"
+description: "A CLI tool to build and publish your application."
+tasks:
+  - name: "Android Build and deploy"
+    key: "android"
+    description: "Build and deploy the Android application to playstore."
+    jobs:
+      - name: "Build Android"
+        key: "build"
+        description: "Build the Android application using Gradle."
+        package_name: "com.example.app"
+        platform: "android"
+        mode: "build"
+        arguments:
+          binary-type: "aab"
+          split-per-abi: false
+          build-mode: "release"
+          target: null
+          flavor: null
+          build-name: null
+          build-number: null
+          pub: true
+          dart-defines: null
+          dart-defines-file: null
+          arguments: null
+      - name: "Publish Android"
+        key: "publish"
+        description: "Publish the Android application to playstore as internal test track."
+        package_name: "com.example.app"
+        platform: "android"
+        mode: "publish"
+        arguments:
+          file-path: "distribution/android/output"
+          binary-type: "aab"
+          version-name: null
+          version-code: null
+          release-status: null
+          track: "internal"
+          rollout: null
+          metadata-path: "distribution/android/metadata"
+          json-key: "distribution/fastlane.json"
+          json-key-data: null
+          apk: null
+          apk-paths: null
+          aab: null
+          aab-paths: null
+          skip-upload-apk: false
+          skip-upload-aab: false
+          skip-upload-metadata: false
+          skip-upload-changelogs: false
+          skip-upload-images: true
+          skip-upload-screenshots: true
+          sync-image-upload: false
+          track-promote-to: null
+          track-promote-release-status: "completed"
+          validate-only: false
+          mapping: null
+          mapping-paths: null
+          root-url: null
+          timeout: 300
+          version-codes-to-retain: null
+          changes-not-sent-for-review: false
+          rescue-changes-not-sent-for-review: true
+          in-app-update-priority: null
+          obb-main-references-version: null
+          obb-main-file-size: null
+          obb-patch-references-version: null
+          obb-patch-file-size: null
+          ack-bundle-installation-warning: false
+          publishers:
+            - "fastlane"
+  - name: "iOS Build and deploy"
+    key: "ios"
+    description: "Build and deploy the iOS application to app store."
+    jobs:
+      - name: "Build iOS"
+        key: "build"
+        description: "Build the iOS application using Xcode."
+        package_name: "com.example.app"
+        platform: "ios"
+        mode: "build"
+        arguments:
+          binary-type: "ipa"
+          build-mode: "release"
+          target: null
+          flavor: null
+          dart-defines: null
+          dart-defines-file: null
+          build-name: null
+          build-number: null
+          pub: true
+      - name: "Publish iOS"
+        key: "publish"
+        description: "Publish the iOS application to app store."
+        package_name: "com.example.app"
+        platform: "ios"
+        mode: "publish"
+        arguments:
+          file-path: "distribution/ios/output"
+          username: "your-apple-id"
+          password: "your-app-specific-password"
+          binary-type: "ipa"
+          api-key: null
+          api-issuer: null
+          apple-id: null
+          bundle-version: null
+          bundle-short-version-string: null
+          asc-public-id: null
+          type: null
+          validate-app: false
+          upload-package: null
+          bundle-id: null
+          product-id: null
+          sku: null
+          output-format: null
+          publishers:
+            - "xcrun"
+```
+
+#### Explanation
+
+- **Tasks**: High-level operations like building or publishing the app.
+- **Jobs**: Subtasks within a task, such as building for Android or publishing to the Play Store.
+- **Arguments**: Configuration details for each job, such as build modes or credentials.
+
+#### Customization
+
+You can modify the `distribution.yaml` file to suit your project's requirements. For example, you can add new tasks, change build modes, or update credentials.
+
+---
+
+### `distribute build`
+
+The `build` command compiles your Flutter application for the specified platform (Android or iOS) and generates the necessary binary files.
+
+#### Usage
+
+```bash
+distribute build android
+distribute build ios
 ```
 
 #### Options
 
-- `--[no]-android`: Build and distribute Android (enabled by default).
-- `--[no]-ios`: Build and distribute iOS (enabled by default).
-- `--[no]-firebase`: Use Firebase for distribution.
-- `--[no]-fastlane`: Use Fastlane for distribution (enabled by default).
-- `--fastlane_track`: Specify the Play Store track (e.g., `internal`, `production`).
-- `--fastlane_promote_track_to`: Specify the track to promote to after distribution.
+Use the `-h` flag to view detailed options for each platform.
 
-### Example Commands
+---
 
-#### Build and Distribute Android App
+### `distribute publish`
 
-```bash
-distribute build --no-ios --android --publish --android_binary=aab
-```
+The `publish` command uploads the generated binary files to the specified distribution platform (Firebase or Fastlane) and handles the necessary metadata.
 
-#### Distribute iOS App
+#### Usage
 
 ```bash
-distribute publish --ios --no-android
+distribute publish android fastlane
+distribute publish android firebase
+distribute publish ios
 ```
 
-#### Build with Custom Arguments
+#### Options
+
+Use the `-h` flag to view detailed options for each platform.
+
+---
+
+### `distribute run`
+
+The `run` command executes the tasks defined in the `distribution.yaml` file. It allows you to build and publish your application in one go.
+
+#### Usage
 
 ```bash
-distribute build --custom_args="macos:macos,windows:windows"
+distribute run
 ```
 
-## Configuration
+#### Options
 
-The tool uses a `.distribution.env` file for configuration. This file is created during initialization and contains the following settings:
+- `--config` (`-c`): Path to the configuration file. Defaults to `distribution.yaml`.
+- `--operation` (`-o`): Key of the operation to run. Use `TaskKey.JobKey` to run a specific job.
 
-```env
-ANDROID_BUILD=true
-ANDROID_DISTRIBUTE=true
-ANDROID_PLAYSTORE_TRACK=internal
-ANDROID_PLAYSTORE_TRACK_PROMOTE_TO=production
-ANDROID_PACKAGE_NAME=com.example.app
-ANDROID_FIREBASE_APP_ID=your-firebase-app-id
-ANDROID_FIREBASE_GROUPS=testers
-ANDROID_BINARY=appbundle
-
-IOS_BUILD=true
-IOS_DISTRIBUTE=true
-IOS_DISTRIBUTION_USER=your-apple-id
-IOS_DISTRIBUTION_PASSWORD=your-app-specific-password
-
-USE_FASTLANE=true
-USE_FIREBASE=false
-```
-
-
-### Populating the `.distribution.env` File
-
-1. **ANDROID_BUILD**:  
-   Set to `true` to enable Android builds.
-
-2. **ANDROID_DISTRIBUTE**:  
-   Set to `true` to enable Android distribution after building.
-
-3. **ANDROID_PACKAGE_NAME**:  
-   Specify your app's package name (e.g., `com.example.app`).
-
-4. **ANDROID_PLAYSTORE_TRACK**:  
-   Specify the Play Store track for Android distribution (e.g., `internal`, `alpha`, `beta`, `production`). Defaults to `internal`.
-
-5. **ANDROID_PLAYSTORE_TRACK_PROMOTE_TO**:  
-   Specify the Play Store track to promote the build to after distribution (e.g., `production`). Defaults to `production`.
-
-6. **ANDROID_BINARY**:  
-   Specify the Android binary type for builds (`apk` or `appbundle`). Defaults to `appbundle`.
-
-7. **ANDROID_FIREBASE_APP_ID**:  
-   Provide your Firebase App ID if using Firebase App Distribution. Leave blank otherwise.
-
-8. **ANDROID_FIREBASE_GROUPS**:  
-   List Firebase tester groups (comma-separated) for distribution. Leave blank if not applicable.
-
-9. **IOS_BUILD**:  
-   Set to `true` to enable iOS builds.
-
-10. **IOS_DISTRIBUTE**:  
-    Set to `true` to enable iOS distribution after building.
-
-11. **IOS_DISTRIBUTION_USER**:  
-    Provide your Apple ID for App Store distribution.
-
-12. **IOS_DISTRIBUTION_PASSWORD**:  
-    Provide your app-specific password for App Store distribution. You can generate it from [Apple ID settings](https://support.apple.com/en-us/HT204397).
-
-13. **USE_FASTLANE**:  
-    Set to `true` to enable Fastlane for Android distribution.
-
-14. **USE_FIREBASE**:  
-    Set to `true` to enable Firebase App Distribution.
-
-### Adding the `distribution/fastlane.json` File
-
-1. Visit the [Google Cloud Console](https://console.cloud.google.com/).
-2. Navigate to **IAM & Admin > Service Accounts**.
-3. Select or create a service account with **Editor** or **Release Manager** permissions for your Play Store project.
-4. Generate a JSON key for the service account and download it.
-5. Place the JSON key file in the `distribution` directory and name it `fastlane.json`.
-
-Ensure your project directory is structured as follows:
-
-```
-your_project_directory
-  ├── lib
-  ├── distribution
-      ├── fastlane.json
-```
+---
 
 ## Logs
 
 All logs are saved to `distribution.log` in the root directory. Use this file to debug issues or review the build and distribution process.
 
+---
+
 ## Contributing
 
 Contributions are welcome! Feel free to submit issues or pull requests to improve the tool.
+
+---
 
 ## License
 
