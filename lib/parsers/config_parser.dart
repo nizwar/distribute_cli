@@ -17,18 +17,18 @@ import 'job_arguments.dart';
 class ConfigParser {
   final String output;
   List<Task> tasks;
-  final Map<String, JobArguments>? options;
+  final Map<String, JobArguments>? arguments;
 
   ConfigParser({
     required this.tasks,
-    required this.options,
+    required this.arguments,
     this.output = "distribution/",
   });
 
   factory ConfigParser.fromJson(Map<String, dynamic> json) {
     return ConfigParser(
-      tasks: json["operations"],
-      options: (json["options"] as Map<String, dynamic>).map((key, value) => MapEntry(key, value as dynamic)),
+      tasks: json["tasks"],
+      arguments: (json["arguments"] as Map<String, dynamic>).map((key, value) => MapEntry(key, value as dynamic)),
     );
   }
 
@@ -40,8 +40,8 @@ class ConfigParser {
     Map<String, dynamic> configJson = jsonDecode(jsonEncode(loadYaml(file.readAsStringSync())));
     List<Task> jobTasks;
 
-    if (configJson["operations"] == null) {
-      throw Exception("operation's key not found in $path");
+    if (configJson["tasks"] == null) {
+      throw Exception("tasks's key not found in $path");
     }
     if (configJson["name"] == null) {
       throw Exception("name key not found in $path");
@@ -113,7 +113,7 @@ class ConfigParser {
             jobArgument = arguments != null ? IOSBuildArgument.fromJson({...arguments, "package-name": packageName}) : IOSBuildArgument.defaultConfigs();
           } else if (isPublishMode) {
             if (arguments == null) {
-              throw Exception("Options is required for ios publisher");
+              throw Exception("Arguments is required for ios publisher");
             }
             jobArgument = arguments != null
                 ? XcrunIosPublisherArguments.fromJson({
@@ -126,7 +126,7 @@ class ConfigParser {
           break;
         case "custom":
           if (arguments == null) {
-            throw Exception("Custom build job must have options");
+            throw Exception("Custom build job must have arguments");
           }
           jobArgument = CustomBuildArgument.fromJson({...arguments, "package-name": packageName});
           break;
@@ -146,7 +146,7 @@ class ConfigParser {
       );
     }
 
-    jobTasks = (configJson["operations"] as List)
+    jobTasks = (configJson["tasks"] as List)
         .map<Task>(
           (item) => Task(
             name: item["name"],
@@ -159,7 +159,7 @@ class ConfigParser {
 
     return ConfigParser(
       tasks: jobTasks,
-      options: (configJson["options"] as Map<String, dynamic>?)?.map((key, value) => MapEntry(key, value as dynamic)),
+      arguments: (configJson["arguments"] as Map<String, dynamic>?)?.map((key, value) => MapEntry(key, value as dynamic)),
     );
   }
 }
