@@ -3,6 +3,10 @@ import 'package:distribute_cli/app_builder/custom_builder/custom_build_command.d
 import 'package:distribute_cli/app_builder/ios_builder/ios_build_command.dart';
 import 'package:distribute_cli/command.dart';
 
+/// A command to build the application using the selected platform or custom configuration.
+///
+/// The `BuilderCommand` class provides subcommands for building the app
+/// for Android, iOS, or using a custom configuration.
 class BuilderCommand extends Commander {
   BuilderCommand() {
     addSubcommand(AndroidBuildCommand());

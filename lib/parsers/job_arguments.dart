@@ -26,18 +26,48 @@ abstract class JobArguments {
   Map<String, dynamic> toJson();
 }
 
+/// Represents a job in the configuration.
+///
+/// A `Job` consists of a name, an optional key, an optional description,
+/// a platform, a mode (build or publish), a package name, and associated arguments.
 class Job {
+  /// The name of the job.
   final String name;
+
+  /// The unique key of the job (optional).
   final String? key;
+
+  /// The description of the job (optional).
   final String? description;
+
+  /// The platform for which the job is executed (e.g., android, ios).
   final String platform;
+
+  /// The mode of the job (build or publish).
   final JobMode mode;
+
+  /// The package name associated with the job.
   final String packageName;
+
+  /// The environment variables for the job (optional).
   final Map<String, dynamic>? environments;
+
+  /// The arguments associated with the job.
   final JobArguments arguments;
 
+  /// The parent task of the job.
   late Task parent;
 
+  /// Creates a new `Job` instance.
+  ///
+  /// [name] is the name of the job.
+  /// [platform] is the platform for which the job is executed.
+  /// [mode] is the mode of the job (build or publish).
+  /// [packageName] is the package name associated with the job.
+  /// [arguments] are the arguments associated with the job.
+  /// [key] is the unique key of the job (optional).
+  /// [description] is the description of the job (optional).
+  /// [environments] are the environment variables for the job (optional).
   Job({
     required this.name,
     this.key,
@@ -84,6 +114,7 @@ class Job {
     );
   }
 
+  /// Converts the `Job` instance to a JSON object.
   Map<String, dynamic> toJson() => {
         "name": name,
         "key": key,

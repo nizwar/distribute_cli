@@ -14,12 +14,30 @@ import '../files.dart';
 
 import 'job_arguments.dart';
 
+/// A parser for configuration files used in the distribution process.
+///
+/// The `ConfigParser` class is responsible for parsing YAML configuration files,
+/// converting them into structured objects, and providing access to tasks, environments,
+/// and arguments defined in the configuration.
 class ConfigParser {
+  /// The output directory for distribution files.
   final String output;
+
+  /// The list of tasks defined in the configuration.
   List<Task> tasks;
+
+  /// The map of job arguments defined in the configuration.
   final Map<String, JobArguments>? arguments;
+
+  /// The environment variables used in the configuration.
   Map<String, dynamic> environments;
 
+  /// Creates a new `ConfigParser` instance.
+  ///
+  /// - [tasks]: The list of tasks defined in the configuration.
+  /// - [arguments]: The map of job arguments defined in the configuration.
+  /// - [environments]: The environment variables used in the configuration.
+  /// - [output]: The output directory for distribution files (default is "distribution/").
   ConfigParser({
     required this.tasks,
     required this.arguments,
@@ -27,6 +45,9 @@ class ConfigParser {
     this.output = "distribution/",
   });
 
+  /// Creates a `ConfigParser` instance from a JSON object.
+  ///
+  /// - [json]: The JSON object containing the configuration data.
   factory ConfigParser.fromJson(Map<String, dynamic> json) {
     return ConfigParser(
       tasks: json["tasks"],
@@ -36,6 +57,11 @@ class ConfigParser {
     );
   }
 
+  /// Creates a `ConfigParser` instance by parsing a YAML file.
+  ///
+  /// - [path]: The path to the YAML configuration file.
+  ///
+  /// Throws an exception if the file does not exist or if required keys are missing.
   factory ConfigParser.distributeYaml(String path) {
     final file = File(path);
     if (!file.existsSync()) {
@@ -71,12 +97,15 @@ class ConfigParser {
       final key = json["key"];
 
       if (mode == null) throw Exception("mode is required for each job");
-      if (mode != "build" && mode != "publish")
+      if (mode != "build" && mode != "publish") {
         throw Exception("Invalid mode for each job");
-      if (platform == null)
+      }
+      if (platform == null) {
         throw Exception("platform is required for each job");
-      if (packageName == null)
+      }
+      if (packageName == null) {
         throw Exception("package_name is required for each job");
+      }
 
       JobArguments? jobArgument;
       final isBuildMode = mode == "build";
@@ -202,6 +231,15 @@ class ConfigParser {
   }
 }
 
+/// Substitutes variables in a string with their corresponding values from a map.
+///
+/// This function replaces placeholders in the format `${{VAR_NAME}}` or `${VAR_NAME}`
+/// with the values of the corresponding variables from the provided map.
+///
+/// - [input]: The input string containing placeholders.
+/// - [variables]: A map of variable names and their values (default is an empty map).
+///
+/// Returns the string with placeholders replaced by their corresponding values.
 String substituteVariables(String? input,
     [Map<String, dynamic> variables = const {}]) {
   if (input == null) return "";

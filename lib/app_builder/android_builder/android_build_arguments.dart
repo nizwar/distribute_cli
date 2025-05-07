@@ -3,8 +3,20 @@ import 'package:args/args.dart';
 import '../../parsers/job_arguments.dart';
 import '../parser.dart';
 
+/// Represents the arguments required to build an Android application.
+///
+/// This class extends [BuildArguments] and includes additional options
+/// specific to Android builds, such as splitting APKs by ABI.
 class AndroidBuildArgument extends BuildArguments {
+  /// Whether to split APKs by ABI.
+  ///
+  /// This option is only valid when the `binaryType` is set to `apk`.
   final bool splitPerAbi;
+
+  /// Creates an instance of [AndroidBuildArgument].
+  ///
+  /// [splitPerAbi] - Whether to split APKs by ABI.
+  /// Throws an [ArgumentError] if `binaryType` is not `apk` and `splitPerAbi` is true.
   AndroidBuildArgument({
     super.buildMode,
     required super.binaryType,
@@ -23,10 +35,16 @@ class AndroidBuildArgument extends BuildArguments {
     }
   }
 
+  /// Returns the list of arguments to be passed to the build command.
+  ///
+  /// Includes the `--split-per-abi` flag if `splitPerAbi` is true and `binaryType` is `apk`.
   @override
   List<String> get results => super.results
     ..addAll([if (splitPerAbi && binaryType == 'apk') '--split-per-abi']);
 
+  /// Creates a copy of this [AndroidBuildArgument] with updated values.
+  ///
+  /// [data] - The new values to override the existing ones.
   BuildArguments copyWith(AndroidBuildArgument? data) {
     return AndroidBuildArgument(
       buildMode: data?.buildMode ?? buildMode,
@@ -40,6 +58,9 @@ class AndroidBuildArgument extends BuildArguments {
     );
   }
 
+  /// The argument parser for Android build arguments.
+  ///
+  /// Defines the available options and flags for the Android build command.
   static ArgParser parser = ArgParser()
     ..addOption('target',
         abbr: 't',
@@ -63,6 +84,9 @@ class AndroidBuildArgument extends BuildArguments {
         abbr: 'p', help: 'Run pub get before building', defaultsTo: true)
     ..addOption('dart-defines-file', help: 'Dart defines file');
 
+  /// Returns the default configuration for Android builds.
+  ///
+  /// This includes default values for all required arguments.
   static JobArguments defaultConfigs() => AndroidBuildArgument(
         binaryType: 'apk',
         splitPerAbi: false,
@@ -77,6 +101,9 @@ class AndroidBuildArgument extends BuildArguments {
         customArgs: [],
       );
 
+  /// Creates an instance of [AndroidBuildArgument] from parsed command-line arguments.
+  ///
+  /// [results] - The parsed arguments from the command-line.
   factory AndroidBuildArgument.fromArgResults(ArgResults results) {
     return AndroidBuildArgument(
       binaryType: results['binary-type'] as String,
@@ -93,6 +120,9 @@ class AndroidBuildArgument extends BuildArguments {
     );
   }
 
+  /// Creates an instance of [AndroidBuildArgument] from a JSON object.
+  ///
+  /// [json] - The JSON object containing the argument values.
   factory AndroidBuildArgument.fromJson(Map<String, dynamic> json) {
     return AndroidBuildArgument(
       binaryType: json['binary-type'] ?? "apk",
@@ -109,9 +139,11 @@ class AndroidBuildArgument extends BuildArguments {
     );
   }
 
+  /// Returns the list of argument keys supported by this class.
   @override
   List<String> get argKeys => parser.options.keys.toList();
 
+  /// Converts this [AndroidBuildArgument] instance to a JSON object.
   @override
   Map<String, dynamic> toJson() => {
         'binary-type': binaryType,

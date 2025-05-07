@@ -10,6 +10,11 @@ import 'package:distribute_cli/parsers/config_parser.dart';
 import 'command.dart';
 import 'parsers/job_arguments.dart';
 
+/// A command to run the application using the selected platform or custom configuration.
+///
+/// The `RunnerCommand` class is responsible for parsing the configuration file,
+/// filtering tasks and jobs based on the provided operation key, and executing
+/// the specified tasks and jobs.
 class RunnerCommand extends Commander {
   @override
   String get description =>
@@ -30,6 +35,11 @@ class RunnerCommand extends Commander {
             'Key of the operation to run, use OperationKey.JobKey to run spesifict job.',
         defaultsTo: '');
 
+  /// Executes the `run` command.
+  ///
+  /// This method parses the configuration file, filters tasks and jobs based on
+  /// the provided operation key, and executes the specified tasks and jobs.
+  /// It logs the progress and results of the execution.
   @override
   Future? run() async {
     final logger = ColorizeLogger(globalResults?['verbose'] ?? false);
