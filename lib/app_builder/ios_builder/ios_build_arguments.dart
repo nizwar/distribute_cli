@@ -4,6 +4,8 @@ import '../../parsers/job_arguments.dart';
 import '../parser.dart';
 
 class IOSBuildArgument extends BuildArguments {
+  final String? exportOptionsPlist;
+  final String? exportMethod;
   IOSBuildArgument({
     super.buildMode,
     required super.binaryType,
@@ -15,6 +17,8 @@ class IOSBuildArgument extends BuildArguments {
     super.buildName,
     super.buildNumber,
     super.pub,
+    this.exportOptionsPlist,
+    this.exportMethod,
   });
 
   IOSBuildArgument copyWith(IOSBuildArgument? data) {
@@ -29,28 +33,23 @@ class IOSBuildArgument extends BuildArguments {
       buildName: data?.buildName ?? buildName,
       buildNumber: data?.buildNumber ?? buildNumber,
       pub: data?.pub ?? pub,
+      exportOptionsPlist: data?.exportOptionsPlist ?? exportOptionsPlist,
+      exportMethod: data?.exportMethod ?? exportMethod,
     );
   }
 
   static ArgParser parser = ArgParser()
-    ..addOption('target',
-        abbr: 't',
-        help:
-            'The main entry-point file of the application, as run on the device.')
-    ..addOption('binary-type',
-        abbr: 'b', help: 'Binary type (ipa, ios)', defaultsTo: 'ipa')
-    ..addOption('build-mode',
-        abbr: 'm',
-        help: 'Build mode (debug, profile, release)',
-        defaultsTo: 'release')
+    ..addOption('target', abbr: 't', help: 'The main entry-point file of the application, as run on the device.')
+    ..addOption('binary-type', abbr: 'b', help: 'Binary type (ipa, ios)', defaultsTo: 'ipa')
+    ..addOption('build-mode', abbr: 'm', help: 'Build mode (debug, profile, release)', defaultsTo: 'release')
     ..addOption('flavor', abbr: 'f', help: 'Build flavor')
-    ..addOption('arguments',
-        abbr: 'a', help: 'Custom arguments to pass to the build command')
+    ..addOption('arguments', abbr: 'a', help: 'Custom arguments to pass to the build command')
     ..addOption('dart-defines', abbr: 'd', help: 'Dart defines')
     ..addOption('build-name', abbr: 'n', help: 'Build name')
     ..addOption('build-number', abbr: 'N', help: 'Build number')
-    ..addFlag('pub',
-        abbr: 'p', help: 'Run pub get before building', defaultsTo: true)
+    ..addOption('export-options-plist', help: 'Path to export options plist file')
+    ..addOption('export-method', help: 'Export method (ad-hoc, app-store, enterprise, development)')
+    ..addFlag('pub', abbr: 'p', help: 'Run pub get before building', defaultsTo: true)
     ..addOption('dart-defines-file', help: 'Dart defines file');
 
   factory IOSBuildArgument.fromArgResults(ArgResults results) {
@@ -64,6 +63,8 @@ class IOSBuildArgument extends BuildArguments {
       buildName: results['build-name'] as String?,
       buildNumber: results['build-number']?.toString(),
       pub: results['pub'] as bool? ?? true,
+      exportOptionsPlist: results['export-options-plist'] as String?,
+      exportMethod: results['export-method'] as String?,
       customArgs: results['arguments']?.split(' ') as List<String>?,
     );
   }
@@ -79,6 +80,8 @@ class IOSBuildArgument extends BuildArguments {
       buildName: json['build-name'] as String?,
       buildNumber: json['build-number']?.toString(),
       pub: json['pub'] as bool? ?? true,
+      exportOptionsPlist: json['export-options-plist'] as String?,
+      exportMethod: json['export-method'] as String?,
       customArgs: (json['arguments'] as List<dynamic>?)?.cast<String>(),
     );
   }
@@ -96,6 +99,8 @@ class IOSBuildArgument extends BuildArguments {
         buildName: null,
         buildNumber: null,
         pub: true,
+        exportOptionsPlist: null,
+        exportMethod: null,
         customArgs: [],
       );
 
@@ -109,6 +114,16 @@ class IOSBuildArgument extends BuildArguments {
         'dart-defines-file': dartDefinesFile,
         'build-name': buildName,
         'build-number': buildNumber,
+        'export-options-plist': exportOptionsPlist,
+        'export-method': exportMethod,
+        'arguments': customArgs,
         'pub': pub,
       };
+
+
+  @override 
+  List<String> get results => super.results..addAll([
+        if (exportOptionsPlist != null) '--export-options-plist=$exportOptionsPlist',
+        if (exportMethod != null) '--export-method=$exportMethod',
+      ]);
 }
