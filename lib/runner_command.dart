@@ -62,7 +62,7 @@ class RunnerCommand extends Commander {
           logger.logInfo("[Job] : ${value.name} ${value.description != null ? "(${value.description})" : ""}");
           logger.logEmpty();
           if (value.arguments.jobMode == JobMode.build) {
-            await AppBuilder(value.arguments as BuildArguments).build(onError: logger.logErrorVerbose, onVerbose: logger.logDebug).then((value) {
+            await AppBuilder(value.arguments as BuildArguments, configParser.environments).build(onError: logger.logErrorVerbose, onVerbose: logger.logDebug).then((value) {
               logger.logEmpty();
               logger.logSuccess("Build completed successfully.");
             }).catchError((error) {
@@ -70,7 +70,7 @@ class RunnerCommand extends Commander {
               logger.logError("Build failed with error: $error");
             });
           } else if (value.arguments.jobMode == JobMode.publish) {
-            await AppPublisher(value.arguments as PublisherArguments).publish(onError: logger.logErrorVerbose, onVerbose: logger.logDebug).then((value) {
+            await AppPublisher(value.arguments as PublisherArguments, configParser.environments).publish(onError: logger.logErrorVerbose, onVerbose: logger.logDebug).then((value) {
               logger.logEmpty();
               logger.logSuccess("Publish completed successfully.");
             }).catchError((error) {

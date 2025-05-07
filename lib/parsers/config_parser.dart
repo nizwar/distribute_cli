@@ -18,16 +18,19 @@ class ConfigParser {
   final String output;
   List<Task> tasks;
   final Map<String, JobArguments>? arguments;
+  Map<String, dynamic> environments;
 
   ConfigParser({
     required this.tasks,
     required this.arguments,
+    required this.environments,
     this.output = "distribution/",
   });
 
   factory ConfigParser.fromJson(Map<String, dynamic> json) {
     return ConfigParser(
       tasks: json["tasks"],
+      environments: json["variables"] as Map<String, dynamic>,
       arguments: (json["arguments"] as Map<String, dynamic>).map((key, value) => MapEntry(key, value as dynamic)),
     );
   }
@@ -39,6 +42,13 @@ class ConfigParser {
     }
     Map<String, dynamic> configJson = jsonDecode(jsonEncode(loadYaml(file.readAsStringSync())));
     List<Task> jobTasks;
+
+    final environments = Map<String, dynamic>.from(Platform.environment.cast())
+      ..addAll(
+        (configJson["variables"] as Map<String, dynamic>? ?? {}).map(
+          (key, value) => MapEntry(key, substituteVariables(value.toString(), Platform.environment)),
+        ),
+      );
 
     if (configJson["tasks"] == null) {
       throw Exception("tasks's key not found in $path");
@@ -110,7 +120,12 @@ class ConfigParser {
           break;
         case "ios":
           if (isBuildMode) {
-            jobArgument = arguments != null ? IOSBuildArgument.fromJson({...arguments, "package-name": packageName}) : IOSBuildArgument.defaultConfigs();
+            jobArgument = arguments != null
+                ? IOSBuildArgument.fromJson({
+                    ...arguments,
+                    "package-name": packageName,
+                  })
+                : IOSBuildArgument.defaultConfigs();
           } else if (isPublishMode) {
             if (arguments == null) {
               throw Exception("Arguments is required for ios publisher");
@@ -135,15 +150,17 @@ class ConfigParser {
           throw Exception("Invalid platform for ${isBuildMode ? "build" : "publish"} mode");
       }
 
-      return Job(
+      final output = Job(
         name: json["name"] as String,
         description: json["description"],
         platform: platform,
         packageName: packageName,
         mode: JobMode.fromString(mode),
+        environments: environments,
         arguments: jobArgument!,
         key: key,
       );
+      return output;
     }
 
     jobTasks = (configJson["tasks"] as List)
@@ -157,9 +174,25 @@ class ConfigParser {
         )
         .toList();
 
-    return ConfigParser(
-      tasks: jobTasks,
-      arguments: (configJson["arguments"] as Map<String, dynamic>?)?.map((key, value) => MapEntry(key, value as dynamic)),
-    );
+    return ConfigParser(tasks: jobTasks, arguments: (configJson["arguments"] as Map<String, dynamic>?)?.map((key, value) => MapEntry(key, value as dynamic)), environments: environments);
   }
+}
+
+String substituteVariables(String? input, [Map<String, dynamic> variables = const {}]) {
+  if (input == null) return "";
+
+  // Pattern matches ${{VAR_NAME}} OR ${VAR_NAME}
+  final pattern = RegExp(r'\$\{\{(\w+)\}\}|\$\{(\w+)\}');
+
+  return input.replaceAllMapped(pattern, (match) {
+    final varName = match.group(1) ?? match.group(2); // capture either style
+    final value = variables[varName?.trim()];
+
+    if (value != null) {
+      return value.toString();
+    } else {
+      // If variable is not found, keep the original placeholder
+      return match.group(0)!;
+    }
+  });
 }

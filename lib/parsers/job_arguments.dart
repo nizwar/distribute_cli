@@ -33,6 +33,7 @@ class Job {
   final String platform;
   final JobMode mode;
   final String packageName;
+  final Map<String, dynamic>? environments;
   final JobArguments arguments;
 
   late Task parent;
@@ -45,6 +46,7 @@ class Job {
     required this.packageName,
     required this.platform,
     required this.mode,
+    this.environments,
   }) {
     arguments.parent = this;
   }
@@ -73,6 +75,7 @@ class Job {
       key: key,
       description: json["description"],
       arguments: task!,
+      environments: json["variables"],
       packageName: packageName,
       platform: platform,
       mode: JobMode.fromString(mode),

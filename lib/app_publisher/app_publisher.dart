@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:distribute_cli/app_publisher/fastlane/fastlane_android_publisher_arguments.dart';
 import 'package:distribute_cli/app_publisher/firebase/firebase_android_publisher_arguments.dart';
 import 'package:distribute_cli/files.dart';
+import 'package:distribute_cli/parsers/config_parser.dart';
 
 import '../logger.dart';
 import '../parsers/job_arguments.dart';
@@ -15,11 +16,14 @@ import 'xcrun/xcrun_ios_publisher_arguments.dart';
 /// The class is generic and takes a type parameter `T` which extends `AppPublisherArgument`.
 /// This allows for different types of arguments to be passed to the publisher.
 class AppPublisher<T extends PublisherArguments> {
+  /// The environments to use for the publisher
+  final Map<String, dynamic> environments;
+
   /// The arguments to pass to the publisher
   final T args;
 
   /// Constructor for the app publisher
-  AppPublisher(this.args);
+  AppPublisher(this.args, this.environments);
 
   /// The uploader command to use
 
@@ -111,12 +115,12 @@ class AppPublisher<T extends PublisherArguments> {
     if (logger.isVerbose) {
       logger.logInfo("Running Publish with configurations:");
       for (var value in rawArguments.keys) {
-        logger.logInfo(" - $value: [${rawArguments[value]}]");
+        logger.logInfo(" - $value: ${rawArguments[value]}");
       }
       logger.logEmpty();
     }
-    onVerbose?.call("Starting upload with `${args.publisher} ${args.results.join(" ")}`");
-    final process = await Process.start(args.publisher, args.results);
+    onVerbose?.call("Starting upload with `${args.publisher} ${substituteVariables(args.results.join(" "), environments)}`");
+    final process = await Process.start(args.publisher, args.results.map((e) => substituteVariables(e, environments)).toList());
     process.stdout.transform(utf8.decoder).listen(onVerbose);
     process.stderr.transform(utf8.decoder).listen(onError);
 
