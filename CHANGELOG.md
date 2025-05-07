@@ -1,3 +1,15 @@
+## 2.0.0
+* Refactor the code
+* Refactor how to use the package
+* Distribute.yaml is now used to configure the package
+* Added support for `${{KEY}}` to reference environment variables or custom variables from `distribution.yaml`
+* Updated `README.md`:
+  - Added detailed explanation for using `${{KEY}}` in `distribution.yaml`
+  - Enhanced examples for `distribution.yaml` with variables and tasks
+  - Improved documentation for commands (`init`, `build`, `publish`, `run`)
+  - Added a section for variable substitution in `distribution.yaml`
+  - Clarified usage of environment variables and custom variables
+
 ## 1.0.4+4
 * Fix Android and iOS build error logs
 

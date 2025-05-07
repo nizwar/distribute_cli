@@ -4,6 +4,37 @@ The **Distribute CLI** is a command-line tool designed to simplify the process o
 
 ---
 
+## What's New in Version 2.0.0?
+
+Version `2.0.0` introduces significant changes and improvements over the `1.x` series. Below are the key differences:
+
+### 1. Refactored Codebase
+- The codebase has been refactored for better maintainability and performance.
+- Improved error handling and logging mechanisms.
+
+### 2. Introduction of `distribution.yaml`
+- The `distribution.yaml` file is now the central configuration file for defining tasks and jobs.
+- Tasks and jobs are structured for better readability and customization.
+- Supports variable substitution using `${{KEY}}` for environment variables or custom variables defined in `distribution.yaml`.
+
+### 3. Enhanced Variable Support
+- Added support for `${{KEY}}` to reference:
+  - **Environment Variables**: Access system environment variables like `PATH` or `HOME`.
+  - **Custom Variables**: Define variables in the `variables` section of `distribution.yaml` for reuse across tasks and jobs.
+
+### 4. Improved Documentation
+- The `README.md` has been updated with:
+  - Detailed explanations for using `${{KEY}}` in `distribution.yaml`.
+  - Enhanced examples for `distribution.yaml` with variables and tasks.
+  - Improved documentation for commands (`init`, `build`, `publish`, `run`).
+  - A section for variable substitution in `distribution.yaml`.
+
+### 5. Simplified Workflow
+- The `init` command now generates a `distribution.yaml` file with pre-configured tasks and jobs for Android and iOS.
+- Streamlined the process for building and publishing apps using the `build`, `publish`, and `run` commands.
+
+---
+
 ## Features
 
 - **Cross-Platform Support**: Build and distribute apps for Android and iOS.
