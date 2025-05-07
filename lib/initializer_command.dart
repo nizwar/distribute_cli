@@ -61,8 +61,9 @@ class InitializerCommand extends Commander {
     }
 
     final yaml = File(configFilePath);
-    if (!yaml.existsSync())
+    if (!yaml.existsSync()) {
       yaml.writeAsString(yamlEncode(structures), flush: true);
+    }
 
     return;
   }
