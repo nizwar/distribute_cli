@@ -1,3 +1,7 @@
+## 2.0.1
+* Add `exportOptionsPlist` and `exportMethod` to iOS build
+* Solving pub.dev scores
+
 ## 2.0.0
 * Refactor the code
 * Refactor how to use the package
