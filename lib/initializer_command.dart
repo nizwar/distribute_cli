@@ -25,7 +25,7 @@ class InitializerCommand extends Commander {
   ArgParser get argParser => ArgParser()
     ..addOption("package-name", abbr: 'p', help: 'Package name for the application.', mandatory: true)
     ..addFlag("skip-tools", abbr: 's', help: 'Skip tool validation.', defaultsTo: false)
-    ..addOption("google-service", abbr: 'g', help: 'Google service for fastlane, if it validated it will be copied to the fastlane directory.');
+    ..addOption("google-service-account", abbr: 'g', help: 'Google service for fastlane, if it validated it will be copied to the fastlane directory.');
 
   @override
   Future? run() async {
@@ -114,7 +114,7 @@ class InitializerCommand extends Commander {
   ///
   /// [initialized] is the map to track initialization status.
   Future<void> _validateFastlaneJson(Map<String, bool> initialized) async {
-    final String? jsonKeyPath = argResults?['google-service'] as String?;
+    final String? jsonKeyPath = argResults?['google-service-account'] as String?;
     await Process.run("fastlane", ['run', 'validate_play_store_json_key', 'json_key:${jsonKeyPath ?? Files.fastlaneJson.path}']).then((value) async {
       if (value.exitCode != 0) {
         initialized["fastlane_json"] = false;
@@ -159,7 +159,7 @@ class InitializerCommand extends Commander {
   Map<String, dynamic> get structures => {
         "name": "Distribution CLI",
         "description": "A CLI tool to build and publish your application.",
-        "operations": [
+        "tasks": [
           Task(
             name: "Android Build and deploy",
             key: "android",

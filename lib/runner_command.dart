@@ -63,17 +63,22 @@ class RunnerCommand extends Commander {
           logger.logEmpty();
           if (value.arguments.jobMode == JobMode.build) {
             await AppBuilder(value.arguments as BuildArguments).build(onError: logger.logErrorVerbose, onVerbose: logger.logDebug).then((value) {
-              if (value == 0) logger.logSuccess("Build completed successfully.");
+              logger.logEmpty();
+              logger.logSuccess("Build completed successfully.");
             }).catchError((error) {
+              logger.logEmpty();
               logger.logError("Build failed with error: $error");
             });
           } else if (value.arguments.jobMode == JobMode.publish) {
             await AppPublisher(value.arguments as PublisherArguments).publish(onError: logger.logErrorVerbose, onVerbose: logger.logDebug).then((value) {
-              if (value == 0) logger.logSuccess("Publish completed successfully.");
+              logger.logEmpty();
+              logger.logSuccess("Publish completed successfully.");
             }).catchError((error) {
+              logger.logEmpty();
               logger.logError("Publish failed with error: $error");
             });
           } else {
+            logger.logEmpty();
             logger.logError('Unknown job mode: ${value.arguments.jobMode}');
           }
         }

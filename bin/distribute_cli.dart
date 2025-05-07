@@ -46,9 +46,8 @@ void main(List<String> args) async {
   runner.addCommand(PublisherCommand());
   runner.addCommand(RunnerCommand());
   runner.run(args).catchError((e, s) {
-    final logger = ColorizeLogger(runner.argParser.parse(args)['verbose'] as bool);
+    final logger = ColorizeLogger(true);
     logger.logError(e.toString());
-    logger.logDebug(s.toString());
     exit(1);
   });
 }
