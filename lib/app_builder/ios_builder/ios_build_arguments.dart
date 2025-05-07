@@ -39,17 +39,28 @@ class IOSBuildArgument extends BuildArguments {
   }
 
   static ArgParser parser = ArgParser()
-    ..addOption('target', abbr: 't', help: 'The main entry-point file of the application, as run on the device.')
-    ..addOption('binary-type', abbr: 'b', help: 'Binary type (ipa, ios)', defaultsTo: 'ipa')
-    ..addOption('build-mode', abbr: 'm', help: 'Build mode (debug, profile, release)', defaultsTo: 'release')
+    ..addOption('target',
+        abbr: 't',
+        help:
+            'The main entry-point file of the application, as run on the device.')
+    ..addOption('binary-type',
+        abbr: 'b', help: 'Binary type (ipa, ios)', defaultsTo: 'ipa')
+    ..addOption('build-mode',
+        abbr: 'm',
+        help: 'Build mode (debug, profile, release)',
+        defaultsTo: 'release')
     ..addOption('flavor', abbr: 'f', help: 'Build flavor')
-    ..addOption('arguments', abbr: 'a', help: 'Custom arguments to pass to the build command')
+    ..addOption('arguments',
+        abbr: 'a', help: 'Custom arguments to pass to the build command')
     ..addOption('dart-defines', abbr: 'd', help: 'Dart defines')
     ..addOption('build-name', abbr: 'n', help: 'Build name')
     ..addOption('build-number', abbr: 'N', help: 'Build number')
-    ..addOption('export-options-plist', help: 'Path to export options plist file')
-    ..addOption('export-method', help: 'Export method (ad-hoc, app-store, enterprise, development)')
-    ..addFlag('pub', abbr: 'p', help: 'Run pub get before building', defaultsTo: true)
+    ..addOption('export-options-plist',
+        help: 'Path to export options plist file')
+    ..addOption('export-method',
+        help: 'Export method (ad-hoc, app-store, enterprise, development)')
+    ..addFlag('pub',
+        abbr: 'p', help: 'Run pub get before building', defaultsTo: true)
     ..addOption('dart-defines-file', help: 'Dart defines file');
 
   factory IOSBuildArgument.fromArgResults(ArgResults results) {
@@ -120,10 +131,11 @@ class IOSBuildArgument extends BuildArguments {
         'pub': pub,
       };
 
-
-  @override 
-  List<String> get results => super.results..addAll([
-        if (exportOptionsPlist != null) '--export-options-plist=$exportOptionsPlist',
-        if (exportMethod != null) '--export-method=$exportMethod',
-      ]);
+  @override
+  List<String> get results => super.results
+    ..addAll([
+      if (exportOptionsPlist != null)
+        '--export-options-plist=$exportOptionsPlist',
+      if (exportMethod != null) '--export-method=$exportMethod',
+    ]);
 }
