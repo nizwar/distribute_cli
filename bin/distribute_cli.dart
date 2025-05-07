@@ -39,6 +39,7 @@ void main(List<String> args) async {
   if (await logs.exists()) {
     await logs.delete(recursive: true).catchError((value) => value);
   }
+
   runner.argParser.addFlag("verbose", abbr: 'v', defaultsTo: false, help: "Enable verbose output.");
   runner.argParser.addOption("config", defaultsTo: "distribution.yaml", help: "Path to the configuration file.");
   runner.addCommand(InitializerCommand());
@@ -47,7 +48,7 @@ void main(List<String> args) async {
   runner.addCommand(RunnerCommand());
   runner.run(args).catchError((e, s) {
     final logger = ColorizeLogger(true);
-    logger.logError(e.toString());
+    logger.logError("${e.toString()}\n${s.toString()}");
     exit(1);
   });
 }

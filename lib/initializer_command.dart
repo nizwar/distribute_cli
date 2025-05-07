@@ -115,8 +115,10 @@ class InitializerCommand extends Commander {
   /// [initialized] is the map to track initialization status.
   Future<void> _validateFastlaneJson(Map<String, bool> initialized) async {
     final String? jsonKeyPath = argResults?['google-service-account'] as String?;
-    await Process.run("fastlane", ['run', 'validate_play_store_json_key', 'json_key:${jsonKeyPath ?? Files.fastlaneJson.path}']).then((value) async {
-      if (value.exitCode != 0) {
+    logger.logDebug("Validating Fastlane JSON key...");
+    await Process.start("fastlane", ['run', 'validate_play_store_json_key', 'json_key:${jsonKeyPath ?? Files.fastlaneJson.path}']).then((value) async {
+      value.stdout.transform(utf8.decoder).listen(logger.logDebug);
+      if (await value.exitCode != 0) {
         initialized["fastlane_json"] = false;
         logger.logError("The Fastlane JSON key is invalid.");
       } else {
@@ -140,6 +142,7 @@ class InitializerCommand extends Commander {
     if (await Files.androidDistributionMetadataDir.exists()) {
       await Files.androidDistributionMetadataDir.delete(recursive: true);
     }
+    logger.logDebug("Downloading Android metadata from Play Store...");
     await Process.start("fastlane", [
       "run",
       "download_from_play_store",
@@ -159,6 +162,12 @@ class InitializerCommand extends Commander {
   Map<String, dynamic> get structures => {
         "name": "Distribution CLI",
         "description": "A CLI tool to build and publish your application.",
+        "variables": {
+          "ANDROID_PACKAGE": argResults!['package-name'] as String,
+          "IOS_PACKAGE": argResults!['package-name'] as String,
+          "APPLE_ID": "your-apple-id",
+          "APPLE_APP_SPECIFIC_PASSWORD": "your-app-specific-password",
+        },
         "tasks": [
           Task(
             name: "Android Build and deploy",
@@ -171,7 +180,7 @@ class InitializerCommand extends Commander {
                 key: "build",
                 platform: "android",
                 mode: JobMode.build,
-                packageName: argResults!['package-name'] as String,
+                packageName: "\${{ANDROID_PACKAGE}}",
                 arguments: AndroidBuildArgument(binaryType: "aab", buildMode: "release"),
               ),
               Job(
@@ -180,7 +189,7 @@ class InitializerCommand extends Commander {
                 key: "publish",
                 platform: "android",
                 mode: JobMode.publish,
-                packageName: argResults!['package-name'] as String,
+                packageName: "\${{ANDROID_PACKAGE}}",
                 arguments: FastlaneAndroidPublisherArguments(
                   filePath: Files.androidDistributionOutputDir.path,
                   metadataPath: Files.androidDistributionMetadataDir.path,
@@ -204,7 +213,7 @@ class InitializerCommand extends Commander {
                 key: "build",
                 platform: "ios",
                 mode: JobMode.build,
-                packageName: argResults!['package-name'] as String,
+                packageName: "\${{IOS_PACKAGE}}",
                 arguments: IOSBuildArgument(binaryType: "ipa", buildMode: "release"),
               ),
               Job(
@@ -213,11 +222,11 @@ class InitializerCommand extends Commander {
                 key: "publish",
                 platform: "ios",
                 mode: JobMode.publish,
-                packageName: argResults!['package-name'] as String,
+                packageName: "\${{IOS_PACKAGE}}",
                 arguments: XcrunIosPublisherArguments(
                   filePath: Files.iosDistributionOutputDir.path,
-                  username: "YOUR_APPLE_ID",
-                  password: "YOUR_APP_SPECIFIC_PASSWORD",
+                  username: "\${{APPLE_ID}}",
+                  password: "\${{APPLE_APP_SPECIFIC_PASSWORD}}",
                 ),
               ),
             ],
