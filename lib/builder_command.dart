@@ -1,6 +1,6 @@
-import 'package:distribute_cli/app_builder/android_builder/android_build_command.dart';
-import 'package:distribute_cli/app_builder/custom_builder/custom_build_command.dart';
-import 'package:distribute_cli/app_builder/ios_builder/ios_build_command.dart';
+import 'package:distribute_cli/app_builder/android/command.dart' as android_command;
+import 'package:distribute_cli/app_builder/custom/command.dart' as custom_command;
+import 'package:distribute_cli/app_builder/ios/command.dart' as ios_command;
 import 'package:distribute_cli/command.dart';
 
 /// A command to build the application using the selected platform or custom configuration.
@@ -9,14 +9,13 @@ import 'package:distribute_cli/command.dart';
 /// for Android, iOS, or using a custom configuration.
 class BuilderCommand extends Commander {
   BuilderCommand() {
-    addSubcommand(AndroidBuildCommand());
-    addSubcommand(IOSBuildCommand());
-    addSubcommand(CustomBuildCommand());
+    addSubcommand(android_command.Command());
+    addSubcommand(ios_command.Command());
+    addSubcommand(custom_command.Command());
   }
 
   @override
-  String get description =>
-      "Build the application using the selected platform or custom configuration.";
+  String get description => "Build the application using the selected platform or custom configuration.";
 
   @override
   String get name => "build";

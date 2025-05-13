@@ -1,3 +1,11 @@
+## 2.1.0
+* Add output on build and publish
+* Output on job's arguments
+* Once build finished or publish started, binary will be copyed to the output provided
+* Add `Builder.generate-debug-symbols` and `Publisher.fastlane.upload-debug-symbols` for Android
+* Change `distribution.yaml` patterns
+* Add workflows on `Task` to sort the jobs
+
 ## 2.0.1
 * Add `exportOptionsPlist` and `exportMethod` to iOS build
 * Solving pub.dev scores

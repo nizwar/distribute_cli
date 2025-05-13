@@ -32,35 +32,24 @@ class ColorizeLogger {
     if ((isVerbose || color != LogLevel.debug) && message.trim().isNotEmpty) {
       stdout.writeln('${color.color}$message$_reset');
     }
-    File("distribution.log")
-        .writeAsStringSync("$message\n", mode: FileMode.append);
+    File("distribution.log").writeAsStringSync("$message\n", mode: FileMode.append);
   }
 
   /// Logs an error message in red.
-  void logError(String message) =>
-      log("[ERROR] $message", color: LogLevel.error);
-  void logErrorVerbose(String message) {
-    if (isVerbose) {
-      stdout.writeln('${LogLevel.error.color}$message$_reset');
-    }
-    File("distribution.log")
-        .writeAsStringSync("$message\n", mode: FileMode.append);
-  }
+  void logError(String message) => log("[ERROR] $message", color: LogLevel.error);
+  void logErrorVerbose(String message) => log("[ERROR] $message", color: LogLevel.errorVerbose);
 
   /// Logs a warning message in yellow.
-  void logWarning(String message) =>
-      log("[WARNING] $message", color: LogLevel.warning);
+  void logWarning(String message) => log("[WARNING] $message", color: LogLevel.warning);
 
   /// Logs a success message in green.
-  void logSuccess(String message) =>
-      log("[SUCCESS] $message", color: LogLevel.success);
+  void logSuccess(String message) => log("[SUCCESS] $message", color: LogLevel.success);
 
   /// Logs an informational message in green.
   void logInfo(String message) => log("[INFO] $message", color: LogLevel.info);
 
   /// Logs a debug message in the default terminal color.
-  void logDebug(String message) =>
-      log("[VERBOSE] $message", color: LogLevel.debug);
+  void logDebug(String message) => log("[VERBOSE] $message", color: LogLevel.debug);
 
   void logEmpty() {
     stdout.writeln('');
@@ -86,7 +75,10 @@ enum LogLevel {
   debug('\x1B[0m'),
 
   /// Error log level with red color.
-  error('\x1B[31m');
+  error('\x1B[31m'),
+
+  /// Error log level with red color.
+  errorVerbose('\x1B[31m');
 
   /// The ANSI color code for the log level.
   final String color;

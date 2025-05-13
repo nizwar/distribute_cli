@@ -13,6 +13,7 @@ class Task {
 
   /// The description of the task (optional).
   final String? description;
+  final List<String>? workflows;
 
   /// The list of jobs associated with the task.
   final List<Job> jobs;
@@ -26,6 +27,7 @@ class Task {
   Task({
     required this.name,
     required this.jobs,
+    this.workflows,
     this.key,
     this.description,
   });
@@ -34,6 +36,7 @@ class Task {
   Map<String, dynamic> toJson() => {
         "name": name,
         "key": key,
+        if (workflows != null) "workflows": workflows,
         "description": description,
         "jobs": jobs.map((job) => job.toJson()).toList(),
       };

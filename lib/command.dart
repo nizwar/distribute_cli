@@ -7,6 +7,8 @@ import 'package:distribute_cli/logger.dart';
 /// and provides a logger instance for logging messages.
 abstract class Commander extends Command {
   /// The logger instance for logging messages.
-  ColorizeLogger get logger =>
-      ColorizeLogger(globalResults?['verbose'] ?? false);
+  ColorizeLogger get logger => ColorizeLogger(globalResults?['verbose'] ?? false);
+
+  void onVerbose(String message) => logger.logDebug(message);
+  void onError(String message) => logger.logError(message);
 }
