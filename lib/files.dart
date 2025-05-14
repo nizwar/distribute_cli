@@ -2,15 +2,15 @@ import 'dart:io';
 
 /// A utility class for managing file and directory paths used in the distribution process.
 ///
-/// The `Files` class provides static references to commonly used files and directories,
+/// The [Files] class provides static references to commonly used files and directories,
 /// such as Android and iOS distribution directories, changelogs, and metadata paths.
-///
-/// Example usage:
-/// ```
-/// final changelogFile = Files.androidChangeLogs;
-/// final outputDir = Files.androidDistributionOutputDir;
-/// ```
+/// This class cannot be instantiated.
 class Files {
+  /// Private constructor to prevent instantiation.
+  ///
+  /// The [Files] class is intended to be used only with its static members.
+  Files._();
+
   /// The file containing Android changelogs.
   static final File androidChangeLogs =
       File("distribution/android/output/changelogs.log");
@@ -31,12 +31,23 @@ class Files {
       Directory("build/app/outputs/flutter-apk");
 
   /// The output directory for Android distribution files.
-  static Directory get androidDistributionOutputDir =>
+  static final Directory androidDistributionOutputDir =
       Directory("${androidDistributionDir.path}/output");
 
   /// The metadata directory for Android distribution files.
-  static Directory get androidDistributionMetadataDir =>
+  static final Directory androidDistributionMetadataDir =
       Directory("${androidDistributionDir.path}/metadata");
+
+  /// The root directory for custom distribution files.
+  static final Directory customDir = Directory("distribution/custom");
+
+  /// The metadata directory for custom distribution files.
+  static final Directory customOutputMetadataDir =
+      Directory("${customDir.path}/metadata");
+
+  /// The output directory for custom distribution files.
+  static final Directory customOutputDir =
+      Directory("${customDir.path}/output");
 
   /// The root directory for iOS distribution files.
   static final Directory iosDistributionDir = Directory("distribution/ios");
@@ -45,10 +56,51 @@ class Files {
   static final Directory iosOutputIPA = Directory("build/ios/ipa");
 
   /// The output directory for iOS distribution files.
-  static Directory get iosDistributionOutputDir =>
+  static final Directory iosDistributionOutputDir =
       Directory("${iosDistributionDir.path}/output");
 
   /// The metadata directory for iOS distribution files.
-  static Directory get iosDistributionMetadataDir =>
+  static final Directory iosDistributionMetadataDir =
       Directory("${iosDistributionDir.path}/metadata");
+
+  /// Copies files from [source] to [target] directory.
+  ///
+  /// Optionally filters files by [fileType] and [mode].
+  /// Returns the path of the first copied file, or throws if no files are found.
+  static Future<String?> copyFiles(String source, String target,
+      {List<String> fileType = const [], String mode = "release"}) async {
+    final sourceDir = Directory(source);
+    final files = await sourceDir.list().toList();
+    final targetDir = Directory(target);
+    if (!targetDir.existsSync()) {
+      await targetDir.create(recursive: true);
+    }
+    final output = <String>[];
+    if (files.isEmpty) {
+      throw Exception("No files found in ${sourceDir.path}");
+    }
+    for (var item in files) {
+      if (item is Directory) {
+        final copiedFiles =
+            await copyFiles(item.path, target, fileType: fileType);
+        if (copiedFiles != null) output.add(copiedFiles);
+      } else {
+        if (fileType.isEmpty) {
+          if (item is File) {
+            output.add("$target/${item.path.split("/").last}");
+            await item.copy("$target/${item.path.split("/").last}");
+          }
+        } else if (item is File &&
+            fileType.contains(item.path.split(".").last)) {
+          output.add("$target/${item.path.split("/").last}");
+          await item.copy("$target/${item.path.split("/").last}");
+        }
+      }
+    }
+    if (output.isEmpty) {
+      throw Exception(
+          "Does not contain any files with the specified type: $fileType");
+    }
+    return output.first;
+  }
 }

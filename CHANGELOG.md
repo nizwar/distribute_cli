@@ -1,3 +1,32 @@
+## 2.1.0
+* Add output on build and publish
+* Output on job's arguments
+* Once build finished or publish started, binary will be copyed to the output provided
+* Add `Builder.generate-debug-symbols` and `Publisher.fastlane.upload-debug-symbols` for Android
+* Change `distribution.yaml` patterns
+* Add `workflows` on `Task` to sort the jobs
+* Add Github as a publisher
+* Change publisher subcommand to directly use the publisher name
+* Add `create` command to create a new task or job on distirbution.yaml
+* Update documentation
+* Update examples
+
+## 2.0.1
+* Add `exportOptionsPlist` and `exportMethod` to iOS build
+* Solving pub.dev scores
+
+## 2.0.0
+* Refactor the code
+* Refactor how to use the package
+* Distribute.yaml is now used to configure the package
+* Added support for `${{KEY}}` to reference environment variables or custom variables from `distribution.yaml`
+* Updated `README.md`:
+  - Added detailed explanation for using `${{KEY}}` in `distribution.yaml`
+  - Enhanced examples for `distribution.yaml` with variables and tasks
+  - Improved documentation for commands (`init`, `build`, `publish`, `run`)
+  - Added a section for variable substitution in `distribution.yaml`
+  - Clarified usage of environment variables and custom variables
+
 ## 1.0.4+4
 * Fix Android and iOS build error logs
 

@@ -1,6 +1,6 @@
 name: distribute_cli
 description: "Quick way to distribute your app to playstore and appstore"
-version: 1.0.4+4
+version: 2.0.1
 homepage: https://github.com/nizwar/distribute_cli.git
 
 environment:
@@ -9,8 +9,11 @@ environment:
 
 dependencies:
   args: ^2.7.0
+  dio: ^5.8.0+1
   flutter:
     sdk: flutter
+  yaml: ^3.1.3
+  yaml_codec: ^1.0.0
 
 dev_dependencies:
   flutter_lints: ^5.0.0
