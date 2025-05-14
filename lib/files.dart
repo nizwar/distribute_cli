@@ -88,11 +88,17 @@ class Files {
         if (fileType.isEmpty) {
           if (item is File) {
             output.add("$target/${item.path.split("/").last}");
+            if (File("$target/${item.path.split("/").last}").existsSync()) {
+              await File("$target/${item.path.split("/").last}").delete();
+            }
             await item.copy("$target/${item.path.split("/").last}");
           }
         } else if (item is File &&
             fileType.contains(item.path.split(".").last)) {
           output.add("$target/${item.path.split("/").last}");
+          if(File("$target/${item.path.split("/").last}").existsSync()) {
+            await File("$target/${item.path.split("/").last}").delete();
+          }
           await item.copy("$target/${item.path.split("/").last}");
         }
       }
