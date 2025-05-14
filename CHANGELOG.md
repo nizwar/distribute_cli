@@ -1,3 +1,7 @@
+## 2.1.1
+* Fix `distribute run -o` not working on specific jobs
+* Fix wrong output for ios built
+
 ## 2.1.0
 * Add output on build and publish
 * Output on job's arguments

@@ -143,8 +143,8 @@ class RunnerCommand extends Commander {
         final key = operationKey.split('.');
         configParser.tasks.removeWhere((task) => task.key != key[0]);
         if (key.isNotEmpty) {
-          for (var i = 0; i < configParser.tasks.length; i++) {
-            configParser.tasks.removeWhere((task) => task.key != key[1]);
+          for (var task in configParser.tasks) {
+            task.jobs.removeWhere((job) => job.key != key[1]);
           }
           if (configParser.tasks.every((task) => task.jobs.isEmpty)) {
             logger.logError(

@@ -29,7 +29,7 @@ class Arguments extends BuildArguments {
     super.pub,
     this.exportOptionsPlist,
     this.exportMethod,
-  }) : super(buildSourceDir: Files.iosDistributionOutputDir.path);
+  }) : super(buildSourceDir: Files.iosOutputIPA.path);
 
   /// Returns a copy of this [Arguments] with updated values from [data].
   Arguments copyWith(Arguments? data) {
