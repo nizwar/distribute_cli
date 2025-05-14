@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:distribute_cli/parsers/task_arguments.dart';
+
 import 'package:yaml/yaml.dart';
+
 import 'job_arguments.dart';
+import 'task_arguments.dart';
 
 /// A parser for configuration files used in the distribution process.
 ///

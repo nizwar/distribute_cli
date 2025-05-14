@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:distribute_cli/app_builder/ios/arguments.dart';
+import 'arguments.dart';
 
 import '../../command.dart';
 

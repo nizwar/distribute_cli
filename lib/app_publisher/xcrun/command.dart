@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:args/args.dart';
-import 'package:distribute_cli/command.dart';
+import '../../command.dart';
 import 'arguments.dart' as xcrun;
 
 /// Command to publish an iOS application using the XCrun tool.

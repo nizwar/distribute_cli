@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:dio/dio.dart';
-import 'package:distribute_cli/app_publisher/publisher_arguments.dart';
-import 'package:distribute_cli/parsers/config_parser.dart';
+import '../publisher_arguments.dart';
+import '../../parsers/config_parser.dart';
 
 import '../../files.dart';
 import '../../logger.dart';

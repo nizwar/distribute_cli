@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:distribute_cli/logger.dart';
+import '../logger.dart';
 
 import '../files.dart';
 import '../parsers/config_parser.dart';

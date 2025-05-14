@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:distribute_cli/logger.dart';
-import 'package:distribute_cli/parsers/config_parser.dart';
+import 'logger.dart';
+import 'parsers/config_parser.dart';
 
 import 'command.dart';
 import 'parsers/job_arguments.dart';

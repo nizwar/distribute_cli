@@ -1,5 +1,5 @@
 import 'package:args/command_runner.dart';
-import 'package:distribute_cli/logger.dart';
+import 'logger.dart';
 
 /// An abstract base class for CLI commands.
 ///
