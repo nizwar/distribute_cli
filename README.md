@@ -1,4 +1,4 @@
-# Distribute CLI v2.0.0
+# Distribute CLI v2.1.0
 
 Distribute CLI is a command-line tool to automate building and distributing Flutter applications for Android and iOS. It provides a unified workflow for building, publishing, and managing app distribution with a single YAML configuration file.
 
