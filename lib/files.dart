@@ -96,7 +96,7 @@ class Files {
         } else if (item is File &&
             fileType.contains(item.path.split(".").last)) {
           output.add("$target/${item.path.split("/").last}");
-          if(File("$target/${item.path.split("/").last}").existsSync()) {
+          if (File("$target/${item.path.split("/").last}").existsSync()) {
             await File("$target/${item.path.split("/").last}").delete();
           }
           await item.copy("$target/${item.path.split("/").last}");

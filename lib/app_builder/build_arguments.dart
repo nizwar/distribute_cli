@@ -202,7 +202,7 @@ abstract class BuildArguments extends JobArguments {
       final zipFile = File("${outputDir.path}/debug_symbols.zip");
       onVerbose?.call("Debug symbols generated successfully");
       try {
-        if(File("$output/debug_symbols.zip").existsSync()) {
+        if (File("$output/debug_symbols.zip").existsSync()) {
           await File("$output/debug_symbols.zip").delete();
         }
         await zipFile.copy("$output/debug_symbols.zip");

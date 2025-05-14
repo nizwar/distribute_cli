@@ -158,7 +158,7 @@ class InitializerCommand extends Commander {
         initialized["fastlane_json"] = true;
         logger.logSuccess('The Fastlane JSON key is valid.');
         if (jsonKeyPath != null) {
-          if(await Files.fastlaneJson.exists()) {
+          if (await Files.fastlaneJson.exists()) {
             await Files.fastlaneJson.delete();
           }
           await File(jsonKeyPath).copy(Files.fastlaneJson.path).then((_) {
