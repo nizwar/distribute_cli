@@ -4,7 +4,12 @@
 * Once build finished or publish started, binary will be copyed to the output provided
 * Add `Builder.generate-debug-symbols` and `Publisher.fastlane.upload-debug-symbols` for Android
 * Change `distribution.yaml` patterns
-* Add workflows on `Task` to sort the jobs
+* Add `workflows` on `Task` to sort the jobs
+* Add Github as a publisher
+* Change publisher subcommand to directly use the publisher name
+* Add `create` command to create a new task or job on distirbution.yaml
+* Update documentation
+* Update examples
 
 ## 2.0.1
 * Add `exportOptionsPlist` and `exportMethod` to iOS build

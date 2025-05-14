@@ -4,8 +4,8 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:distribute_cli/app_builder/android/arguments.dart' as android_arguments;
-import 'package:distribute_cli/app_publisher/fastlane/android/arguments.dart' as fastlane_publisher;
-import 'package:distribute_cli/app_publisher/xcrun/ios/arguments.dart' as xcrun_publisher;
+import 'package:distribute_cli/app_publisher/fastlane/arguments.dart' as fastlane_publisher;
+import 'package:distribute_cli/app_publisher/xcrun/arguments.dart' as xcrun_publisher;
 import 'package:distribute_cli/files.dart';
 import 'package:distribute_cli/parsers/job_arguments.dart';
 import 'package:distribute_cli/parsers/task_arguments.dart';
@@ -14,19 +14,29 @@ import 'package:yaml_codec/yaml_codec.dart';
 import 'app_builder/ios/arguments.dart' as ios_arguments;
 import 'command.dart';
 
+/// Command to initialize the project with configuration files and directories.
+///
+/// The [InitializerCommand] class sets up the necessary files and directories
+/// for the distribution process, validates required tools, and prepares the environment.
 class InitializerCommand extends Commander {
+  /// The description of the command.
   @override
   String get description => "Initialize the project with the necessary configuration files and directories.";
 
+  /// The name of the command.
   @override
   String get name => "init";
 
+  /// Argument parser for the command.
   @override
   ArgParser get argParser => ArgParser()
     ..addOption("package-name", abbr: 'p', help: 'Package name for the application.', mandatory: true)
     ..addFlag("skip-tools", abbr: 's', help: 'Skip tool validation.', defaultsTo: false)
     ..addOption("google-service-account", abbr: 'g', help: 'Google service for fastlane, if it validated it will be copied to the fastlane directory.');
 
+  /// Executes the command to initialize the project.
+  ///
+  /// Sets up directories, validates tools, and prepares configuration files.
   @override
   Future? run() async {
     final initialized = <String, bool>{};
@@ -40,7 +50,6 @@ class InitializerCommand extends Commander {
     }
 
     if (!(argResults!['skip-tools'] as bool)) {
-      await _checkTool("git", "Git", initialized, args: ["help"]);
       await _checkTool("firebase", "Firebase", initialized);
       await _checkTool("fastlane", "Fastlane", initialized, args: ['actions']);
 
@@ -195,6 +204,7 @@ class InitializerCommand extends Commander {
                     metadataPath: Files.androidDistributionMetadataDir.path,
                     jsonKey: Files.fastlaneJson.path,
                     track: 'internal',
+                    trackPromoteTo: 'production',
                     binaryType: 'aab',
                     skipUploadImages: true,
                     skipUploadScreenshots: true,

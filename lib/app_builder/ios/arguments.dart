@@ -1,12 +1,19 @@
 import 'package:args/args.dart';
 
 import '../../files.dart';
-import '../../parsers/job_arguments.dart';
 import '../build_arguments.dart';
 
+/// Arguments for building an iOS application.
+///
+/// This class extends [BuildArguments] and provides options specific to iOS builds,
+/// such as export options and export method.
 class Arguments extends BuildArguments {
+  /// Path to the export options plist file.
   final String? exportOptionsPlist;
+  /// The export method for the build (e.g., app-store, ad-hoc).
   final String? exportMethod;
+
+  /// Creates a new [Arguments] instance for iOS builds.
   Arguments({
     super.buildMode,
     required super.binaryType,
@@ -23,6 +30,7 @@ class Arguments extends BuildArguments {
     this.exportMethod,
   }) : super(buildSourceDir: Files.iosDistributionOutputDir.path);
 
+  /// Returns a copy of this [Arguments] with updated values from [data].
   Arguments copyWith(Arguments? data) {
     return Arguments(
       buildMode: data?.buildMode ?? buildMode,
@@ -41,6 +49,7 @@ class Arguments extends BuildArguments {
     );
   }
 
+  /// Argument parser for iOS build arguments.
   static ArgParser parser = ArgParser()
     ..addOption('target', abbr: 't', help: 'The main entry-point file of the application, as run on the device.')
     ..addOption('binary-type', abbr: 'b', help: 'Binary type (ipa, ios)', defaultsTo: 'ipa')
@@ -56,6 +65,7 @@ class Arguments extends BuildArguments {
     ..addOption("output", abbr: 'o', help: 'Output path for the build', defaultsTo: Files.iosDistributionOutputDir.path)
     ..addOption('dart-defines-file', help: 'Dart defines file');
 
+  /// Creates a new [Arguments] instance from the given [results].
   factory Arguments.fromArgResults(ArgResults results) {
     return Arguments(
       buildMode: results['build-mode'] as String?,
@@ -74,6 +84,7 @@ class Arguments extends BuildArguments {
     );
   }
 
+  /// Creates a new [Arguments] instance from the given [json] map.
   factory Arguments.fromJson(Map<String, dynamic> json) {
     return Arguments(
       output: json['output'] as String? ?? Files.iosDistributionOutputDir.path,
@@ -92,7 +103,8 @@ class Arguments extends BuildArguments {
     );
   }
 
-  static JobArguments defaultConfigs() => Arguments(
+  /// Returns the default configuration for iOS build arguments.
+  static Arguments defaultConfigs() => Arguments(
         binaryType: 'ipa',
         buildMode: 'release',
         target: null,

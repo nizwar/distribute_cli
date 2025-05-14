@@ -3,7 +3,11 @@ import 'package:args/args.dart';
 import '../../files.dart';
 import '../build_arguments.dart';
 
+/// Arguments for custom build process.
+///
+/// This class extends [BuildArguments] and provides options for custom builds.
 class Arguments extends BuildArguments {
+  /// Creates a new [Arguments] instance for custom builds.
   Arguments({
     super.buildMode,
     required super.binaryType,
@@ -19,6 +23,7 @@ class Arguments extends BuildArguments {
     super.customArgs,
   });
 
+  /// Returns a copy of this [Arguments] with updated values from [data].
   BuildArguments copyWith(Arguments? data) {
     return Arguments(
       buildMode: data?.buildMode ?? buildMode,
@@ -36,6 +41,7 @@ class Arguments extends BuildArguments {
     );
   }
 
+  /// Argument parser for custom build arguments.
   static ArgParser parser = ArgParser()
     ..addOption('target', abbr: 't', help: 'The main entry-point file of the application, as run on the device.')
     ..addOption('binary-type', abbr: 'b', help: 'Binary type (apk, aab, ipa, ios, macos, etc)', defaultsTo: 'apk')
@@ -49,6 +55,7 @@ class Arguments extends BuildArguments {
     ..addFlag('pub', abbr: 'p', help: 'Run pub get before building', defaultsTo: true)
     ..addOption('dart-defines-file', help: 'Dart defines file');
 
+  /// Creates a new [Arguments] instance from [ArgResults].
   factory Arguments.fromArgResults(ArgResults results) {
     return Arguments(
       binaryType: results['binary-type'] as String,
@@ -66,6 +73,7 @@ class Arguments extends BuildArguments {
     );
   }
 
+  /// Creates a new [Arguments] instance from a JSON object.
   factory Arguments.fromJson(Map<String, dynamic> json) {
     return Arguments(
       binaryType: json['binary-type'] as String,

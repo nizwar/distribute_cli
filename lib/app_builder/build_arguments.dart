@@ -9,15 +9,16 @@ import '../parsers/config_parser.dart';
 import '../parsers/job_arguments.dart';
 import 'ios/arguments.dart' as ios_arguments;
 
-/// Abstract class representing build arguments.
+/// Abstract class representing build arguments for the build process.
 ///
-/// The `BuildArguments` class defines the structure for arguments
+/// The [BuildArguments] class defines the structure for arguments
 /// used in the build process, such as binary type, build mode, and
 /// additional custom arguments.
 abstract class BuildArguments extends JobArguments {
   /// The type of binary to build (e.g., apk, aab).
   final String binaryType;
 
+  /// The output path for the build (optional).
   String? output;
 
   /// The target file to build (optional).
@@ -47,6 +48,7 @@ abstract class BuildArguments extends JobArguments {
   /// Additional custom arguments for the build process (optional).
   final List<String>? customArgs;
 
+  /// The source directory for the build.
   final String buildSourceDir;
 
   late BuilderJob parent;

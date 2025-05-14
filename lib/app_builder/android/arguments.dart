@@ -1,23 +1,30 @@
 import 'package:args/args.dart';
 
 import '../../files.dart';
-import '../../parsers/job_arguments.dart';
 import '../build_arguments.dart';
 
-/// Represents the arguments required to build an Android application.
+/// Arguments required to build an Android application.
 ///
 /// This class extends [BuildArguments] and includes additional options
-/// specific to Android builds, such as splitting APKs by ABI.
+/// specific to Android builds, such as splitting APKs by ABI and debug symbols.
 class Arguments extends BuildArguments {
-  /// Whether to split APKs by ABI.
-  ///
-  /// This option is only valid when the `binaryType` is set to `apk`.
+  /// Whether to split APKs by ABI. Only valid when `binaryType` is `apk`.
   final bool splitPerAbi;
+  /// Whether to generate debug symbols.
   final bool generateDebugSymbols;
+  final bool? configOnly;
+  final bool? trackWidgetCreation;
+  final bool? androidSkipBuildDependencyValidation;
+  final bool? analyzeSize;
+  final bool? ignoreDeprecation;
+  final bool? obfuscate;
+  final String? targetPlatform;
+  final String? androidProjectArg;
+  final String? codeSizeDirectory;
+  final String? splitDebugInfo;
 
-  /// Creates an instance of [Arguments].
+  /// Creates an instance of [Arguments] for Android builds.
   ///
-  /// [splitPerAbi] - Whether to split APKs by ABI.
   /// Throws an [ArgumentError] if `binaryType` is not `apk` and `splitPerAbi` is true.
   Arguments({
     super.buildMode,
@@ -33,6 +40,16 @@ class Arguments extends BuildArguments {
     super.output,
     this.splitPerAbi = false,
     this.generateDebugSymbols = true,
+    this.configOnly,
+    this.trackWidgetCreation,
+    this.androidSkipBuildDependencyValidation,
+    this.analyzeSize,
+    this.ignoreDeprecation,
+    this.obfuscate,
+    this.targetPlatform,
+    this.androidProjectArg,
+    this.codeSizeDirectory,
+    this.splitDebugInfo,
   }) : super(buildSourceDir: binaryType == "apk" ? Files.androidOutputApks.path : Files.androidOutputAppbundles.path) {
     if (binaryType != 'apk' && splitPerAbi) {
       throw ArgumentError('binaryType must be "apk" to use splitPerAbi');
@@ -43,7 +60,25 @@ class Arguments extends BuildArguments {
   ///
   /// Includes the `--split-per-abi` flag if `splitPerAbi` is true and `binaryType` is `apk`.
   @override
-  List<String> get results => super.results..addAll([if (splitPerAbi && binaryType == 'apk') '--split-per-abi']);
+  List<String> get results => super.results
+    ..addAll([
+      if (splitPerAbi && binaryType == 'apk') '--split-per-abi',
+      if (configOnly == true) '--config-only',
+      if (trackWidgetCreation != null)
+        if (trackWidgetCreation == true) '--track-widget-creation' else '--no-track-widget-creation',
+      if (androidSkipBuildDependencyValidation != null)
+        if (androidSkipBuildDependencyValidation == true) '--android-skip-build-dependency-validation' else '--no-android-skip-build-dependency-validation',
+      if (analyzeSize != null)
+        if (analyzeSize == true) '--analyze-size' else '--no-analyze-size',
+      if (ignoreDeprecation != null)
+        if (ignoreDeprecation == true) '--ignore-deprecation',
+      if (obfuscate != null)
+        if (obfuscate == true) '--obfuscate' else '--no-obfuscate',
+      if (targetPlatform != null) '--target-platform=$targetPlatform',
+      if (androidProjectArg != null) '--android-project-arg=$androidProjectArg',
+      if (codeSizeDirectory != null) '--code-size-directory=$codeSizeDirectory',
+      if (splitDebugInfo != null) '--split-debug-info=$splitDebugInfo',
+    ]);
 
   /// Creates a copy of this [Arguments] with updated values.
   ///
@@ -63,6 +98,16 @@ class Arguments extends BuildArguments {
       pub: data?.pub ?? pub,
       output: data?.output ?? output,
       generateDebugSymbols: data?.generateDebugSymbols ?? generateDebugSymbols,
+      configOnly: data?.configOnly ?? configOnly,
+      trackWidgetCreation: data?.trackWidgetCreation ?? trackWidgetCreation,
+      androidSkipBuildDependencyValidation: data?.androidSkipBuildDependencyValidation ?? androidSkipBuildDependencyValidation,
+      analyzeSize: data?.analyzeSize ?? analyzeSize,
+      ignoreDeprecation: data?.ignoreDeprecation ?? ignoreDeprecation,
+      obfuscate: data?.obfuscate ?? obfuscate,
+      targetPlatform: data?.targetPlatform ?? targetPlatform,
+      androidProjectArg: data?.androidProjectArg ?? androidProjectArg,
+      codeSizeDirectory: data?.codeSizeDirectory ?? codeSizeDirectory,
+      splitDebugInfo: data?.splitDebugInfo ?? splitDebugInfo,
     );
   }
 
@@ -81,13 +126,23 @@ class Arguments extends BuildArguments {
     ..addOption('build-name', abbr: 'n', help: 'Build name')
     ..addOption('build-number', abbr: 'N', help: 'Build number')
     ..addOption('output', abbr: 'o', help: 'Output path for the build', defaultsTo: Files.androidDistributionOutputDir.path)
+    ..addOption('dart-defines-file', help: 'Dart defines file')
     ..addFlag('pub', abbr: 'p', help: 'Run pub get before building', defaultsTo: true)
-    ..addOption('dart-defines-file', help: 'Dart defines file');
+    ..addFlag('config-only', help: 'Only generate the configuration file', defaultsTo: false)
+    ..addFlag('track-widget-creation', help: 'Track widget creation', defaultsTo: false)
+    ..addFlag('android-skip-build-dependency-validation', help: 'Skip build dependency validation', defaultsTo: false)
+    ..addFlag('analyze-size', help: 'Analyze size', defaultsTo: false)
+    ..addFlag('ignore-deprecation', help: 'Ignore deprecation warnings', defaultsTo: false)
+    ..addFlag('obfuscate', help: 'Obfuscate the code', defaultsTo: false)
+    ..addOption('target-platform', help: 'Target platform (android-arm, android-arm64, android-x64)', defaultsTo: 'android-arm')
+    ..addOption('android-project-arg', help: 'Android project argument')
+    ..addOption('code-size-directory', help: 'Code size directory')
+    ..addOption('split-debug-info', help: 'Split debug info');
 
   /// Returns the default configuration for Android builds.
   ///
   /// This includes default values for all required arguments.
-  static JobArguments defaultConfigs() => Arguments(
+  factory Arguments.defaultConfigs() => Arguments(
         binaryType: 'apk',
         splitPerAbi: false,
         buildMode: 'release',
@@ -121,6 +176,16 @@ class Arguments extends BuildArguments {
       dartDefinesFile: results['dart-defines-file'] as String?,
       customArgs: results['arguments']?.split(' ') as List<String>?,
       generateDebugSymbols: results['generate-debug-symbols'] as bool? ?? true,
+      configOnly: results['config-only'] as bool? ?? false,
+      trackWidgetCreation: results['track-widget-creation'] as bool? ?? false,
+      androidSkipBuildDependencyValidation: results['android-skip-build-dependency-validation'] as bool? ?? false,
+      analyzeSize: results['analyze-size'] as bool? ?? false,
+      ignoreDeprecation: results['ignore-deprecation'] as bool? ?? false,
+      obfuscate: results['obfuscate'] as bool? ?? false,
+      targetPlatform: results['target-platform'] as String?,
+      androidProjectArg: results['android-project-arg'] as String?,
+      codeSizeDirectory: results['code-size-directory'] as String?,
+      splitDebugInfo: results['split-debug-info'] as String?,
     );
   }
 
@@ -142,6 +207,16 @@ class Arguments extends BuildArguments {
       dartDefinesFile: json['dart-defines-file'] as String?,
       customArgs: (json['arguments'] as List<dynamic>?)?.cast<String>(),
       generateDebugSymbols: json['generate-debug-symbols'] as bool? ?? true,
+      configOnly: json['config-only'] as bool?,
+      trackWidgetCreation: json['track-widget-creation'] as bool?,
+      androidSkipBuildDependencyValidation: json['android-skip-build-dependency-validation'] as bool?,
+      analyzeSize: json['analyze-size'] as bool?,
+      ignoreDeprecation: json['ignore-deprecation'] as bool?,
+      obfuscate: json['obfuscate'] as bool?,
+      targetPlatform: json['target-platform'] as String?,
+      androidProjectArg: json['android-project-arg'] as String?,
+      codeSizeDirectory: json['code-size-directory'] as String?,
+      splitDebugInfo: json['split-debug-info'] as String?,
     );
   }
 
@@ -161,5 +236,15 @@ class Arguments extends BuildArguments {
         'arguments': customArgs,
         'output': output,
         'generate-debug-symbols': generateDebugSymbols,
+        'config-only': configOnly,
+        'track-widget-creation': trackWidgetCreation,
+        'android-skip-build-dependency-validation': androidSkipBuildDependencyValidation,
+        'analyze-size': analyzeSize,
+        'ignore-deprecation': ignoreDeprecation,
+        'obfuscate': obfuscate,
+        'target-platform': targetPlatform,
+        'android-project-arg': androidProjectArg,
+        'code-size-directory': codeSizeDirectory,
+        'split-debug-info': splitDebugInfo,
       };
 }

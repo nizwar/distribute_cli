@@ -7,27 +7,33 @@ import '../files.dart';
 import '../parsers/config_parser.dart';
 import '../parsers/job_arguments.dart';
 
-/// Base class for all app publisher arguments
+/// Base class for all app publisher arguments.
+///
+/// The [PublisherArguments] class defines the structure for arguments used by app publishers,
+/// such as file path, binary type, and publisher name.
 abstract class PublisherArguments extends JobArguments {
+  /// The publisher name (e.g., fastlane, firebase, github, xcrun).
   final String publisher;
 
-  /// The path to the file to upload
+  /// The path to the file to upload.
   String filePath;
 
-  /// The binary type of the application to use. Valid values are apk, aab.
+  /// The binary type of the application to use. Valid values are apk, aab, ipa.
   final String binaryType;
 
+  /// Reference to the parent publisher job.
   late PublisherJob parent;
 
-  /// Constructor for the app publisher argument
+  /// Constructor for the app publisher argument.
   PublisherArguments(this.publisher, {required this.filePath, required this.binaryType});
 
-  /// Start the upload process
+  /// Start the upload process.
   ///
-  /// * `onVerbose` is called with the output of the process
-  /// * `onError` is called with the error output of the process
+  /// - [environments]: The environment variables for the process.
+  /// - [onVerbose]: Callback for verbose output.
+  /// - [onError]: Callback for error output.
   Future<int> publish(final environments, {Function(String)? onVerbose, Function(String)? onError}) async {
-    await _processFilesArgs(onVerbose: onVerbose, onError: onError);
+    await processFilesArgs(onVerbose: onVerbose, onError: onError);
 
     ColorizeLogger logger = ColorizeLogger(true);
     final rawArguments = toJson();
@@ -47,7 +53,8 @@ abstract class PublisherArguments extends JobArguments {
     return await process.exitCode;
   }
 
-  Future<void> _processFilesArgs({Function(String)? onVerbose, Function(String)? onError}) async {
+  /// Process file arguments before publishing.
+  Future<void> processFilesArgs({Function(String)? onVerbose, Function(String)? onError}) async {
     if (filePath.isEmpty) {
       onError?.call("File path is empty");
     }

@@ -6,7 +6,7 @@ import 'job_arguments.dart';
 
 /// A parser for configuration files used in the distribution process.
 ///
-/// The `ConfigParser` class is responsible for parsing YAML configuration files,
+/// The [ConfigParser] class is responsible for parsing YAML configuration files,
 /// converting them into structured objects, and providing access to tasks, environments,
 /// and arguments defined in the configuration.
 class ConfigParser {
@@ -22,7 +22,7 @@ class ConfigParser {
   /// The environment variables used in the configuration.
   Map<String, dynamic> environments;
 
-  /// Creates a new `ConfigParser` instance.
+  /// Creates a new [ConfigParser] instance.
   ///
   /// - [tasks]: The list of tasks defined in the configuration.
   /// - [arguments]: The map of job arguments defined in the configuration.
@@ -35,7 +35,7 @@ class ConfigParser {
     this.output = "distribution/",
   });
 
-  /// Creates a `ConfigParser` instance from a JSON object.
+  /// Creates a [ConfigParser] instance from a JSON object.
   ///
   /// - [json]: The JSON object containing the configuration data.
   factory ConfigParser.fromJson(Map<String, dynamic> json) {
@@ -46,7 +46,7 @@ class ConfigParser {
     );
   }
 
-  /// Creates a `ConfigParser` instance by parsing a YAML file.
+  /// Creates a [ConfigParser] instance by parsing a YAML file.
   ///
   /// - [path]: The path to the YAML configuration file.
   ///

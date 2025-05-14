@@ -2,15 +2,15 @@ import 'dart:io';
 
 /// A utility class for managing file and directory paths used in the distribution process.
 ///
-/// The `Files` class provides static references to commonly used files and directories,
+/// The [Files] class provides static references to commonly used files and directories,
 /// such as Android and iOS distribution directories, changelogs, and metadata paths.
-///
-/// Example usage:
-/// ```
-/// final changelogFile = Files.androidChangeLogs;
-/// final outputDir = Files.androidDistributionOutputDir;
-/// ```
+/// This class cannot be instantiated.
 class Files {
+  /// Private constructor to prevent instantiation.
+  ///
+  /// The [Files] class is intended to be used only with its static members.
+  Files._();
+
   /// The file containing Android changelogs.
   static final File androidChangeLogs = File("distribution/android/output/changelogs.log");
 
@@ -32,8 +32,13 @@ class Files {
   /// The metadata directory for Android distribution files.
   static final Directory androidDistributionMetadataDir = Directory("${androidDistributionDir.path}/metadata");
 
+  /// The root directory for custom distribution files.
   static final Directory customDir = Directory("distribution/custom");
+
+  /// The metadata directory for custom distribution files.
   static final Directory customOutputMetadataDir = Directory("${customDir.path}/metadata");
+
+  /// The output directory for custom distribution files.
   static final Directory customOutputDir = Directory("${customDir.path}/output");
 
   /// The root directory for iOS distribution files.
@@ -48,6 +53,10 @@ class Files {
   /// The metadata directory for iOS distribution files.
   static final Directory iosDistributionMetadataDir = Directory("${iosDistributionDir.path}/metadata");
 
+  /// Copies files from [source] to [target] directory.
+  ///
+  /// Optionally filters files by [fileType] and [mode].
+  /// Returns the path of the first copied file, or throws if no files are found.
   static Future<String?> copyFiles(String source, String target, {List<String> fileType = const [], String mode = "release"}) async {
     final sourceDir = Directory(source);
     final files = await sourceDir.list().toList();

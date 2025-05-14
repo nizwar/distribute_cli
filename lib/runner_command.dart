@@ -10,21 +10,25 @@ import 'parsers/job_arguments.dart';
 
 /// A command to run the application using the selected platform or custom configuration.
 ///
-/// The `RunnerCommand` class is responsible for parsing the configuration file,
+/// The [RunnerCommand] class is responsible for parsing the configuration file,
 /// filtering tasks and jobs based on the provided operation key, and executing
 /// the specified tasks and jobs.
 class RunnerCommand extends Commander {
+  /// The description of the command.
   @override
   String get description => "Command to run the application using the selected platform or custom configuration. ";
 
+  /// The name of the command.
   @override
   String get name => "run";
 
+  /// Argument parser for the command.
   @override
   ArgParser get argParser => ArgParser()
     ..addOption('config', abbr: 'c', help: 'Path to the configuration file.', defaultsTo: 'distribution.yaml')
     ..addOption('operation', abbr: 'o', help: 'Key of the operation to run, use OperationKey.JobKey to run spesifict job.', defaultsTo: '');
 
+  /// The operation key to filter which operation to run.
   String get operationKey => argResults!['operation'] as String;
 
   /// Executes the `run` command.
@@ -122,8 +126,8 @@ class RunnerCommand extends Commander {
         final key = operationKey.split('.');
         configParser.tasks.removeWhere((task) => task.key != key[0]);
         if (key.isNotEmpty) {
-          for (var task in configParser.tasks) {
-            task.jobs.removeWhere((job) => job.key != key[1]);
+          for (var i = 0; i < configParser.tasks.length; i++) {
+            configParser.tasks.removeWhere((task) => task.key != key[1]);
           }
           if (configParser.tasks.every((task) => task.jobs.isEmpty)) {
             logger.logError("No jobs found for the specified operation key: $operationKey");
@@ -225,6 +229,19 @@ class RunnerCommand extends Commander {
         return 1;
       });
       results.add(xcrunResult);
+    }
+    if (publisher.github != null) {
+      logger.logInfo("Publishing binary with Github");
+      final githubResult = await publisher.github!.publish(config.environments, onError: logger.logError, onVerbose: logger.logDebug).then((value) {
+        logger.logEmpty();
+        logger.logSuccess("Publish completed successfully.");
+        return value;
+      }).catchError((error) {
+        logger.logEmpty();
+        logger.logError("Publish failed with error: $error");
+        return 1;
+      });
+      results.add(githubResult);
     }
     if (results.isEmpty) {
       logger.logError("No publish results found.");
