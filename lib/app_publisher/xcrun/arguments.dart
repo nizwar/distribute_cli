@@ -74,14 +74,16 @@ class Arguments extends PublisherArguments {
   final String? outputFormat;
 
   factory Arguments.fromArgParser(ArgResults results) => Arguments(
-        filePath: results.rest.firstOrNull ?? Files.iosDistributionOutputDir.path,
+        filePath:
+            results.rest.firstOrNull ?? Files.iosDistributionOutputDir.path,
         username: results['username'] as String?,
         password: results['password'] as String?,
         apiKey: results['api-key'] as String?,
         apiIssuer: results['api-issuer'] as String?,
         appleId: results['apple-id'] as String?,
         bundleVersion: results['bundle-version'] as String?,
-        bundleShortVersionString: results['bundle-short-version-string'] as String?,
+        bundleShortVersionString:
+            results['bundle-short-version-string'] as String?,
         ascPublicId: results['asc-public-id'] as String?,
         type: results['type'] as String?,
         validateApp: results['validate-app'] as bool? ?? false,
@@ -129,7 +131,10 @@ class Arguments extends PublisherArguments {
       if (apiIssuer != null) ...['--apiIssuer', apiIssuer!],
       if (appleId != null) ...['--apple-id', appleId!],
       if (bundleVersion != null) ...['--bundle-version', bundleVersion!],
-      if (bundleShortVersionString != null) ...['--bundle-short-version-string', bundleShortVersionString!],
+      if (bundleShortVersionString != null) ...[
+        '--bundle-short-version-string',
+        bundleShortVersionString!
+      ],
       if (ascPublicId != null) ...['--asc-public-id', ascPublicId!],
       if (type != null) ...['-t', type!] else ...['--type', "iphoneos"],
       if (validateApp) '-v',
@@ -141,22 +146,32 @@ class Arguments extends PublisherArguments {
   }
 
   static ArgParser parser = ArgParser()
-    ..addOption('file-path', abbr: 'f', help: 'Path to the file to upload', mandatory: true)
-    ..addOption('username', abbr: 'u', help: 'Username for validation and upload')
-    ..addOption('password', abbr: 'p', help: 'Password for authentication. Can be plaintext, keychain, or environment variable')
+    ..addOption('file-path',
+        abbr: 'f', help: 'Path to the file to upload', mandatory: true)
+    ..addOption('username',
+        abbr: 'u', help: 'Username for validation and upload')
+    ..addOption('password',
+        abbr: 'p',
+        help:
+            'Password for authentication. Can be plaintext, keychain, or environment variable')
     ..addOption('api-key', help: 'API key for JWT authentication')
     ..addOption('api-issuer', help: 'Issuer ID for JWT authentication')
     ..addOption('apple-id', help: 'Apple ID of the app package')
     ..addOption('bundle-version', help: 'Bundle version of the app package')
-    ..addOption('bundle-short-version-string', help: 'Short version string of the app package')
-    ..addOption('asc-public-id', help: 'Public ID for accounts with multiple providers')
-    ..addOption('type', help: 'Platform type (e.g., macos, ios, appletvos, visionos)')
-    ..addFlag('validate-app', negatable: false, help: 'Validates the app archive for the App Store')
+    ..addOption('bundle-short-version-string',
+        help: 'Short version string of the app package')
+    ..addOption('asc-public-id',
+        help: 'Public ID for accounts with multiple providers')
+    ..addOption('type',
+        help: 'Platform type (e.g., macos, ios, appletvos, visionos)')
+    ..addFlag('validate-app',
+        negatable: false, help: 'Validates the app archive for the App Store')
     ..addOption('upload-package', help: 'Path to the app archive for upload')
     ..addOption('bundle-id', help: 'Bundle ID of the app')
     ..addOption('product-id', help: 'Product ID for hosted content')
     ..addOption('sku', help: 'SKU for hosted content')
-    ..addOption('output-format', help: 'Output format (e.g., xml, json, normal)');
+    ..addOption('output-format',
+        help: 'Output format (e.g., xml, json, normal)');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -179,5 +194,6 @@ class Arguments extends PublisherArguments {
         "output-format": outputFormat,
       };
 
-  factory Arguments.defaultConfigs() => Arguments(filePath: Files.iosDistributionOutputDir.path);
+  factory Arguments.defaultConfigs() =>
+      Arguments(filePath: Files.iosDistributionOutputDir.path);
 }

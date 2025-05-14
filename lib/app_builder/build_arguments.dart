@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:distribute_cli/app_builder/android/arguments.dart' as android_arguments;
+import 'package:distribute_cli/app_builder/android/arguments.dart'
+    as android_arguments;
 
 import '../files.dart';
 import '../logger.dart';
@@ -88,7 +89,8 @@ abstract class BuildArguments extends JobArguments {
         if (buildMode?.isNotEmpty ?? false) '--$buildMode',
         if (flavor?.isNotEmpty ?? false) '--flavor=$flavor',
         if (dartDefines?.isNotEmpty ?? false) '--dart-defines=$dartDefines',
-        if (dartDefinesFile?.isNotEmpty ?? false) '--dart-defines-file=$dartDefinesFile',
+        if (dartDefinesFile?.isNotEmpty ?? false)
+          '--dart-defines-file=$dartDefinesFile',
         if (buildName?.isNotEmpty ?? false) '--build-name=$buildName',
         if (buildNumber?.isNotEmpty ?? false) '--build-number=$buildNumber',
         if (pub) '--pub' else '--no-pub',
@@ -101,7 +103,8 @@ abstract class BuildArguments extends JobArguments {
   /// - [onError]: A callback function for error logging.
   ///
   /// Returns the exit code of the build process.
-  Future<int> build(final environments, {Function(String)? onVerbose, Function(String)? onError}) async {
+  Future<int> build(final environments,
+      {Function(String)? onVerbose, Function(String)? onError}) async {
     ColorizeLogger logger = ColorizeLogger(true);
     final rawArguments = toJson();
     rawArguments.removeWhere((key, value) => value == null);
@@ -112,8 +115,12 @@ abstract class BuildArguments extends JobArguments {
       }
       logger.logEmpty();
     }
-    onVerbose?.call("Starting build with `flutter ${substituteVariables(["build", ...results].join(" "), environments)}`");
-    final process = await Process.start("flutter", ["build", ...results.map((e) => substituteVariables(e, environments))]);
+    onVerbose?.call("Starting build with `flutter ${substituteVariables([
+          "build",
+          ...results
+        ].join(" "), environments)}`");
+    final process = await Process.start("flutter",
+        ["build", ...results.map((e) => substituteVariables(e, environments))]);
     process.stdout.transform(utf8.decoder).listen(onVerbose);
     process.stderr.transform(utf8.decoder).listen(onError);
     final exitCode = await process.exitCode;
@@ -127,7 +134,8 @@ abstract class BuildArguments extends JobArguments {
 
     // Generate zip symbols and put it on android's distribution directory
     if ((this is android_arguments.Arguments)) {
-      if (buildMode == "release" && (this as android_arguments.Arguments).generateDebugSymbols) {
+      if (buildMode == "release" &&
+          (this as android_arguments.Arguments).generateDebugSymbols) {
         final zipResult = await _generateAndCopyZipSymbols(onVerbose);
         if (zipResult != 0) return zipResult;
       }
@@ -135,11 +143,16 @@ abstract class BuildArguments extends JobArguments {
     return exitCode;
   }
 
-  Future<int> _moveOutputFiles(Function(String)? onVerbose, Function(String)? onError) async {
+  Future<int> _moveOutputFiles(
+      Function(String)? onVerbose, Function(String)? onError) async {
     if (this is android_arguments.Arguments) {
-      android_arguments.Arguments androidArgs = this as android_arguments.Arguments;
-      String target = androidArgs.output ?? Files.androidDistributionOutputDir.path;
-      final output = await Files.copyFiles(buildSourceDir, target, fileType: [binaryType], mode: buildMode ?? "release").catchError((e) {
+      android_arguments.Arguments androidArgs =
+          this as android_arguments.Arguments;
+      String target =
+          androidArgs.output ?? Files.androidDistributionOutputDir.path;
+      final output = await Files.copyFiles(buildSourceDir, target,
+              fileType: [binaryType], mode: buildMode ?? "release")
+          .catchError((e) {
         onError?.call(e.toString());
         return null;
       });
@@ -150,7 +163,9 @@ abstract class BuildArguments extends JobArguments {
     } else if (this is ios_arguments.Arguments) {
       ios_arguments.Arguments iosArgs = this as ios_arguments.Arguments;
       String target = iosArgs.output ?? Files.iosDistributionOutputDir.path;
-      final output = await Files.copyFiles(buildSourceDir, target, fileType: ["ipa"], mode: buildMode ?? "release").catchError((e) => null);
+      final output = await Files.copyFiles(buildSourceDir, target,
+              fileType: ["ipa"], mode: buildMode ?? "release")
+          .catchError((e) => null);
       if (output == null) {
         onError?.call("Failed to copy files from $buildSourceDir to $target");
         return 1;
@@ -161,7 +176,8 @@ abstract class BuildArguments extends JobArguments {
 
   Future<int> _generateAndCopyZipSymbols(Function(String)? onVerbose) async {
     onVerbose?.call("Generating zip symbols");
-    final outputDir = Directory("build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib");
+    final outputDir = Directory(
+        "build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib");
     if (!outputDir.existsSync()) {
       onVerbose?.call("Failed to generate zip symbols");
       return 1;
@@ -172,19 +188,23 @@ abstract class BuildArguments extends JobArguments {
         value.deleteSync();
       }
     });
-    final zipExitProcess = await Process.start("zip", ["-r", "debug_symbols.zip", "."], workingDirectory: outputDir.path);
+    final zipExitProcess = await Process.start(
+        "zip", ["-r", "debug_symbols.zip", "."],
+        workingDirectory: outputDir.path);
     zipExitProcess.stdout.transform(utf8.decoder).listen(onVerbose);
     zipExitProcess.stderr.transform(utf8.decoder).listen(onVerbose);
     final zipExitCode = await zipExitProcess.exitCode;
     if (zipExitCode != 0) {
-      onVerbose?.call("Failed to generate zip symbols with exit code: $zipExitCode");
+      onVerbose
+          ?.call("Failed to generate zip symbols with exit code: $zipExitCode");
       return zipExitCode;
     } else {
       final zipFile = File("${outputDir.path}/debug_symbols.zip");
       onVerbose?.call("Debug symbols generated successfully");
       try {
         await zipFile.copy("$output/debug_symbols.zip");
-        onVerbose?.call("Debug symbols generated and copied to $output/debug_symbols.zip");
+        onVerbose?.call(
+            "Debug symbols generated and copied to $output/debug_symbols.zip");
       } catch (e) {
         onVerbose?.call("Failed to copy debug symbols: $e");
         return 1;

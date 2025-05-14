@@ -10,6 +10,7 @@ import '../build_arguments.dart';
 class Arguments extends BuildArguments {
   /// Path to the export options plist file.
   final String? exportOptionsPlist;
+
   /// The export method for the build (e.g., app-store, ad-hoc).
   final String? exportMethod;
 
@@ -51,18 +52,32 @@ class Arguments extends BuildArguments {
 
   /// Argument parser for iOS build arguments.
   static ArgParser parser = ArgParser()
-    ..addOption('target', abbr: 't', help: 'The main entry-point file of the application, as run on the device.')
-    ..addOption('binary-type', abbr: 'b', help: 'Binary type (ipa, ios)', defaultsTo: 'ipa')
-    ..addOption('build-mode', abbr: 'm', help: 'Build mode (debug, profile, release)', defaultsTo: 'release')
+    ..addOption('target',
+        abbr: 't',
+        help:
+            'The main entry-point file of the application, as run on the device.')
+    ..addOption('binary-type',
+        abbr: 'b', help: 'Binary type (ipa, ios)', defaultsTo: 'ipa')
+    ..addOption('build-mode',
+        abbr: 'm',
+        help: 'Build mode (debug, profile, release)',
+        defaultsTo: 'release')
     ..addOption('flavor', abbr: 'f', help: 'Build flavor')
-    ..addOption('arguments', abbr: 'a', help: 'Custom arguments to pass to the build command')
+    ..addOption('arguments',
+        abbr: 'a', help: 'Custom arguments to pass to the build command')
     ..addOption('dart-defines', abbr: 'd', help: 'Dart defines')
     ..addOption('build-name', abbr: 'n', help: 'Build name')
     ..addOption('build-number', abbr: 'N', help: 'Build number')
-    ..addOption('export-options-plist', help: 'Path to export options plist file')
-    ..addOption('export-method', help: 'Export method (ad-hoc, app-store, enterprise, development)')
-    ..addFlag('pub', abbr: 'p', help: 'Run pub get before building', defaultsTo: true)
-    ..addOption("output", abbr: 'o', help: 'Output path for the build', defaultsTo: Files.iosDistributionOutputDir.path)
+    ..addOption('export-options-plist',
+        help: 'Path to export options plist file')
+    ..addOption('export-method',
+        help: 'Export method (ad-hoc, app-store, enterprise, development)')
+    ..addFlag('pub',
+        abbr: 'p', help: 'Run pub get before building', defaultsTo: true)
+    ..addOption("output",
+        abbr: 'o',
+        help: 'Output path for the build',
+        defaultsTo: Files.iosDistributionOutputDir.path)
     ..addOption('dart-defines-file', help: 'Dart defines file');
 
   /// Creates a new [Arguments] instance from the given [results].
@@ -80,7 +95,8 @@ class Arguments extends BuildArguments {
       exportOptionsPlist: results['export-options-plist'] as String?,
       exportMethod: results['export-method'] as String?,
       customArgs: results['arguments']?.split(' ') as List<String>?,
-      output: results['output'] as String? ?? Files.iosDistributionOutputDir.path,
+      output:
+          results['output'] as String? ?? Files.iosDistributionOutputDir.path,
     );
   }
 
@@ -140,7 +156,8 @@ class Arguments extends BuildArguments {
   @override
   List<String> get results => super.results
     ..addAll([
-      if (exportOptionsPlist != null) '--export-options-plist=$exportOptionsPlist',
+      if (exportOptionsPlist != null)
+        '--export-options-plist=$exportOptionsPlist',
       if (exportMethod != null) '--export-method=$exportMethod',
     ]);
 }

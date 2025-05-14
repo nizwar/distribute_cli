@@ -1,4 +1,5 @@
-import 'package:distribute_cli/app_builder/android/arguments.dart' as android_arguments;
+import 'package:distribute_cli/app_builder/android/arguments.dart'
+    as android_arguments;
 
 import '../app_builder/ios/arguments.dart' as ios_arguments;
 import '../app_publisher/fastlane/arguments.dart' as fastlane_publisher;
@@ -11,6 +12,7 @@ import 'task_arguments.dart';
 enum JobMode {
   /// Build mode for jobs.
   build,
+
   /// Publish mode for jobs.
   publish;
 
@@ -40,8 +42,10 @@ abstract class JobArguments {
 class BuilderJob {
   /// Android build arguments.
   final android_arguments.Arguments? android;
+
   /// iOS build arguments.
   final ios_arguments.Arguments? ios;
+
   /// Reference to the parent job.
   late Job parent;
 
@@ -58,8 +62,12 @@ class BuilderJob {
   /// Creates a [BuilderJob] from a JSON object.
   factory BuilderJob.fromJson(Map<String, dynamic> json) {
     return BuilderJob(
-      android: json["android"] != null ? android_arguments.Arguments.fromJson(json["android"]) : null,
-      ios: json["ios"] != null ? ios_arguments.Arguments.fromJson(json["ios"]) : null,
+      android: json["android"] != null
+          ? android_arguments.Arguments.fromJson(json["android"])
+          : null,
+      ios: json["ios"] != null
+          ? ios_arguments.Arguments.fromJson(json["ios"])
+          : null,
     );
   }
 
@@ -77,8 +85,12 @@ class PublisherJob {
   late Job parent;
 
   PublisherJob({this.fastlane, this.firebase, this.xcrun, this.github}) {
-    if (fastlane == null && xcrun == null && firebase == null && github == null) {
-      throw Exception("Fastlane, Firebase, Github, or XCrun publisher argument must be provided.");
+    if (fastlane == null &&
+        xcrun == null &&
+        firebase == null &&
+        github == null) {
+      throw Exception(
+          "Fastlane, Firebase, Github, or XCrun publisher argument must be provided.");
     }
     fastlane?.parent = this;
     firebase?.parent = this;
@@ -95,10 +107,18 @@ class PublisherJob {
 
   factory PublisherJob.fromJson(Map<String, dynamic> json) {
     return PublisherJob(
-      fastlane: json["fastlane"] != null ? fastlane_publisher.Arguments.fromJson(json["fastlane"]) : null,
-      firebase: json["firebase"] != null ? firebase_publisher.Arguments.fromJson(json["firebase"]) : null,
-      xcrun: json["xcrun"] != null ? xcrun_publisher.Arguments.fromJson(json["xcrun"]) : null,
-      github: json["github"] != null ? github_publisher.Arguments.fromJson(json["github"]) : null,
+      fastlane: json["fastlane"] != null
+          ? fastlane_publisher.Arguments.fromJson(json["fastlane"])
+          : null,
+      firebase: json["firebase"] != null
+          ? firebase_publisher.Arguments.fromJson(json["firebase"])
+          : null,
+      xcrun: json["xcrun"] != null
+          ? xcrun_publisher.Arguments.fromJson(json["xcrun"])
+          : null,
+      github: json["github"] != null
+          ? github_publisher.Arguments.fromJson(json["github"])
+          : null,
     );
   }
 }
@@ -148,7 +168,8 @@ class Job {
     this.builder,
     this.publisher,
   }) : assert(
-          (builder != null && publisher == null) || (builder == null && publisher != null),
+          (builder != null && publisher == null) ||
+              (builder == null && publisher != null),
           "Either builder or publisher must be provided, not both.",
         ) {
     if (builder != null) {

@@ -2,9 +2,11 @@ import 'dart:io';
 import 'dart:convert';
 
 import 'package:args/args.dart';
-import 'package:distribute_cli/app_builder/android/arguments.dart' as android_arguments;
+import 'package:distribute_cli/app_builder/android/arguments.dart'
+    as android_arguments;
 import 'package:distribute_cli/app_builder/ios/arguments.dart' as ios_arguments;
-import 'package:distribute_cli/app_publisher/xcrun/arguments.dart' as xcrun_publisher;
+import 'package:distribute_cli/app_publisher/xcrun/arguments.dart'
+    as xcrun_publisher;
 import 'package:distribute_cli/command.dart';
 import 'package:distribute_cli/parsers/job_arguments.dart';
 import 'package:yaml/yaml.dart';
@@ -17,11 +19,20 @@ import 'parsers/task_arguments.dart';
 
 /// Returns an [ArgParser] configured for job creation commands.
 ArgParser get creatorArgParser => ArgParser(allowTrailingOptions: true)
-  ..addOption("task-key", abbr: 't', help: "Option is used to specify the task for the command.", mandatory: true)
-  ..addOption("name", abbr: 'n', help: "The name of the job to create.", mandatory: true)
-  ..addOption("key", abbr: 'k', help: "The key of the job to create.", mandatory: true)
-  ..addOption("description", abbr: 'd', help: "The description of the job to create.")
-  ..addOption("package_name", abbr: 'p', help: "Package name of the app to publish.", defaultsTo: "com.example.app");
+  ..addOption("task-key",
+      abbr: 't',
+      help: "Option is used to specify the task for the command.",
+      mandatory: true)
+  ..addOption("name",
+      abbr: 'n', help: "The name of the job to create.", mandatory: true)
+  ..addOption("key",
+      abbr: 'k', help: "The key of the job to create.", mandatory: true)
+  ..addOption("description",
+      abbr: 'd', help: "The description of the job to create.")
+  ..addOption("package_name",
+      abbr: 'p',
+      help: "Package name of the app to publish.",
+      defaultsTo: "com.example.app");
 
 /// Command to create a new task or job. Entry point for 'create' subcommands.
 class CreateCommand extends Commander {
@@ -53,9 +64,16 @@ class CreateTaskCommand extends CreatorCommand {
   /// Argument parser for the command.
   @override
   final ArgParser argParser = ArgParser()
-    ..addOption("name", abbr: "n", help: "The name of the task or job to create.", mandatory: true)
-    ..addOption("key", abbr: "k", help: "The key of the task or job to create.", mandatory: true)
-    ..addOption("description", abbr: "d", help: "The description of the task or job to create.");
+    ..addOption("name",
+        abbr: "n",
+        help: "The name of the task or job to create.",
+        mandatory: true)
+    ..addOption("key",
+        abbr: "k",
+        help: "The key of the task or job to create.",
+        mandatory: true)
+    ..addOption("description",
+        abbr: "d", help: "The description of the task or job to create.");
 
   /// Runs the command to create a new task and update the config file.
   @override
@@ -80,7 +98,12 @@ class CreateTaskCommand extends CreatorCommand {
       return;
     }
 
-    tasks.add(Task(name: taskName, key: taskKey, description: taskDescription, workflows: [], jobs: []).toJson());
+    tasks.add(Task(
+        name: taskName,
+        key: taskKey,
+        description: taskDescription,
+        workflows: [],
+        jobs: []).toJson());
 
     configJson["tasks"] = tasks;
     await _writeYaml(file, configJson);
@@ -108,10 +131,13 @@ class CreateJobCommand extends Commander {
 /// Abstract base class for commands that create jobs or tasks.
 abstract class CreatorCommand extends Commander {
   /// Loads a YAML file and returns its contents as a JSON-compatible map.
-  Map<String, dynamic> _loadYamlAsJson(File file) => jsonDecode(jsonEncode(loadYaml(file.readAsStringSync())));
+  Map<String, dynamic> _loadYamlAsJson(File file) =>
+      jsonDecode(jsonEncode(loadYaml(file.readAsStringSync())));
 
   /// Writes a JSON-compatible map to a YAML file.
-  Future<void> _writeYaml(File file, Map<String, dynamic> configJson) => file.writeAsString(yamlEncode(configJson), encoding: utf8, mode: FileMode.write, flush: true);
+  Future<void> _writeYaml(File file, Map<String, dynamic> configJson) =>
+      file.writeAsString(yamlEncode(configJson),
+          encoding: utf8, mode: FileMode.write, flush: true);
 
   /// Runs the command to create a job and update the config file.
   @override
@@ -148,16 +174,31 @@ abstract class CreatorCommand extends Commander {
 
     final builderJob = this is CreateBuilderCommand
         ? BuilderJob(
-            android: (argResults!["platform"] as List?)?.contains("android") == true ? android_arguments.Arguments.defaultConfigs() : null,
-            ios: (argResults!["platform"] as List?)?.contains("ios") == true ? ios_arguments.Arguments.defaultConfigs() : null,
+            android:
+                (argResults!["platform"] as List?)?.contains("android") == true
+                    ? android_arguments.Arguments.defaultConfigs()
+                    : null,
+            ios: (argResults!["platform"] as List?)?.contains("ios") == true
+                ? ios_arguments.Arguments.defaultConfigs()
+                : null,
           )
         : null;
     final publisherJob = this is CreatePublisherCommand
         ? PublisherJob(
-            fastlane: (argResults!["tools"] as List?)?.contains("fastlane") == true ? fastlane_publisher.Arguments.defaultConfigs(packageName) : null,
-            firebase: (argResults!["tools"] as List?)?.contains("firebase") == true ? firebase_publisher.Arguments.defaultConfigs("APP_ID") : null,
-            xcrun: (argResults!["tools"] as List?)?.contains("xcrun") == true ? xcrun_publisher.Arguments.defaultConfigs() : null,
-            github: (argResults!["tools"] as List?)?.contains("github") == true ? github_publisher.Arguments.defaultConfigs() : null,
+            fastlane:
+                (argResults!["tools"] as List?)?.contains("fastlane") == true
+                    ? fastlane_publisher.Arguments.defaultConfigs(packageName)
+                    : null,
+            firebase:
+                (argResults!["tools"] as List?)?.contains("firebase") == true
+                    ? firebase_publisher.Arguments.defaultConfigs("APP_ID")
+                    : null,
+            xcrun: (argResults!["tools"] as List?)?.contains("xcrun") == true
+                ? xcrun_publisher.Arguments.defaultConfigs()
+                : null,
+            github: (argResults!["tools"] as List?)?.contains("github") == true
+                ? github_publisher.Arguments.defaultConfigs()
+                : null,
           )
         : null;
 
@@ -166,7 +207,14 @@ abstract class CreatorCommand extends Commander {
       return;
     }
 
-    jobs.add(Job(name: jobName, key: jobKey, description: description, packageName: packageName, builder: builderJob, publisher: publisherJob).toJson());
+    jobs.add(Job(
+            name: jobName,
+            key: jobKey,
+            description: description,
+            packageName: packageName,
+            builder: builderJob,
+            publisher: publisherJob)
+        .toJson());
 
     tasks[taskIndex]["jobs"] = jobs;
 
@@ -194,7 +242,12 @@ class CreatePublisherCommand extends CreatorCommand {
       abbr: 'T',
       help: "The tools to use for the publisher.",
       allowed: ["firebase", "fastlane", "xcrun", "github"],
-      allowedHelp: {"firebase": "Publish to Firebase App Distribution.", "fastlane": "Publish using Fastlane.", "xcrun": "Publish using Xcode command line tools.", "github": "Publish to GitHub."},
+      allowedHelp: {
+        "firebase": "Publish to Firebase App Distribution.",
+        "fastlane": "Publish using Fastlane.",
+        "xcrun": "Publish using Xcode command line tools.",
+        "github": "Publish to GitHub."
+      },
     );
 }
 
@@ -216,6 +269,10 @@ class CreateBuilderCommand extends CreatorCommand {
       abbr: 'P',
       help: "The platform to build for.",
       allowed: ["ios", "android", "custom"],
-      allowedHelp: {"ios": "Build for iOS.", "android": "Build for Android.", "custom": "Build for custom platforms."},
+      allowedHelp: {
+        "ios": "Build for iOS.",
+        "android": "Build for Android.",
+        "custom": "Build for custom platforms."
+      },
     );
 }

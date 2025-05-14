@@ -16,7 +16,8 @@ import 'parsers/job_arguments.dart';
 class RunnerCommand extends Commander {
   /// The description of the command.
   @override
-  String get description => "Command to run the application using the selected platform or custom configuration. ";
+  String get description =>
+      "Command to run the application using the selected platform or custom configuration. ";
 
   /// The name of the command.
   @override
@@ -25,8 +26,15 @@ class RunnerCommand extends Commander {
   /// Argument parser for the command.
   @override
   ArgParser get argParser => ArgParser()
-    ..addOption('config', abbr: 'c', help: 'Path to the configuration file.', defaultsTo: 'distribution.yaml')
-    ..addOption('operation', abbr: 'o', help: 'Key of the operation to run, use OperationKey.JobKey to run spesifict job.', defaultsTo: '');
+    ..addOption('config',
+        abbr: 'c',
+        help: 'Path to the configuration file.',
+        defaultsTo: 'distribution.yaml')
+    ..addOption('operation',
+        abbr: 'o',
+        help:
+            'Key of the operation to run, use OperationKey.JobKey to run spesifict job.',
+        defaultsTo: '');
 
   /// The operation key to filter which operation to run.
   String get operationKey => argResults!['operation'] as String;
@@ -45,7 +53,8 @@ class RunnerCommand extends Commander {
       exit(1);
     }
     try {
-      logger.logInfo('Running application with configuration: ${argResults!['config'] as String}');
+      logger.logInfo(
+          'Running application with configuration: ${argResults!['config'] as String}');
       logger.logInfo("======= Running tasks =======");
       for (var task in configParser.tasks) {
         logger.logInfo(task.name);
@@ -54,11 +63,13 @@ class RunnerCommand extends Commander {
         List<Job> jobs = List.from(task.jobs);
         if (operationKey.isEmpty) {
           if (task.workflows != null) {
-            logger.logInfo("Workflows:\n${task.workflows?.map((e) => "- $e").join("\n")}");
+            logger.logInfo(
+                "Workflows:\n${task.workflows?.map((e) => "- $e").join("\n")}");
             logger.logEmpty();
             jobs = [];
             for (var workflow in task.workflows!) {
-              final job = task.jobs.where((job) => job.key == workflow).firstOrNull;
+              final job =
+                  task.jobs.where((job) => job.key == workflow).firstOrNull;
               if (job != null) {
                 jobs.add(job);
               } else {
@@ -70,18 +81,21 @@ class RunnerCommand extends Commander {
         }
         List<int> results = [];
         for (var value in jobs) {
-          logger.logInfo("[Job] : ${value.name} ${value.description != null ? "(${value.description})" : ""}");
+          logger.logInfo(
+              "[Job] : ${value.name} ${value.description != null ? "(${value.description})" : ""}");
 
           /// Check if both builder and publisher are null
           if (value.builder == null && value.publisher == null) {
             logger.logEmpty();
-            logger.logError("No builder or publisher found for the job: ${value.name}");
+            logger.logError(
+                "No builder or publisher found for the job: ${value.name}");
             break;
           }
 
           //Run Builder Job
           if (value.builder != null) {
-            results.add(await runBuilder(value.builder!, configParser).then((value) {
+            results.add(
+                await runBuilder(value.builder!, configParser).then((value) {
               if (value != 0) {
                 logger.logError("Build failed with exit code: $value");
               }
@@ -91,7 +105,8 @@ class RunnerCommand extends Commander {
 
           //Run Publisher Job
           if (value.publisher != null) {
-            results.add(await runPublisher(value.publisher!, configParser).then((value) {
+            results.add(await runPublisher(value.publisher!, configParser)
+                .then((value) {
               if (value != 0) {
                 logger.logError("Publish failed with exit code: $value");
               }
@@ -104,7 +119,8 @@ class RunnerCommand extends Commander {
           continue;
         }
         if (results.any((element) => element != 0)) {
-          logger.logError("Task ${task.name} failed with exit code: ${results.reduce((value, element) => value + element)}");
+          logger.logError(
+              "Task ${task.name} failed with exit code: ${results.reduce((value, element) => value + element)}");
           continue;
         }
         logger.logSuccess("==============================");
@@ -120,7 +136,8 @@ class RunnerCommand extends Commander {
   }
 
   ConfigParser? configParserBuilder() {
-    final configParser = ConfigParser.distributeYaml(argResults?['config'] as String? ?? 'distribution.yaml');
+    final configParser = ConfigParser.distributeYaml(
+        argResults?['config'] as String? ?? 'distribution.yaml');
     if (operationKey.isNotEmpty) {
       if (operationKey.contains(".")) {
         final key = operationKey.split('.');
@@ -130,7 +147,8 @@ class RunnerCommand extends Commander {
             configParser.tasks.removeWhere((task) => task.key != key[1]);
           }
           if (configParser.tasks.every((task) => task.jobs.isEmpty)) {
-            logger.logError("No jobs found for the specified operation key: $operationKey");
+            logger.logError(
+                "No jobs found for the specified operation key: $operationKey");
             return null;
           }
         }
@@ -153,7 +171,10 @@ class RunnerCommand extends Commander {
 
     if (builder.android != null) {
       logger.logInfo("Building Android binary");
-      final androidResult = await builder.android!.build(config.environments, onError: logger.logErrorVerbose, onVerbose: logger.logDebug).then((value) {
+      final androidResult = await builder.android!
+          .build(config.environments,
+              onError: logger.logErrorVerbose, onVerbose: logger.logDebug)
+          .then((value) {
         logger.logEmpty();
         logger.logSuccess("Android build completed successfully.");
         return value;
@@ -168,7 +189,10 @@ class RunnerCommand extends Commander {
 
     if (builder.ios != null) {
       logger.logInfo("Building iOS binary");
-      final iosResult = await builder.ios!.build(config.environments, onError: logger.logErrorVerbose, onVerbose: logger.logDebug).then((value) {
+      final iosResult = await builder.ios!
+          .build(config.environments,
+              onError: logger.logErrorVerbose, onVerbose: logger.logDebug)
+          .then((value) {
         logger.logEmpty();
         logger.logSuccess("iOS build completed successfully.");
         return value;
@@ -193,7 +217,10 @@ class RunnerCommand extends Commander {
 
     if (publisher.fastlane != null) {
       logger.logInfo("Publishing Android binary with Fastlane");
-      final fastlaneResult = await publisher.fastlane!.publish(config.environments, onError: logger.logError, onVerbose: logger.logDebug).then((value) {
+      final fastlaneResult = await publisher.fastlane!
+          .publish(config.environments,
+              onError: logger.logError, onVerbose: logger.logDebug)
+          .then((value) {
         logger.logEmpty();
         logger.logSuccess("Android publish completed successfully.");
         return value;
@@ -206,7 +233,10 @@ class RunnerCommand extends Commander {
     }
     if (publisher.firebase != null) {
       logger.logInfo("Publishing Android binary with Firebase");
-      final firebaseResult = await publisher.firebase!.publish(config.environments, onError: logger.logError, onVerbose: logger.logDebug).then((value) {
+      final firebaseResult = await publisher.firebase!
+          .publish(config.environments,
+              onError: logger.logError, onVerbose: logger.logDebug)
+          .then((value) {
         logger.logEmpty();
         logger.logSuccess("Android publish completed successfully.");
         return value;
@@ -219,7 +249,10 @@ class RunnerCommand extends Commander {
     }
     if (publisher.xcrun != null) {
       logger.logInfo("Publishing iOS binary with Xcrun");
-      final xcrunResult = await publisher.xcrun!.publish(config.environments, onError: logger.logError, onVerbose: logger.logDebug).then((value) {
+      final xcrunResult = await publisher.xcrun!
+          .publish(config.environments,
+              onError: logger.logError, onVerbose: logger.logDebug)
+          .then((value) {
         logger.logEmpty();
         logger.logSuccess("iOS publish completed successfully.");
         return value;
@@ -232,7 +265,10 @@ class RunnerCommand extends Commander {
     }
     if (publisher.github != null) {
       logger.logInfo("Publishing binary with Github");
-      final githubResult = await publisher.github!.publish(config.environments, onError: logger.logError, onVerbose: logger.logDebug).then((value) {
+      final githubResult = await publisher.github!
+          .publish(config.environments,
+              onError: logger.logError, onVerbose: logger.logDebug)
+          .then((value) {
         logger.logEmpty();
         logger.logSuccess("Publish completed successfully.");
         return value;

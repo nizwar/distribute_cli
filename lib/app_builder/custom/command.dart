@@ -12,7 +12,8 @@ import '../../command.dart';
 class Command extends Commander {
   /// Description of the command.
   @override
-  String get description => "Build a custom application by selecting specific configurations and options tailored to your requirements.";
+  String get description =>
+      "Build a custom application by selecting specific configurations and options tailored to your requirements.";
 
   /// Name of the command.
   @override
@@ -27,5 +28,6 @@ class Command extends Commander {
   /// Parses the arguments and builds the application using the provided environment.
   /// Returns a [Future] that completes with the exit code of the build process.
   @override
-  Future? run() => Arguments.fromArgResults(argResults!).build(Platform.environment);
+  Future? run() =>
+      Arguments.fromArgResults(argResults!).build(Platform.environment);
 }

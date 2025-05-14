@@ -42,7 +42,8 @@ class ConfigParser {
     return ConfigParser(
       tasks: json["tasks"],
       environments: json["variables"] as Map<String, dynamic>,
-      arguments: (json["arguments"] as Map<String, dynamic>).map((key, value) => MapEntry(key, value as dynamic)),
+      arguments: (json["arguments"] as Map<String, dynamic>)
+          .map((key, value) => MapEntry(key, value as dynamic)),
     );
   }
 
@@ -56,11 +57,14 @@ class ConfigParser {
     if (!file.existsSync()) {
       throw Exception("$path file not found, please run init command");
     }
-    Map<String, dynamic> configJson = jsonDecode(jsonEncode(loadYaml(file.readAsStringSync())));
+    Map<String, dynamic> configJson =
+        jsonDecode(jsonEncode(loadYaml(file.readAsStringSync())));
     List<Task> jobTasks;
 
     final environments = Map<String, dynamic>.from(Platform.environment.cast())
-      ..addAll((configJson["variables"] as Map<String, dynamic>? ?? {}).map((key, value) => MapEntry(key, substituteVariables(value.toString(), Platform.environment))));
+      ..addAll((configJson["variables"] as Map<String, dynamic>? ?? {}).map(
+          (key, value) => MapEntry(key,
+              substituteVariables(value.toString(), Platform.environment))));
 
     if (configJson["tasks"] == null) {
       throw Exception("tasks's key not found in $path");
@@ -73,8 +77,10 @@ class ConfigParser {
     }
 
     Job parseJob(Map<String, dynamic> json) {
-      Map<String, dynamic>? builder = json.containsKey("builder") ? json["builder"] : null;
-      Map<String, dynamic>? publisher = json.containsKey("publisher") ? json["publisher"] : null;
+      Map<String, dynamic>? builder =
+          json.containsKey("builder") ? json["builder"] : null;
+      Map<String, dynamic>? publisher =
+          json.containsKey("publisher") ? json["publisher"] : null;
       final packageName = json["package_name"];
       final key = json["key"];
 
@@ -108,15 +114,23 @@ class ConfigParser {
         .map<Task>(
           (item) => Task(
             name: item["name"],
-            jobs: (item["jobs"] as List).map<Job>((item) => parseJob(item)).toList(),
+            jobs: (item["jobs"] as List)
+                .map<Job>((item) => parseJob(item))
+                .toList(),
             key: item["key"],
-            workflows: item["workflows"] != null ? List<String>.from(item["workflows"]) : null,
+            workflows: item["workflows"] != null
+                ? List<String>.from(item["workflows"])
+                : null,
             description: item["description"],
           ),
         )
         .toList();
 
-    return ConfigParser(tasks: jobTasks, arguments: (configJson["arguments"] as Map<String, dynamic>?)?.map((key, value) => MapEntry(key, value as dynamic)), environments: environments);
+    return ConfigParser(
+        tasks: jobTasks,
+        arguments: (configJson["arguments"] as Map<String, dynamic>?)
+            ?.map((key, value) => MapEntry(key, value as dynamic)),
+        environments: environments);
   }
 }
 
@@ -129,7 +143,8 @@ class ConfigParser {
 /// - [variables]: A map of variable names and their values (default is an empty map).
 ///
 /// Returns the string with placeholders replaced by their corresponding values.
-String substituteVariables(String? input, [Map<String, dynamic> variables = const {}]) {
+String substituteVariables(String? input,
+    [Map<String, dynamic> variables = const {}]) {
   if (input == null) return "";
 
   // Pattern matches ${{VAR_NAME}} OR ${VAR_NAME}

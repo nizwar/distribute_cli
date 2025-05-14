@@ -1,7 +1,11 @@
-import 'package:distribute_cli/app_publisher/firebase/command.dart' as firebase_command;
-import 'package:distribute_cli/app_publisher/fastlane/command.dart' as fastlane_command;
-import 'package:distribute_cli/app_publisher/github/command.dart' as github_command;
-import 'package:distribute_cli/app_publisher/xcrun/command.dart' as xcrun_command;
+import 'package:distribute_cli/app_publisher/firebase/command.dart'
+    as firebase_command;
+import 'package:distribute_cli/app_publisher/fastlane/command.dart'
+    as fastlane_command;
+import 'package:distribute_cli/app_publisher/github/command.dart'
+    as github_command;
+import 'package:distribute_cli/app_publisher/xcrun/command.dart'
+    as xcrun_command;
 
 import 'command.dart';
 

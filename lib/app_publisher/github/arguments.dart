@@ -54,12 +54,15 @@ class Arguments extends PublisherArguments {
       };
 
   @override
-  Future<int> publish(environments, {Function(String p1)? onVerbose, Function(String p1)? onError}) async {
+  Future<int> publish(environments,
+      {Function(String p1)? onVerbose, Function(String p1)? onError}) async {
     ColorizeLogger logger = ColorizeLogger(true);
     final rawArguments = toJson();
-    _dio.options.headers["Authorization"] = "token ${substituteVariables(token, environments)}";
+    _dio.options.headers["Authorization"] =
+        "token ${substituteVariables(token, environments)}";
 
-    rawArguments.removeWhere((key, value) => value == null || ((value is List) && value.isEmpty) || value == "");
+    rawArguments.removeWhere((key, value) =>
+        value == null || ((value is List) && value.isEmpty) || value == "");
     if (logger.isVerbose) {
       logger.logInfo("Running Publish with configurations:");
       for (var value in rawArguments.keys) {
@@ -70,19 +73,23 @@ class Arguments extends PublisherArguments {
 
     onVerbose?.call("Starting upload with `$publisher ${results.join(" ")}`");
     onVerbose?.call("Initializing Github API client");
-    final uploadUrl = (await _getReleaseUploadUrl().catchError((e) => null) ?? await _getLatestReleaseUploadUrl().catchError((e) => null) ?? await _createRelease().catchError((e) => null));
+    final uploadUrl = (await _getReleaseUploadUrl().catchError((e) => null) ??
+        await _getLatestReleaseUploadUrl().catchError((e) => null) ??
+        await _createRelease().catchError((e) => null));
     if (uploadUrl == null) {
       onError?.call("Failed to get upload URL");
       return 1;
     }
-    logger.logInfo("${await FileSystemEntity.isDirectory(filePath) ? "Directory" : "File"} detected on path: $filePath");
+    logger.logInfo(
+        "${await FileSystemEntity.isDirectory(filePath) ? "Directory" : "File"} detected on path: $filePath");
     if (await FileSystemEntity.isDirectory(filePath)) {
       logger.logInfo("Path is a directory");
       logger.logInfo("NOTE : All files in the directory will be uploaded");
 
       for (var file in Directory(filePath).listSync()) {
         if (file is File && file.path.endsWith(binaryType)) {
-          final downloadUrl = await uploadFile(uploadUrl, file, onVerbose: onVerbose, onError: onError);
+          final downloadUrl = await uploadFile(uploadUrl, file,
+              onVerbose: onVerbose, onError: onError);
           if (downloadUrl == null) continue;
           onVerbose?.call("${file.path} uploaded successfully: $downloadUrl");
         }
@@ -92,7 +99,8 @@ class Arguments extends PublisherArguments {
         onError?.call("File does not exist");
         return 1;
       }
-      final downloadUrl = await uploadFile(uploadUrl, File(filePath), onVerbose: onVerbose, onError: onError);
+      final downloadUrl = await uploadFile(uploadUrl, File(filePath),
+          onVerbose: onVerbose, onError: onError);
       if (downloadUrl == null) return 1;
 
       onVerbose?.call("File uploaded successfully: $downloadUrl");
@@ -114,7 +122,8 @@ class Arguments extends PublisherArguments {
   }
 
   Future<String?> _getLatestReleaseUploadUrl() async {
-    final response = await _dio.get('/repos/$repoOwner/$repoName/releases/latest');
+    final response =
+        await _dio.get('/repos/$repoOwner/$repoName/releases/latest');
     if (response.statusCode == 200) {
       return response.data["upload_url"].replaceAll("{?name,label}", "");
     }
@@ -122,7 +131,8 @@ class Arguments extends PublisherArguments {
   }
 
   Future<String?> _createRelease() async {
-    final response = await _dio.post('/repos/$repoOwner/$repoName/releases', data: {
+    final response =
+        await _dio.post('/repos/$repoOwner/$repoName/releases', data: {
       "tag_name": releaseName,
       "name": releaseName,
       "body": "Release $releaseName",
@@ -134,11 +144,17 @@ class Arguments extends PublisherArguments {
     return null;
   }
 
-  Future<String?> uploadFile(String uploadUrl, File file, {Function(String value)? onVerbose, Function(String value)? onError}) async {
+  Future<String?> uploadFile(String uploadUrl, File file,
+      {Function(String value)? onVerbose,
+      Function(String value)? onError}) async {
     final fileName = file.path.split('/').last;
     onVerbose?.call("Uploading file: $fileName to $uploadUrl");
     try {
-      final response = await _dio.post(uploadUrl, data: FormData.fromMap({"file": await MultipartFile.fromFile(file.path, filename: fileName)}), queryParameters: {"name": fileName});
+      final response = await _dio.post(uploadUrl,
+          data: FormData.fromMap({
+            "file": await MultipartFile.fromFile(file.path, filename: fileName)
+          }),
+          queryParameters: {"name": fileName});
       if (response.statusCode == 201) {
         return response.data["browser_download_url"];
       }
@@ -159,11 +175,18 @@ class Arguments extends PublisherArguments {
   }
 
   static ArgParser parser = ArgParser()
-    ..addOption('file-path', abbr: 'f', help: 'The path to the file to upload', mandatory: true)
-    ..addOption('token', help: 'The token to use for github authentication.', mandatory: true)
-    ..addOption('repo-name', help: 'The name of the repository to upload the file to.', mandatory: true)
-    ..addOption('repo-owner', help: 'The owner of the repository to upload the file to.', mandatory: true)
-    ..addOption('release-name', help: 'The release name to upload the file to.');
+    ..addOption('file-path',
+        abbr: 'f', help: 'The path to the file to upload', mandatory: true)
+    ..addOption('token',
+        help: 'The token to use for github authentication.', mandatory: true)
+    ..addOption('repo-name',
+        help: 'The name of the repository to upload the file to.',
+        mandatory: true)
+    ..addOption('repo-owner',
+        help: 'The owner of the repository to upload the file to.',
+        mandatory: true)
+    ..addOption('release-name',
+        help: 'The release name to upload the file to.');
 
   factory Arguments.fromArgResults(ArgResults argResults) {
     return Arguments(

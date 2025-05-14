@@ -32,5 +32,6 @@ class Command extends Commander {
   /// Parses the arguments and publishes the Android application using the [Arguments] class.
   /// Returns a [Future] that completes with the exit code of the publish process.
   @override
-  Future? run() async => Arguments.fromArgResults(argResults!).publish(Platform.environment, onVerbose: onVerbose, onError: onError);
+  Future? run() async => Arguments.fromArgResults(argResults!)
+      .publish(Platform.environment, onVerbose: onVerbose, onError: onError);
 }

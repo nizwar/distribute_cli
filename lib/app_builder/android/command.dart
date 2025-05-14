@@ -12,7 +12,8 @@ import 'arguments.dart';
 class Command extends Commander {
   /// Description of the command.
   @override
-  String get description => "Build an Android application using the specified configuration and options provided in the arguments.";
+  String get description =>
+      "Build an Android application using the specified configuration and options provided in the arguments.";
 
   /// Name of the command.
   @override
@@ -27,5 +28,6 @@ class Command extends Commander {
   /// Parses the arguments and builds the Android application using the provided environment.
   /// Returns a [Future] that completes with the exit code of the build process.
   @override
-  Future? run() => Arguments.fromArgResults(argResults!).build(Platform.environment);
+  Future? run() =>
+      Arguments.fromArgResults(argResults!).build(Platform.environment);
 }
