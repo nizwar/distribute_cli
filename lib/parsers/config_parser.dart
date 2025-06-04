@@ -82,8 +82,6 @@ class ConfigParser {
     }
     environments.addAll(yamlVariables);
 
-    stdout.writeln(JsonEncoder.withIndent("   ").convert(environments));
-
     Variables variables = Variables(environments, globalResults);
 
     if (configJson["tasks"] == null) {
