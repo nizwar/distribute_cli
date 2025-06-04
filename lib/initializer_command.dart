@@ -23,19 +23,27 @@ import 'command.dart';
 
 /// Command to initialize the project with configuration files and directories.
 ///
-/// The [InitializerCommand] class sets up the necessary files and directories
+/// The `InitializerCommand` class sets up the necessary files and directories
 /// for the distribution process, validates required tools, and prepares the environment.
+/// It creates platform-specific directories, validates development tools, and generates
+/// initial configuration files.
 class InitializerCommand extends Commander {
-  /// The description of the command.
+  /// The description of the init command shown in help text
   @override
   String get description =>
       "Initialize the project with the necessary configuration files and directories.";
 
-  /// The name of the command.
+  /// The name of the command used in CLI
   @override
   String get name => "init";
 
-  /// Argument parser for the command.
+  /// Argument parser for the init command with platform-specific options.
+  ///
+  /// Available options:
+  /// - `--android-package-name` or `-a` - Package name for Android application
+  /// - `--ios-package-name` or `-i` - Bundle identifier for iOS application
+  /// - `--skip-tools` or `-s` - Skip tool validation during initialization
+  /// - `--google-service-account` or `-g` - Google service account for Fastlane integration
   @override
   ArgParser get argParser => ArgParser()
     ..addOption(
@@ -55,9 +63,20 @@ class InitializerCommand extends Commander {
         help:
             'Google service for fastlane, if it validated it will be copied to the fastlane directory.');
 
-  /// Executes the command to initialize the project.
+  /// Executes the initialization command to set up the project.
   ///
-  /// Sets up directories, validates tools, and prepares configuration files.
+  /// This method performs the following tasks:
+  /// - Creates necessary distribution directories
+  /// - Validates required development tools
+  /// - Sets up platform-specific configurations
+  /// - Generates initial configuration files
+  /// - Downloads metadata for Android publishing
+  ///
+  /// The initialization process includes:
+  /// - Directory structure creation for Android and iOS (macOS only)
+  /// - Tool validation for Flutter, Firebase, Git, Fastlane, and compression tools
+  /// - Fastlane configuration setup
+  /// - Google Play Console metadata download
   @override
   Future? run() async {
     final initialized = <String, bool>{};

@@ -7,22 +7,27 @@ import 'parsers/config_parser.dart';
 import 'command.dart';
 import 'parsers/job_arguments.dart';
 
-/// A command to run the application using the selected platform or custom configuration.
+/// A command to execute distribution tasks defined in the configuration file.
 ///
-/// The [RunnerCommand] class is responsible for parsing the configuration file,
+/// The `RunnerCommand` class is responsible for parsing the configuration file,
 /// filtering tasks and jobs based on the provided operation key, and executing
-/// the specified tasks and jobs.
+/// the specified build and publish operations. It supports running individual
+/// jobs or entire task workflows.
 class RunnerCommand extends Commander {
-  /// The description of the command.
+  /// The description of the run command shown in help text
   @override
   String get description =>
       "Command to run the application using the selected platform or custom configuration. ";
 
-  /// The name of the command.
+  /// The name of the command used in CLI
   @override
   String get name => "run";
 
-  /// Argument parser for the command.
+  /// Argument parser for the run command with configuration and operation options.
+  ///
+  /// Available options:
+  /// - `--config` or `-c` - Path to the configuration file (defaults to "distribution.yaml")
+  /// - `--operation` or `-o` - Key of the operation to run (use "TaskKey.JobKey" for specific jobs)
   @override
   ArgParser get argParser => ArgParser()
     ..addOption('config',
@@ -35,14 +40,27 @@ class RunnerCommand extends Commander {
             'Key of the operation to run, use OperationKey.JobKey to run spesifict job.',
         defaultsTo: '');
 
-  /// The operation key to filter which operation to run.
+  /// The operation key used to filter which tasks or jobs to execute.
+  ///
+  /// Supports the following formats:
+  /// - Empty string - Runs all tasks
+  /// - "TaskKey" - Runs all jobs in the specified task
+  /// - "TaskKey.JobKey" - Runs only the specific job within the task
   String get operationKey => argResults!['operation'] as String;
 
-  /// Executes the `run` command.
+  /// Executes the run command to process distribution tasks.
   ///
-  /// This method parses the configuration file, filters tasks and jobs based on
-  /// the provided operation key, and executes the specified tasks and jobs.
-  /// It logs the progress and results of the execution.
+  /// This method performs the following operations:
+  /// - Parses the configuration file specified by `--config` option
+  /// - Filters tasks and jobs based on the `--operation` key
+  /// - Executes build operations for each selected job
+  /// - Executes publish operations for each selected job
+  /// - Logs progress and results throughout the process
+  ///
+  /// The execution can be filtered by operation key:
+  /// - No operation key: Runs all tasks and jobs
+  /// - Task key only: Runs all jobs within that task
+  /// - Task.Job key: Runs only the specific job
   @override
   Future? run() async {
     final configParser = await configParserBuilder();

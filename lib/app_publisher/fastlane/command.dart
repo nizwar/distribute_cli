@@ -5,10 +5,31 @@ import 'package:args/args.dart';
 import '../../command.dart';
 import 'arguments.dart';
 
-/// Command to publish an Android application using Fastlane.
+/// Comprehensive Fastlane deployment command.
 ///
-/// This command automates the deployment process, including tasks such as
-/// building, signing, and uploading the app to the Google Play Store.
+/// Extends the base `Commander` class to provide robust Fastlane automation
+/// for multi-platform app publishing, store integration, beta distribution,
+/// and advanced deployment workflows.
+///
+/// Key Fastlane features:
+/// - Android and iOS deployment automation
+/// - Google Play Store and App Store Connect publishing
+/// - Beta distribution via TestFlight and Play Console
+/// - Store metadata and asset management
+/// - Signing and provisioning automation
+/// - Automated testing and validation
+/// - Deployment status notifications
+///
+/// Example usage:
+/// ```dart
+/// final command = Command();
+/// final result = await command.run();
+/// if (result == 0) {
+///   print('Fastlane deployment completed successfully');
+/// } else {
+///   print('Deployment failed with exit code: $result');
+/// }
+/// ```
 class Command extends Commander {
   /// Creates a new [Command] for publishing with Fastlane.
   Command();

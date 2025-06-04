@@ -8,118 +8,351 @@ import 'package:path/path.dart' as path;
 import '../../files.dart';
 import '../publisher_arguments.dart';
 
-/// Arguments for Fastlane Android Publisher.
+/// Comprehensive Fastlane publisher arguments for automated app distribution.
 ///
-/// This class is used to upload the app to the Google Play Store using Fastlane.
+/// Extends `PublisherArguments` to provide Fastlane-specific configuration for
+/// deploying applications to Google Play Store and Apple App Store. Supports
+/// advanced features like release tracks, rollouts, metadata management, and
+/// debug symbol uploads.
+///
+/// Key capabilities:
+/// - Multi-track deployment (production, beta, alpha, internal)
+/// - Gradual rollout with percentage controls
+/// - Metadata and asset synchronization
+/// - Debug symbol and mapping file uploads
+/// - Validation and preview modes
+/// - Service account authentication
+///
+/// Example usage:
+/// ```dart
+/// final args = Arguments(
+///   variables,
+///   filePath: '/path/to/app.aab',
+///   binaryType: 'aab',
+///   metadataPath: '/path/to/fastlane/metadata',
+///   jsonKey: '/path/to/service-account.json',
+///   track: 'beta',
+///   rollout: 0.25, // 25% rollout
+/// );
+/// ```
 class Arguments extends PublisherArguments {
-  /// Version name (used when uploading new APKs/AABs).
+  /// Application version name for the release.
+  ///
+  /// Used when uploading new APK/AAB files to identify the version.
+  /// Should match the version specified in the app's build configuration.
+  /// Example: "1.2.3"
   final String? versionName;
 
-  /// The versionCode for which to download the generated APK.
+  /// Application version code for the release.
+  ///
+  /// Integer version identifier used for version ordering and updates.
+  /// Must be higher than the previous release for updates to work properly.
+  /// Example: 42
   final int? versionCode;
 
-  /// Release status (valid values: completed, draft, halted, inProgress).
+  /// Release status for the uploaded version.
+  ///
+  /// Controls the state of the release in the store:
+  /// - `completed` - Release is live and available to users
+  /// - `draft` - Release is saved but not published
+  /// - `halted` - Release is paused/stopped
+  /// - `inProgress` - Release is being processed
   final String? releaseStatus;
 
-  /// The track of the application to use (e.g., production, beta, alpha, internal).
+  /// Distribution track for the application release.
+  ///
+  /// Determines which user group receives the release:
+  /// - `production` - All users (public release)
+  /// - `beta` - Beta testing users
+  /// - `alpha` - Alpha testing users
+  /// - `internal` - Internal testing team only
+  ///
+  /// Default: "production"
   final String track;
 
-  /// The percentage of the user fraction when uploading to the rollout track.
+  /// Percentage of users to receive the rollout (0.0 to 1.0).
+  ///
+  /// When specified, enables gradual rollout where only a percentage
+  /// of users receive the update initially. Useful for monitoring
+  /// stability before full deployment.
+  ///
+  /// Example: 0.25 = 25% of users
   final double? rollout;
 
-  /// Path to the directory containing the metadata files.
+  /// Path to the directory containing Fastlane metadata files.
+  ///
+  /// Should contain subdirectories for each locale (e.g., en-US, es-ES)
+  /// with metadata files like title.txt, short_description.txt, full_description.txt,
+  /// and screenshots organized by device type.
+  ///
+  /// Example structure:
+  /// ```
+  /// metadata/
+  ///   android/
+  ///     en-US/
+  ///       title.txt
+  ///       short_description.txt
+  ///       full_description.txt
+  ///       images/
+  ///         phoneScreenshots/
+  /// ```
   final String metadataPath;
 
-  /// The path to a file containing service account JSON.
+  /// Path to the Google Play service account JSON key file.
+  ///
+  /// Contains credentials for authenticating with Google Play Console API.
+  /// Required for uploading to Google Play Store. Can be downloaded from
+  /// Google Cloud Console under Service Accounts.
   final String jsonKey;
 
-  /// The raw service account JSON data.
+  /// Raw service account JSON data as a string.
+  ///
+  /// Alternative to `jsonKey` file path. Contains the service account
+  /// credentials directly as JSON string data. Useful when credentials
+  /// are stored as environment variables or secrets.
   final String? jsonKeyData;
 
-  /// Path to the APK file to upload.
+  /// Path to a specific APK file to upload.
+  ///
+  /// Used when uploading a single APK file. Mutually exclusive with
+  /// `apkPaths` for multiple APK uploads.
   final String? apk;
 
-  /// An array of paths to APK files to upload.
+  /// Array of paths to multiple APK files to upload.
+  ///
+  /// Used for uploading multiple APK files in a single release.
+  /// Useful for ABI-split APKs or multiple variants.
   final List<String>? apkPaths;
 
-  /// Path to the AAB file to upload.
+  /// Path to a specific AAB (Android App Bundle) file to upload.
+  ///
+  /// Used when uploading a single AAB file. AAB is the preferred
+  /// format for Google Play Store distribution.
   final String? aab;
 
-  /// An array of paths to AAB files to upload.
+  /// Array of paths to multiple AAB files to upload.
+  ///
+  /// Used for uploading multiple AAB files in a single release.
+  /// Less common than single AAB uploads.
   final List<String>? aabPaths;
 
-  /// Whether to skip uploading APK.
+  /// Whether to skip uploading APK files during publishing.
+  ///
+  /// When `true`, skips the APK upload step entirely, useful when only
+  /// updating metadata or when APK is already uploaded separately.
+  /// Default: `false`
   final bool skipUploadApk;
 
-  /// Whether to skip uploading AAB.
+  /// Whether to skip uploading AAB (Android App Bundle) files during publishing.
+  ///
+  /// When `true`, skips the AAB upload step entirely, useful when only
+  /// updating metadata or when AAB is already uploaded separately.
+  /// Default: `false`
   final bool skipUploadAab;
 
-  /// Whether to skip uploading metadata, changelogs not included.
+  /// Whether to skip uploading metadata files during publishing.
+  ///
+  /// When `true`, skips uploading app metadata like descriptions, titles,
+  /// and other store listing information. Changelogs are not included
+  /// and controlled separately by `skipUploadChangelogs`.
+  /// Default: `false`
   final bool skipUploadMetadata;
 
-  /// Whether to skip uploading changelogs.
+  /// Whether to skip uploading changelog files during publishing.
+  ///
+  /// When `true`, skips uploading release notes and changelog information.
+  /// Metadata upload is controlled separately by `skipUploadMetadata`.
+  /// Default: `false`
   final bool skipUploadChangelogs;
 
-  /// Whether to skip uploading images, screenshots not included.
+  /// Whether to skip uploading image assets during publishing.
+  ///
+  /// When `true`, skips uploading promotional images and graphics.
+  /// Screenshots are not included and controlled separately by
+  /// `skipUploadScreenshots`.
+  /// Default: `false`
   final bool skipUploadImages;
 
-  /// Whether to skip uploading screenshots.
+  /// Whether to skip uploading screenshot images during publishing.
+  ///
+  /// When `true`, skips uploading app screenshots for all device types.
+  /// Other image assets are controlled separately by `skipUploadImages`.
+  /// Default: `false`
   final bool skipUploadScreenshots;
 
-  /// Whether to use sha256 comparison to skip upload of images and screenshots that are already in Play Store.
+  /// Whether to use SHA256 comparison for intelligent image uploading.
+  ///
+  /// When `true`, compares SHA256 hashes of local images and screenshots
+  /// with those already in Google Play Store to skip uploading identical
+  /// files, improving upload efficiency and speed.
+  /// Default: `false`
   final bool syncImageUpload;
 
-  /// The track to promote to. The default available tracks are: production, beta, alpha, internal.
+  /// Target track for promoting an existing release.
+  ///
+  /// Specifies which track to promote a release to from its current track.
+  /// Available tracks:
+  /// - `production` - Public release to all users
+  /// - `beta` - Beta testing track
+  /// - `alpha` - Alpha testing track
+  /// - `internal` - Internal testing track
+  ///
+  /// Used for track promotion workflows.
   final String? trackPromoteTo;
 
-  /// Promoted track release status (used when promoting a track) - valid values are completed, draft, halted, inProgress.
+  /// Release status when promoting between tracks.
+  ///
+  /// Controls the status of the promoted release:
+  /// - `completed` - Release is active and available
+  /// - `draft` - Release is saved but not published
+  /// - `halted` - Release is paused/stopped
+  /// - `inProgress` - Release is being processed
+  ///
+  /// Default: "completed"
   final String? trackPromoteReleaseStatus;
 
-  /// Only validate changes with Google Play rather than actually publish.
+  /// Whether to validate changes without actually publishing.
+  ///
+  /// When `true`, performs validation checks with Google Play Console
+  /// without committing the changes. Useful for testing configurations
+  /// and catching errors before actual deployment.
+  /// Default: `false`
   final bool validateOnly;
 
-  /// Path to the mapping file to upload (mapping.txt or native-debug-symbols.zip alike).
+  /// Path to the ProGuard mapping file or debug symbols.
+  ///
+  /// Points to a single mapping file (mapping.txt) or debug symbols archive
+  /// (native-debug-symbols.zip) for crash reporting and debugging.
+  /// Used for deobfuscation of crash reports in Google Play Console.
   final String? mapping;
 
-  /// An array of paths to mapping files to upload (mapping.txt or native-debug-symbols.zip alike).
+  /// Array of paths to multiple mapping files or debug symbols.
+  ///
+  /// Specifies multiple mapping files (mapping.txt) or debug symbol archives
+  /// (native-debug-symbols.zip) for uploading. Useful when dealing with
+  /// multiple build variants or library mappings.
   final List<String>? mappingPaths;
 
-  /// Root URL for the Google Play API. The provided URL will be used for API calls in place of https://www.googleapis.com/.
+  /// Custom root URL for Google Play API calls.
+  ///
+  /// Overrides the default Google Play API endpoint
+  /// (https://www.googleapis.com/) with a custom URL. Useful for
+  /// proxy configurations or custom API gateways.
   final String? rootUrl;
 
-  /// Timeout for read, open, and send (in seconds).
+  /// Network timeout duration for API operations in seconds.
+  ///
+  /// Sets the timeout for read, open, and send operations when
+  /// communicating with Google Play Console API. Higher values
+  /// may be needed for large file uploads or slow connections.
+  /// Default: 300 seconds (5 minutes)
   final int timeout;
 
-  /// An array of version codes to retain when publishing a new APK.
+  /// Array of version codes to retain during new APK publishing.
+  ///
+  /// Specifies which existing version codes should remain active
+  /// when publishing a new APK. Useful for maintaining multiple
+  /// active versions for different device configurations or
+  /// gradual rollouts.
   final List<int>? versionCodesToRetain;
 
-  /// Indicates that the changes in this edit will not be reviewed until they are explicitly sent for review from the Google Play Console UI.
+  /// Whether changes require manual review approval.
+  ///
+  /// When `true`, indicates that changes in this edit will not be
+  /// automatically reviewed and must be explicitly sent for review
+  /// from the Google Play Console UI. Used for policy-sensitive
+  /// changes or complex releases.
+  /// Default: `false`
   final bool changesNotSentForReview;
 
-  /// Catches changes_not_sent_for_review errors when an edit is committed and retries with the configuration that the error message recommended.
+  /// Whether to automatically retry with recommended configuration.
+  ///
+  /// When `true`, catches `changes_not_sent_for_review` errors during
+  /// edit commits and automatically retries with the configuration
+  /// recommended in the error message. Helps handle policy requirements
+  /// automatically.
+  /// Default: `true`
   final bool rescueChangesNotSentForReview;
 
-  /// In-app update priority for all the newly added APKs in the release. Can take values between [0,5].
+  /// In-app update priority level for new APKs.
+  ///
+  /// Sets the priority level for in-app updates for all newly added
+  /// APKs in the release. Higher values indicate more urgent updates.
+  /// Valid range: 0-5, where:
+  /// - 0 = Default priority (no special handling)
+  /// - 5 = Highest priority (immediate update recommendation)
   final int? inAppUpdatePriority;
 
-  /// References version of 'main' expansion file.
+  /// References version for the main expansion file.
+  ///
+  /// Specifies the version code that the main expansion file (OBB)
+  /// references. Used for large games or apps that require additional
+  /// asset files beyond the base APK size limits.
   final int? obbMainReferencesVersion;
 
-  /// Size of 'main' expansion file in bytes.
+  /// Size of the main expansion file in bytes.
+  ///
+  /// Specifies the exact file size of the main expansion file (OBB)
+  /// in bytes. Required for proper expansion file handling and
+  /// download verification on user devices.
   final int? obbMainFileSize;
 
-  /// References version of 'patch' expansion file.
+  /// References version for the patch expansion file.
+  ///
+  /// Specifies the version code that the patch expansion file (OBB)
+  /// references. Used for incremental updates to expansion file
+  /// content without re-downloading the entire main expansion.
   final int? obbPatchReferencesVersion;
 
-  /// Size of 'patch' expansion file in bytes.
+  /// Size of the patch expansion file in bytes.
+  ///
+  /// Specifies the exact file size of the patch expansion file (OBB)
+  /// in bytes. Required for proper expansion file handling and
+  /// download verification on user devices.
   final int? obbPatchFileSize;
 
-  /// Must be set to true if the bundle installation may trigger a warning on user devices (e.g can only be downloaded over wifi). Typically this is required for bundles over 150MB.
+  /// Whether to acknowledge bundle installation warnings.
+  ///
+  /// Must be set to `true` if the bundle installation may trigger
+  /// warnings on user devices (e.g., "can only be downloaded over wifi").
+  /// Typically required for bundles over 150MB. Acknowledges that
+  /// users may see download restrictions.
+  /// Default: `false`
   final bool? ackBundleInstallationWarning;
 
+  /// Whether to upload debug symbols for crash reporting.
+  ///
+  /// When `true`, automatically uploads debug symbols and mapping files
+  /// to Google Play Console for enhanced crash reporting and analysis.
+  /// Enables deobfuscation of crash reports for easier debugging.
+  /// Default: `true`
   final bool uploadDebugSymbols;
 
-  /// Constructor for the FastlaneAndroidPublisherArgument class.
+  /// Creates a new Fastlane publisher arguments instance.
+  ///
+  /// Initializes Fastlane-specific configuration for automated app distribution
+  /// to Google Play Store and Apple App Store. Requires core publishing
+  /// parameters and platform-specific authentication.
+  ///
+  /// Required parameters:
+  /// - `variables` - System and environment variables
+  /// - `filePath` - Path to the APK/AAB file to upload
+  /// - `metadataPath` - Directory containing Fastlane metadata
+  /// - `jsonKey` - Google service account key file path
+  /// - `binaryType` - Type of binary file (apk/aab)
+  ///
+  /// Example:
+  /// ```dart
+  /// final args = Arguments(
+  ///   variables,
+  ///   filePath: '/path/to/app.aab',
+  ///   binaryType: 'aab',
+  ///   metadataPath: '/path/to/fastlane/metadata',
+  ///   jsonKey: '/path/to/service-account.json',
+  ///   track: 'beta',
+  ///   rollout: 0.5, // 50% rollout
+  /// );
+  /// ```
   Arguments(
     Variables variables, {
     required super.filePath,
@@ -162,6 +395,19 @@ class Arguments extends PublisherArguments {
     this.uploadDebugSymbols = true,
   }) : super("fastlane", variables);
 
+  /// Creates Arguments instance from command-line arguments.
+  ///
+  /// Parses command-line arguments and optional global results to create
+  /// a fully configured Fastlane Arguments instance. Handles type conversion
+  /// and validation for all supported parameters.
+  ///
+  /// Parameters:
+  /// - `argResults` - Parsed command-line arguments
+  /// - `globalResults` - Optional global command arguments
+  ///
+  /// Returns configured Arguments instance with parsed values.
+  ///
+  /// Throws Exception if required parameters are missing or invalid.
   factory Arguments.fromArgResults(
           ArgResults argResults, ArgResults? globalResults) =>
       Arguments(
@@ -215,6 +461,31 @@ class Arguments extends PublisherArguments {
         uploadDebugSymbols: argResults['upload-debug-symbols'] ?? true,
       );
 
+  /// Creates Arguments instance from JSON configuration.
+  ///
+  /// Deserializes JSON configuration data to create a Fastlane Arguments
+  /// instance. Provides default values for optional parameters and
+  /// validates required configuration.
+  ///
+  /// Parameters:
+  /// - `json` - JSON configuration map
+  /// - `variables` - System variables for interpolation
+  ///
+  /// Returns configured Arguments instance from JSON data.
+  ///
+  /// Throws Exception if required fields are missing:
+  /// - "file-path" is required
+  /// - "binary-type" is required
+  ///
+  /// Example JSON:
+  /// ```json
+  /// {
+  ///   "file-path": "/path/to/app.aab",
+  ///   "binary-type": "aab",
+  ///   "track": "production",
+  ///   "metadata-path": "/path/to/metadata"
+  /// }
+  /// ```
   factory Arguments.fromJson(Map<String, dynamic> json,
       {required Variables variables}) {
     if (json['file-path'] == null) throw Exception("file-path is required");
@@ -270,6 +541,25 @@ class Arguments extends PublisherArguments {
     );
   }
 
+  /// Builds the Fastlane command arguments list.
+  ///
+  /// Constructs the complete command-line arguments for the Fastlane
+  /// `upload_to_play_store` action. Handles file path resolution,
+  /// mapping file detection, and parameter formatting.
+  ///
+  /// Key behavior:
+  /// - Automatically detects binary files in directories
+  /// - Adds debug symbols mapping files when found
+  /// - Formats all parameters for Fastlane execution
+  /// - Includes conditional parameters based on configuration
+  ///
+  /// Returns list of formatted Fastlane command arguments.
+  ///
+  /// Example output:
+  /// ```
+  /// ["run", "upload_to_play_store", "aab:/path/to/app.aab",
+  ///  "metadata_path:/path/to/metadata", "track:production"]
+  /// ```
   @override
   List<String> get argumentBuilder {
     final mappingPathParser = (mappingPaths ?? []);
@@ -337,6 +627,19 @@ class Arguments extends PublisherArguments {
     ];
   }
 
+  /// Command-line argument parser for Fastlane publisher.
+  ///
+  /// Defines all supported command-line options for the Fastlane publisher
+  /// with their descriptions, types, defaults, and validation rules.
+  /// Used for parsing user input and generating help documentation.
+  ///
+  /// Includes comprehensive options for:
+  /// - File paths and binary types
+  /// - Version and release management
+  /// - Track and rollout configuration
+  /// - Metadata and asset handling
+  /// - Upload controls and validation
+  /// - Advanced Google Play features
   static ArgParser parser = ArgParser()
     ..addOption('file-path',
         abbr: 'f', help: 'Path to the file to upload.', mandatory: true)
@@ -479,6 +782,24 @@ class Arguments extends PublisherArguments {
         help:
             'Must be set to true if the bundle installation may trigger a warning on user devices (e.g can only be downloaded over wifi). Typically this is required for bundles over 150MB.');
 
+  /// Creates default Fastlane configuration for a package.
+  ///
+  /// Generates a basic Fastlane Arguments instance with default settings
+  /// suitable for most Android app publishing scenarios. Uses standard
+  /// paths and common configuration values.
+  ///
+  /// Parameters:
+  /// - `packageName` - Android package name for the app
+  /// - `globalResults` - Optional global command arguments
+  ///
+  /// Returns Arguments instance with default configuration:
+  /// - APK binary type
+  /// - Standard distribution output directory
+  /// - Default metadata path
+  /// - Fastlane JSON key location
+  /// - Debug symbols upload enabled
+  ///
+  /// Useful for quick setup and testing scenarios.
   factory Arguments.defaultConfigs(
           String packageName, ArgResults? globalResults) =>
       Arguments(
@@ -490,6 +811,25 @@ class Arguments extends PublisherArguments {
         binaryType: "apk",
       );
 
+  /// Serializes Arguments instance to JSON format.
+  ///
+  /// Converts all configuration parameters to a JSON-serializable map
+  /// for storage, transmission, or configuration file generation.
+  /// Handles proper formatting of arrays and optional values.
+  ///
+  /// Returns map containing all configuration parameters with their
+  /// current values. Arrays are joined with commas, null values
+  /// are preserved for proper deserialization.
+  ///
+  /// Example output:
+  /// ```json
+  /// {
+  ///   "file-path": "/path/to/app.aab",
+  ///   "binary-type": "aab",
+  ///   "track": "production",
+  ///   "upload-debug-symbols": true
+  /// }
+  /// ```
   @override
   Map<String, dynamic> toJson() => {
         'file-path': filePath,

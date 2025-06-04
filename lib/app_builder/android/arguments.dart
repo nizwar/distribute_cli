@@ -4,30 +4,170 @@ import 'package:distribute_cli/parsers/variables.dart';
 import '../../files.dart';
 import '../build_arguments.dart';
 
-/// Arguments required to build an Android application.
+/// Comprehensive Android build arguments configuration.
 ///
-/// This class extends [BuildArguments] and includes additional options
-/// specific to Android builds, such as splitting APKs by ABI and debug symbols.
+/// Extends the base `BuildArguments` class with Android-specific build options
+/// including APK/AAB generation, ABI splitting, debug symbols, obfuscation,
+/// and various optimization settings.
+///
+/// Key Android features:
+/// - APK and Android App Bundle (AAB) generation
+/// - ABI-specific APK splitting for reduced download sizes
+/// - Debug symbol generation for crash analysis
+/// - Code obfuscation for release builds
+/// - Build dependency validation controls
+/// - Size analysis and widget tracking options
+///
+/// Example usage:
+/// ```dart
+/// final args = Arguments(
+///   variables,
+///   binaryType: 'apk',
+///   buildMode: 'release',
+///   splitPerAbi: true,
+///   obfuscate: true,
+///   generateDebugSymbols: true,
+/// );
+/// ```
 class Arguments extends BuildArguments {
-  /// Whether to split APKs by ABI. Only valid when `binaryType` is `apk`.
+  /// Enables APK splitting by Application Binary Interface (ABI).
+  ///
+  /// When `true`, generates separate APK files for different device
+  /// architectures (arm64-v8a, armeabi-v7a, x86_64). This reduces
+  /// download size as users only get the APK for their device architecture.
+  ///
+  /// Only valid when `binaryType` is set to "apk". Setting this to `true`
+  /// with AAB binary type will throw an `ArgumentError`.
+  ///
+  /// Default: `false`
   final bool splitPerAbi;
 
-  /// Whether to generate debug symbols.
+  /// Controls debug symbol generation for crash reporting and debugging.
+  ///
+  /// When `true`, generates debug symbols that can be uploaded to
+  /// crash reporting services like Firebase Crashlytics or Play Console
+  /// for better crash analysis and stack trace resolution.
+  ///
+  /// Default: `true`
   final bool generateDebugSymbols;
+
+  /// Whether to only generate build configuration without building.
+  ///
+  /// When `true`, performs configuration checks and setup without
+  /// actually building the application. Useful for validating
+  /// build configurations.
   final bool? configOnly;
+
+  /// Controls widget creation tracking for debugging.
+  ///
+  /// When enabled, tracks widget creation locations which helps with
+  /// debugging widget-related issues but adds overhead to the build.
+  ///
+  /// Values:
+  /// - `true` - Enable widget creation tracking
+  /// - `false` - Disable widget creation tracking
+  /// - `null` - Use default Flutter behavior
   final bool? trackWidgetCreation;
+
+  /// Skips Android build dependency validation.
+  ///
+  /// When `true`, bypasses dependency validation checks which can
+  /// speed up builds but may lead to runtime issues if dependencies
+  /// are incompatible.
+  ///
+  /// Values:
+  /// - `true` - Skip dependency validation
+  /// - `false` - Perform dependency validation
+  /// - `null` - Use default behavior
   final bool? androidSkipBuildDependencyValidation;
+
+  /// Enables size analysis of the built application.
+  ///
+  /// When `true`, generates detailed size analysis reports showing
+  /// the contribution of different components to the final app size.
+  /// Useful for optimizing app size.
+  ///
+  /// Values:
+  /// - `true` - Enable size analysis
+  /// - `false` - Disable size analysis
+  /// - `null` - Use default behavior
   final bool? analyzeSize;
+
+  /// Ignores deprecation warnings during build.
+  ///
+  /// When `true`, suppresses deprecation warnings which can clean up
+  /// build output but may hide important API migration information.
   final bool? ignoreDeprecation;
+
+  /// Enables code obfuscation for release builds.
+  ///
+  /// When `true`, obfuscates Dart code to make reverse engineering
+  /// more difficult. Recommended for production releases to protect
+  /// intellectual property.
+  ///
+  /// Values:
+  /// - `true` - Enable obfuscation
+  /// - `false` - Disable obfuscation
+  /// - `null` - Use default behavior (typically enabled for release)
   final bool? obfuscate;
+
+  /// Specifies the target platform architecture.
+  ///
+  /// Defines the specific platform architecture to build for.
+  /// Common values include:
+  /// - "android-arm64" - ARM 64-bit architecture
+  /// - "android-arm" - ARM 32-bit architecture
+  /// - "android-x64" - x86 64-bit architecture
   final String? targetPlatform;
+
+  /// Additional arguments to pass to the Android project build.
+  ///
+  /// Allows passing custom arguments directly to the underlying
+  /// Android Gradle build system for advanced configuration.
   final String? androidProjectArg;
+
+  /// Directory path for storing code size analysis output.
+  ///
+  /// When size analysis is enabled, this specifies where to store
+  /// the detailed size breakdown files and reports.
   final String? codeSizeDirectory;
+
+  /// Path for split debug information storage.
+  ///
+  /// Specifies where to store debug symbols when they are separated
+  /// from the main binary. Used for symbolication of crash reports
+  /// while keeping the main binary smaller.
   final String? splitDebugInfo;
 
-  /// Creates an instance of [Arguments] for Android builds.
+  /// Creates a new Android build arguments instance.
   ///
-  /// Throws an [ArgumentError] if `binaryType` is not `apk` and `splitPerAbi` is true.
+  /// Parameters:
+  /// - `variables` - Variable processor for argument substitution
+  /// - `buildMode` - Build mode (debug, profile, release)
+  /// - `binaryType` - Output type (apk or aab)
+  /// - `target` - Entry point file path
+  /// - `flavor` - Build flavor for multi-flavor builds
+  /// - `dartDefines` - Compile-time constants
+  /// - `dartDefinesFile` - File containing compile-time constants
+  /// - `customArgs` - Additional custom arguments
+  /// - `buildName` - Version name for the build
+  /// - `buildNumber` - Version code for the build
+  /// - `pub` - Whether to run pub get before building
+  /// - `output` - Output directory path
+  /// - `splitPerAbi` - Enable ABI-specific APK splitting
+  /// - `generateDebugSymbols` - Generate debug symbols
+  /// - `configOnly` - Only generate configuration
+  /// - `trackWidgetCreation` - Enable widget creation tracking
+  /// - `androidSkipBuildDependencyValidation` - Skip dependency validation
+  /// - `analyzeSize` - Enable size analysis
+  /// - `ignoreDeprecation` - Ignore deprecation warnings
+  /// - `obfuscate` - Enable code obfuscation
+  /// - `targetPlatform` - Target platform architecture
+  /// - `androidProjectArg` - Additional Android project arguments
+  /// - `codeSizeDirectory` - Directory for size analysis output
+  /// - `splitDebugInfo` - Path for debug info storage
+  ///
+  /// Throws `ArgumentError` if `splitPerAbi` is `true` and `binaryType` is not "apk".
   Arguments(
     super.variables, {
     super.buildMode,
@@ -57,44 +197,98 @@ class Arguments extends BuildArguments {
             buildSourceDir: binaryType == "apk"
                 ? Files.androidOutputApks.path
                 : Files.androidOutputAppbundles.path) {
+    // Validate that splitPerAbi is only used with APK binary type
     if (binaryType != 'apk' && splitPerAbi) {
       throw ArgumentError('binaryType must be "apk" to use splitPerAbi');
     }
   }
 
-  /// Returns the list of arguments to be passed to the build command.
+  /// Builds the command-line arguments list for the Android build process.
   ///
-  /// Includes the `--split-per-abi` flag if `splitPerAbi` is true and `binaryType` is `apk`.
+  /// Returns a list of command-line arguments to be passed to the Flutter
+  /// build command. Combines base build arguments with Android-specific
+  /// options based on the configuration.
+  ///
+  /// Android-specific arguments added:
+  /// - `--split-per-abi` - When `splitPerAbi` is true and binary type is APK
+  /// - `--config-only` - When only configuration generation is needed
+  /// - `--track-widget-creation` / `--no-track-widget-creation` - Widget tracking control
+  /// - `--android-skip-build-dependency-validation` - Dependency validation control
+  /// - `--analyze-size` / `--no-analyze-size` - Size analysis control
+  /// - `--ignore-deprecation` - Deprecation warning control
+  /// - `--obfuscate` / `--no-obfuscate` - Code obfuscation control
+  /// - `--target-platform` - Target platform specification
+  /// - `--android-project-arg` - Additional Android project arguments
+  /// - `--code-size-directory` - Size analysis output directory
+  /// - `--split-debug-info` - Debug info storage path
   @override
   List<String> get argumentBuilder => super.argumentBuilder
     ..addAll([
+      // Add APK splitting only for APK binary type
       if (splitPerAbi && binaryType == 'apk') '--split-per-abi',
+
+      // Configuration-only build
       if (configOnly == true) '--config-only',
+
+      // Widget creation tracking control
       if (trackWidgetCreation != null)
         if (trackWidgetCreation == true)
           '--track-widget-creation'
         else
           '--no-track-widget-creation',
+
+      // Android build dependency validation control
       if (androidSkipBuildDependencyValidation != null)
         if (androidSkipBuildDependencyValidation == true)
           '--android-skip-build-dependency-validation'
         else
           '--no-android-skip-build-dependency-validation',
+
+      // Size analysis control
       if (analyzeSize != null)
         if (analyzeSize == true) '--analyze-size' else '--no-analyze-size',
+
+      // Deprecation warning control
       if (ignoreDeprecation != null)
         if (ignoreDeprecation == true) '--ignore-deprecation',
+
+      // Code obfuscation control
       if (obfuscate != null)
         if (obfuscate == true) '--obfuscate' else '--no-obfuscate',
+
+      // Target platform specification
       if (targetPlatform != null) '--target-platform=$targetPlatform',
+
+      // Additional Android project arguments
       if (androidProjectArg != null) '--android-project-arg=$androidProjectArg',
+
+      // Code size analysis output directory
       if (codeSizeDirectory != null) '--code-size-directory=$codeSizeDirectory',
+
+      // Debug info storage path
       if (splitDebugInfo != null) '--split-debug-info=$splitDebugInfo',
     ]);
 
-  /// Creates a copy of this [Arguments] with updated values.
+  /// Creates a copy of this Android arguments instance with updated values.
   ///
-  /// [data] - The new values to override the existing ones.
+  /// - `data` - New Android arguments to merge with current instance
+  ///
+  /// Returns a new `Arguments` instance with values from `data` taking
+  /// precedence over current values. Null values in `data` will preserve
+  /// the corresponding values from the current instance.
+  ///
+  /// This method is useful for creating variants of build configurations
+  /// without modifying the original instance.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// final releaseArgs = debugArgs.copyWith(Arguments(
+  ///   variables,
+  ///   binaryType: 'aab',
+  ///   buildMode: 'release',
+  ///   obfuscate: true,
+  /// ));
+  /// ```
   BuildArguments copyWith(Arguments? data) {
     return Arguments(
       data?.variables ?? variables,

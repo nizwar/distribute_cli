@@ -4,18 +4,72 @@ import 'package:distribute_cli/parsers/variables.dart';
 import '../../files.dart';
 import '../build_arguments.dart';
 
-/// Arguments for building an iOS application.
+/// Comprehensive iOS build arguments configuration.
 ///
-/// This class extends [BuildArguments] and provides options specific to iOS builds,
-/// such as export options and export method.
+/// Extends the base `BuildArguments` class with iOS-specific build options
+/// including export methods, provisioning profiles, and distribution settings.
+/// Handles IPA generation and various iOS distribution workflows.
+///
+/// Key iOS features:
+/// - IPA (iOS Application Archive) generation
+/// - Export options plist configuration for code signing
+/// - Multiple export methods for different distribution channels
+/// - Integration with Xcode build system and toolchain
+///
+/// Example usage:
+/// ```dart
+/// final args = Arguments(
+///   variables,
+///   binaryType: 'ipa',
+///   buildMode: 'release',
+///   exportMethod: 'app-store',
+/// );
+/// ```
 class Arguments extends BuildArguments {
-  /// Path to the export options plist file.
+  /// Path to the export options plist file for iOS code signing and distribution.
+  ///
+  /// The export options plist file contains configuration for:
+  /// - Code signing identity and provisioning profiles
+  /// - Distribution method and target audience
+  /// - App thinning and bitcode settings
+  /// - Upload symbols and manage version settings
+  ///
+  /// If not provided, Xcode will use default export options based on
+  /// the project's code signing configuration.
+  ///
+  /// Example path: `/path/to/project/ios/ExportOptions.plist`
   final String? exportOptionsPlist;
 
-  /// The export method for the build (e.g., app-store, ad-hoc).
+  /// The export method for iOS application distribution.
+  ///
+  /// Determines how the application will be packaged and distributed:
+  /// - `app-store` - For App Store distribution (requires distribution certificate)
+  /// - `ad-hoc` - For limited device distribution (requires ad-hoc provisioning)
+  /// - `enterprise` - For enterprise internal distribution (requires enterprise certificate)
+  /// - `development` - For development testing (requires development provisioning)
+  ///
+  /// Each method has different code signing and provisioning requirements.
   final String? exportMethod;
 
-  /// Creates a new [Arguments] instance for iOS builds.
+  /// Creates a new iOS build arguments instance.
+  ///
+  /// Parameters:
+  /// - `variables` - Variable processor for argument substitution
+  /// - `buildMode` - Build mode (debug, profile, release)
+  /// - `binaryType` - Output type (typically 'ipa' for iOS)
+  /// - `output` - Output directory path for the built IPA
+  /// - `target` - Entry point file path for the application
+  /// - `flavor` - Build flavor for multi-flavor builds
+  /// - `dartDefines` - Compile-time constants for conditional compilation
+  /// - `dartDefinesFile` - File containing compile-time constants
+  /// - `customArgs` - Additional custom arguments for the build process
+  /// - `buildName` - Version name for the build (CFBundleShortVersionString)
+  /// - `buildNumber` - Version code for the build (CFBundleVersion)
+  /// - `pub` - Whether to run pub get before building
+  /// - `exportOptionsPlist` - Path to export options plist file
+  /// - `exportMethod` - Distribution method (app-store, ad-hoc, enterprise, development)
+  ///
+  /// Sets the build source directory to the iOS IPA output location automatically.
   Arguments(
     super.variables, {
     super.buildMode,
@@ -33,7 +87,26 @@ class Arguments extends BuildArguments {
     this.exportMethod,
   }) : super(buildSourceDir: Files.iosOutputIPA.path);
 
-  /// Returns a copy of this [Arguments] with updated values from [data].
+  /// Creates a copy of this iOS arguments instance with updated values.
+  ///
+  /// - `data` - New iOS arguments to merge with current instance
+  ///
+  /// Returns a new `Arguments` instance with values from `data` taking
+  /// precedence over current values. Null values in `data` will preserve
+  /// the corresponding values from the current instance.
+  ///
+  /// This method is useful for creating variants of build configurations
+  /// without modifying the original instance.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// final releaseArgs = debugArgs.copyWith(Arguments(
+  ///   variables,
+  ///   binaryType: 'ipa',
+  ///   buildMode: 'release',
+  ///   exportMethod: 'app-store',
+  /// ));
+  /// ```
   Arguments copyWith(Arguments? data) {
     return Arguments(
       data?.variables ?? variables,
@@ -53,7 +126,15 @@ class Arguments extends BuildArguments {
     );
   }
 
-  /// Argument parser for iOS build arguments.
+  /// Command-line argument parser for iOS build configuration.
+  ///
+  /// Defines all available command-line options for iOS builds including:
+  /// - Basic build options (target, binary-type, build-mode, flavor)
+  /// - Build configuration (arguments, dart-defines, build-name, build-number)
+  /// - iOS-specific options (export-options-plist, export-method)
+  /// - Output and dependency management (output, pub)
+  ///
+  /// Used to parse command-line arguments into structured iOS build configuration.
   static ArgParser parser = ArgParser()
     ..addOption('target',
         abbr: 't',
@@ -83,7 +164,15 @@ class Arguments extends BuildArguments {
         defaultsTo: Files.iosDistributionOutputDir.path)
     ..addOption('dart-defines-file', help: 'Dart defines file');
 
-  /// Creates a new [Arguments] instance from the given [results].
+  /// Creates an iOS arguments instance from parsed command-line arguments.
+  ///
+  /// - `results` - Parsed command-line arguments specific to this command
+  /// - `globalResults` - Global command-line arguments shared across commands
+  ///
+  /// Returns a new `Arguments` instance configured with values from the
+  /// command-line arguments, with appropriate defaults for unspecified options.
+  ///
+  /// The binary type defaults to the first positional argument or 'ipa' if none provided.
   factory Arguments.fromArgResults(
       ArgResults results, ArgResults? globalResults) {
     return Arguments(
@@ -105,7 +194,23 @@ class Arguments extends BuildArguments {
     );
   }
 
-  /// Creates a new [Arguments] instance from the given [json] map.
+  /// Creates an iOS arguments instance from JSON configuration.
+  ///
+  /// - `json` - JSON object containing iOS build configuration
+  /// - `variables` - Variable processor for argument substitution
+  ///
+  /// Returns a new `Arguments` instance with configuration parsed from the
+  /// JSON object. Provides sensible defaults for missing values.
+  ///
+  /// Expected JSON structure:
+  /// ```json
+  /// {
+  ///   "binary-type": "ipa",
+  ///   "build-mode": "release",
+  ///   "export-method": "app-store",
+  ///   "export-options-plist": "/path/to/ExportOptions.plist"
+  /// }
+  /// ```
   factory Arguments.fromJson(Map<String, dynamic> json,
       {required Variables variables}) {
     return Arguments(
@@ -126,7 +231,18 @@ class Arguments extends BuildArguments {
     );
   }
 
-  /// Returns the default configuration for iOS build arguments.
+  /// Returns the default iOS build configuration.
+  ///
+  /// - `globalResults` - Global command-line arguments for variable processing
+  ///
+  /// Creates a default iOS build configuration suitable for most release builds:
+  /// - Binary type: 'ipa'
+  /// - Build mode: 'release'
+  /// - Output: iOS distribution directory
+  /// - Pub: enabled (runs pub get before building)
+  /// - No specific export method or options plist
+  ///
+  /// This configuration can be used as a starting point and customized as needed.
   static Arguments defaultConfigs(ArgResults? globalResults) => Arguments(
         Variables.fromSystem(globalResults),
         binaryType: 'ipa',
@@ -144,6 +260,17 @@ class Arguments extends BuildArguments {
         customArgs: [],
       );
 
+  /// Converts the iOS arguments to JSON representation.
+  ///
+  /// Returns a `Map<String, dynamic>` containing all iOS-specific configuration
+  /// values. This JSON representation can be used for:
+  /// - Configuration file serialization
+  /// - API communication
+  /// - Build configuration logging
+  /// - Configuration persistence and restoration
+  ///
+  /// The returned map includes all build parameters with their current values,
+  /// including null values for optional parameters.
   @override
   Map<String, dynamic> toJson() => {
         'binary-type': binaryType,
@@ -161,11 +288,25 @@ class Arguments extends BuildArguments {
         'output': output,
       };
 
+  /// Builds the command-line arguments list for the iOS build process.
+  ///
+  /// Returns a list of command-line arguments to be passed to the Flutter
+  /// build command. Combines base build arguments with iOS-specific options.
+  ///
+  /// iOS-specific arguments added:
+  /// - `--export-options-plist` - Path to export options plist file
+  /// - `--export-method` - Distribution method (app-store, ad-hoc, etc.)
+  ///
+  /// These arguments control iOS-specific build behavior including code signing,
+  /// provisioning profiles, and distribution method configuration.
   @override
   List<String> get argumentBuilder => super.argumentBuilder
     ..addAll([
+      // Export options plist for code signing configuration
       if (exportOptionsPlist != null)
         '--export-options-plist=$exportOptionsPlist',
+
+      // Export method for distribution type
       if (exportMethod != null) '--export-method=$exportMethod',
     ]);
 }

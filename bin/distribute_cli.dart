@@ -10,50 +10,52 @@ import 'package:distribute_cli/parsers/build_info.dart';
 import 'package:distribute_cli/publisher_command.dart';
 import 'package:distribute_cli/runner_command.dart';
 
-/// The entry point for the `distribute` CLI application.
+/// The main entry point for the Distribute CLI application.
 ///
-/// This script sets up a `CommandRunner` to handle various commands related
-/// to distributing app packages. It includes options for specifying a
-/// configuration file path, enabling verbose output, and enabling process logs.
+/// This function sets up and runs the command-line interface for the distribution tool.
+/// It initializes build information, creates a command runner, and adds all available commands.
 ///
-/// The following commands are added to the runner:
-/// - `InitCommand`: Initializes the distribution process.
-/// - `Builder`: Handles the building of app packages.
-/// - `Publisher`: Manages the publishing of app packages.
+/// Available commands:
+/// - `init` - Initialize distribution configuration
+/// - `build` - Build app packages
+/// - `publish` - Publish app packages
+/// - `run` - Run distribution tasks
+/// - `create` - Create new distribution templates
 ///
-/// ### Options:
-/// - `--config_path`: Specifies the path to the configuration file. Defaults to `.distribution.env`.
-/// - `--verbose` (`-v`): Enables verbose output. Defaults to `false`.
+/// Global options:
+/// - `--verbose` or `-v` - Enable verbose output for detailed logging
+/// - `--config` - Path to the configuration file (defaults to "distribution.yaml")
 ///
-/// ### Usage:
-/// Run the CLI with the desired command and options:
-/// ```bash
-/// dart distribute_cli.dart <command> [options]
-/// ```
-///
-/// Example:
-/// ```bash
-/// dart distribute_cli.dart build --config_path=config.env -v
-/// ```
+/// Parameters:
+/// - `args` - Command line arguments passed to the application
 void main(List<String> args) async {
+  // Apply build information to the application
   await BuildInfo.applyBuildInfo();
+
+  // Create the main command runner for the distribute CLI
   final runner = CommandRunner(
       'distribute', 'Run commands to distribute your app packages.');
+
+  // Clean up any existing log files
   final logs = File("distribution.log");
   if (await logs.exists()) {
     await logs.delete(recursive: true).catchError((value) => value);
   }
 
+  // Add global command line options
   runner.argParser.addFlag("verbose",
       abbr: 'v', defaultsTo: false, help: "Enable verbose output.");
   runner.argParser.addOption("config",
       defaultsTo: "distribution.yaml", help: "Path to the configuration file.");
+
+  // Register all available commands
   runner.addCommand(InitializerCommand());
   runner.addCommand(BuilderCommand());
   runner.addCommand(PublisherCommand());
   runner.addCommand(RunnerCommand());
   runner.addCommand(CreateCommand());
 
+  // Execute the command with error handling
   runner.run(args).catchError((e, s) {
     final logger = ColorizeLogger(true);
     logger.logError("${e.toString()}\n${s.toString()}");

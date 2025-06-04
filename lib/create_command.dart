@@ -20,7 +20,15 @@ import '../app_publisher/firebase/arguments.dart' as firebase_publisher;
 import '../app_publisher/github/arguments.dart' as github_publisher;
 import 'parsers/task_arguments.dart';
 
-/// Returns an [ArgParser] configured for job creation commands.
+/// Returns an argument parser configured for job and task creation commands.
+///
+/// This parser includes common options used across all creation commands:
+/// - `--wizard` or `-w` - Use interactive wizard mode for creation
+/// - `--task-key` or `-t` - Specify the task key for job creation
+/// - `--name` or `-n` - Set the name of the task or job
+/// - `--key` or `-k` - Set the unique key identifier
+/// - `--description` or `-d` - Set the description text
+/// - `--package-name` or `-p` - Set the package name (auto-detected from project)
 ArgParser get creatorArgParser => ArgParser(allowTrailingOptions: true)
   ..addFlag('wizard',
       abbr: 'w',
@@ -39,15 +47,24 @@ ArgParser get creatorArgParser => ArgParser(allowTrailingOptions: true)
           BuildInfo.iosBundleId ??
           "\${ANDROID_PACKAGE}");
 
-/// Command to create a new task or job. Entry point for 'create' subcommands.
+/// Command to create new tasks and jobs for the distribution configuration.
+///
+/// The `CreateCommand` serves as the entry point for creation subcommands,
+/// providing access to task and job creation wizards. It helps users build
+/// their distribution configuration by adding new tasks and jobs interactively
+/// or through command-line options.
 class CreateCommand extends Commander {
-  /// Creates a [CreateCommand] and adds subcommands for task and job creation.
+  /// Creates a CreateCommand and registers task and job creation subcommands.
+  ///
+  /// Available subcommands:
+  /// - `task` - Create a new distribution task
+  /// - `job` - Create a new job within an existing task
   CreateCommand() {
     addSubcommand(CreateTaskCommand());
     addSubcommand(CreateJobCommand());
   }
 
-  /// Description of the command.
+  /// The description of the create command shown in help text
   @override
   String get description => "Create a new task or job.";
 

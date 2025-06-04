@@ -8,32 +8,46 @@ import 'job_arguments.dart';
 import 'task_arguments.dart';
 import 'variables.dart';
 
-/// A parser for configuration files used in the distribution process.
+/// A parser for YAML configuration files used in the distribution process.
 ///
-/// The [ConfigParser] class is responsible for parsing YAML configuration files,
+/// The `ConfigParser` class is responsible for parsing YAML configuration files,
 /// converting them into structured objects, and providing access to tasks, environments,
-/// and arguments defined in the configuration.
+/// and arguments defined in the configuration. It handles variable substitution
+/// and validates required configuration fields.
 class ConfigParser {
-  /// The output directory for distribution files.
+  /// The output directory for distribution files
+  ///
+  /// Defaults to "distribution" if not specified in the configuration
   final String output;
 
-  /// The list of tasks defined in the configuration.
+  /// The list of tasks defined in the configuration
+  ///
+  /// Each task contains multiple jobs that define build and publish operations
   List<Task> tasks;
 
-  /// The map of job arguments defined in the configuration.
+  /// The map of job arguments defined in the configuration
+  ///
+  /// Contains reusable argument configurations that can be referenced by jobs
   final Map<String, JobArguments>? arguments;
 
-  /// The environment variables used in the configuration.
+  /// The environment variables used in the configuration
+  ///
+  /// Combines system environment variables with variables defined in the config file
   Map<String, dynamic> environments;
 
+  /// Global command line argument results from the CLI parser
+  ///
+  /// Used for accessing global flags like verbose mode
   final ArgResults? globalResults;
 
-  /// Creates a new [ConfigParser] instance.
+  /// Creates a new ConfigParser instance.
   ///
-  /// - [tasks]: The list of tasks defined in the configuration.
-  /// - [arguments]: The map of job arguments defined in the configuration.
-  /// - [environments]: The environment variables used in the configuration.
-  /// - [output]: The output directory for distribution files (default is "distribution").
+  /// Parameters:
+  /// - `tasks` - The list of tasks defined in the configuration
+  /// - `arguments` - The map of job arguments defined in the configuration
+  /// - `environments` - The environment variables used in the configuration
+  /// - `globalResults` - Global command line argument results
+  /// - `output` - The output directory for distribution files (defaults to "distribution")
   ConfigParser({
     required this.tasks,
     required this.arguments,
@@ -42,9 +56,16 @@ class ConfigParser {
     this.output = "distribution",
   });
 
-  /// Creates a [ConfigParser] instance from a JSON object.
+  /// Creates a ConfigParser instance from a JSON object.
   ///
-  /// - [json]: The JSON object containing the configuration data.
+  /// This factory constructor is used to create a ConfigParser from an already
+  /// parsed JSON representation of the configuration.
+  ///
+  /// Parameters:
+  /// - `json` - The JSON object containing the configuration data
+  /// - `globalResults` - Global command line argument results
+  ///
+  /// Returns a new ConfigParser instance with the parsed configuration data
   factory ConfigParser.fromJson(
       Map<String, dynamic> json, ArgResults? globalResults) {
     return ConfigParser(
@@ -56,11 +77,21 @@ class ConfigParser {
     );
   }
 
-  /// Creates a [ConfigParser] instance by parsing a YAML file.
+  /// Creates a ConfigParser instance by parsing a YAML file.
   ///
-  /// - [path]: The path to the YAML configuration file.
+  /// This method reads and parses a YAML configuration file, processes variables,
+  /// validates required fields, and creates a complete ConfigParser instance.
   ///
-  /// Throws an exception if the file does not exist or if required keys are missing.
+  /// Parameters:
+  /// - `path` - The path to the YAML configuration file
+  /// - `globalResults` - Global command line argument results
+  ///
+  /// Returns a new ConfigParser instance with the parsed configuration
+  ///
+  /// Throws an Exception if:
+  /// - The configuration file does not exist
+  /// - Required keys (`tasks`, `name`, `description`) are missing
+  /// - Job configuration is invalid (missing `package_name`)
   static Future<ConfigParser> distributeYaml(
       String path, ArgResults? globalResults) async {
     final file = File(path);

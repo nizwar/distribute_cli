@@ -1,23 +1,35 @@
 import 'job_arguments.dart';
 
-/// Represents a task in the configuration.
+/// Represents a distribution task in the configuration.
 ///
-/// A [Task] consists of a name, an optional key, an optional description,
-/// and a list of jobs associated with the task.
+/// A `Task` is a collection of related jobs that can be executed together.
+/// Tasks provide a way to group build and publish operations logically,
+/// such as "android-release" or "ios-beta". Each task contains multiple
+/// jobs that define specific build and publish configurations.
 class Task {
-  /// The name of the task.
+  /// The display name of the task
+  ///
+  /// Used for logging and user interface purposes
   final String name;
 
-  /// The unique key of the task (optional).
+  /// The unique identifier for the task
+  ///
+  /// Used to reference the task in CLI operations and configuration
   final String key;
 
-  /// The description of the task (optional).
+  /// Optional description explaining the task's purpose
+  ///
+  /// Provides context about what this task accomplishes
   final String? description;
 
-  /// The list of workflow names associated with the task (optional).
+  /// Optional list of workflow names associated with this task
+  ///
+  /// Workflows define sequences of tasks for complex deployment scenarios
   final List<String>? workflows;
 
-  /// The list of jobs associated with the task.
+  /// The list of jobs that belong to this task
+  ///
+  /// Each job defines specific build and publish operations
   final List<Job> jobs;
 
   /// Creates a new [Task] instance.
