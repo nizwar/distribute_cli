@@ -10,6 +10,7 @@ import 'package:distribute_cli/app_publisher/fastlane/arguments.dart'
 import 'package:distribute_cli/app_publisher/xcrun/arguments.dart'
     as xcrun_publisher;
 import 'package:distribute_cli/files.dart';
+import 'package:distribute_cli/parsers/build_info.dart';
 import 'package:distribute_cli/parsers/compress_files.dart';
 import 'package:distribute_cli/parsers/job_arguments.dart';
 import 'package:distribute_cli/parsers/task_arguments.dart';
@@ -36,8 +37,16 @@ class InitializerCommand extends Commander {
   /// Argument parser for the command.
   @override
   ArgParser get argParser => ArgParser()
-    ..addOption("package-name",
-        abbr: 'p', help: 'Package name for the application.', mandatory: true)
+    ..addOption(
+      "android-package-name",
+      abbr: 'a',
+      help: 'Package name for the application.',
+      defaultsTo: BuildInfo.androidPackageName,
+    )
+    ..addOption("ios-package-name",
+        abbr: 'i',
+        help: 'Bundle identifier for the iOS application.',
+        defaultsTo: BuildInfo.iosBundleId)
     ..addFlag("skip-tools",
         abbr: 's', help: 'Skip tool validation.', defaultsTo: false)
     ..addOption("google-service-account",
@@ -253,10 +262,10 @@ class InitializerCommand extends Commander {
         "name": "Distribution CLI",
         "description": "A CLI tool to build and publish your application.",
         "variables": {
-          "ANDROID_PACKAGE": argResults!['package-name'] as String,
-          "IOS_PACKAGE": argResults!['package-name'] as String,
-          "APPLE_ID": "your-apple-id",
-          "APPLE_APP_SPECIFIC_PASSWORD": "your-app-specific-password",
+          "ANDROID_PACKAGE": argResults?['android-package-name'] as String?,
+          "IOS_PACKAGE": argResults?['ios-package-name'] as String?,
+          "APPLE_ID": "\${APPLE_ID}",
+          "APPLE_APP_SPECIFIC_PASSWORD": "\${APPLE_APP_SPESIFIC_PASSWORD}",
         },
         "tasks": [
           Task(
