@@ -17,24 +17,24 @@ class CompressFiles {
     }
   }
 
-  static Future<int> compress(String path, String destination) {
+  static Future<int> compress(String source, String destination) {
     if (Platform.isWindows) {
       return Process.run(
         "powershell",
         [
           "Compress-Archive",
           "-Path",
-          path,
+          "*",
           "-DestinationPath",
           "debug_symbols.zip"
         ],
         runInShell: true,
+        workingDirectory: source,
       ).then((value) => value.exitCode);
     } else if (Platform.isMacOS || Platform.isLinux) {
-      return Process.run(
-        "zip",
-        ["-r", "debug_symbols.zip", path],
-      ).then((value) => value.exitCode);
+      return Process.run("zip", ["-r", "debug_symbols.zip", "."],
+              workingDirectory: source)
+          .then((value) => value.exitCode);
     } else {
       throw UnsupportedError("Unsupported platform for compression");
     }

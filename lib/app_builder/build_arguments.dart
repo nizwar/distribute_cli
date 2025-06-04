@@ -183,7 +183,8 @@ abstract class BuildArguments extends JobArguments {
         value.deleteSync();
       }
     });
-    final zipExitProcess = await CompressFiles.compress('.', outputDir.path);
+    final zipExitProcess =
+        await CompressFiles.compress(outputDir.path, "debug_symbols.zip");
     final zipExitCode = zipExitProcess;
     if (zipExitCode != 0) {
       logger.logDebug
