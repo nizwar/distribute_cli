@@ -58,7 +58,7 @@ class Variables {
         if (value.trim().isEmpty) {
           processResults = "";
         } else if (value.contains(" ")) {
-          final args = value.split(" ");
+          final args = _parseCommandArguments(value);
           final process = await Process.run(args.first, args.sublist(1));
           processResults = process.exitCode == 0
               ? process.stdout.toString().trim()
@@ -97,5 +97,56 @@ class Variables {
   static Future<String> processBySystem(
       String? input, ArgResults? globalResults) async {
     return Variables.fromSystem(globalResults).process(input);
+  }
+
+  /// Parses command arguments respecting quotes and escaping
+  /// Handles cases like: git log --pretty='format:(%h) %s' --since=yesterday
+  List<String> _parseCommandArguments(String command) {
+    final List<String> args = [];
+    final StringBuffer currentArg = StringBuffer();
+    bool inSingleQuotes = false;
+    bool inDoubleQuotes = false;
+    bool escaped = false;
+
+    for (int i = 0; i < command.length; i++) {
+      final char = command[i];
+
+      if (escaped) {
+        currentArg.write(char);
+        escaped = false;
+        continue;
+      }
+
+      if (char == '\\') {
+        escaped = true;
+        continue;
+      }
+
+      if (char == "'" && !inDoubleQuotes) {
+        inSingleQuotes = !inSingleQuotes;
+        continue;
+      }
+
+      if (char == '"' && !inSingleQuotes) {
+        inDoubleQuotes = !inDoubleQuotes;
+        continue;
+      }
+
+      if (char == ' ' && !inSingleQuotes && !inDoubleQuotes) {
+        if (currentArg.isNotEmpty) {
+          args.add(currentArg.toString());
+          currentArg.clear();
+        }
+        continue;
+      }
+
+      currentArg.write(char);
+    }
+
+    if (currentArg.isNotEmpty) {
+      args.add(currentArg.toString());
+    }
+
+    return args;
   }
 }
