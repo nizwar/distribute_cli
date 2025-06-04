@@ -5,6 +5,7 @@ import 'package:distribute_cli/builder_command.dart';
 import 'package:distribute_cli/create_command.dart';
 import 'package:distribute_cli/initializer_command.dart';
 import 'package:distribute_cli/logger.dart';
+import 'package:distribute_cli/parsers/build_info.dart';
 
 import 'package:distribute_cli/publisher_command.dart';
 import 'package:distribute_cli/runner_command.dart';
@@ -35,6 +36,7 @@ import 'package:distribute_cli/runner_command.dart';
 /// dart distribute_cli.dart build --config_path=config.env -v
 /// ```
 void main(List<String> args) async {
+  await BuildInfo.applyBuildInfo();
   final runner = CommandRunner(
       'distribute', 'Run commands to distribute your app packages.');
   final logs = File("distribution.log");
