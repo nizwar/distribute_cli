@@ -241,11 +241,17 @@ class CreatePublisherCommand extends CreatorCommand {
       "tools",
       abbr: 'T',
       help: "The tools to use for the publisher.",
-      allowed: ["firebase", "fastlane", "xcrun", "github"],
+      allowed: [
+        "firebase",
+        "fastlane",
+        if (Platform.isMacOS) "xcrun",
+        "github",
+      ],
       allowedHelp: {
         "firebase": "Publish to Firebase App Distribution.",
         "fastlane": "Publish using Fastlane.",
-        "xcrun": "Publish using Xcode command line tools.",
+        if (Platform.isMacOS)
+          "xcrun": "Publish using Xcode command line tools.",
         "github": "Publish to GitHub."
       },
     );
@@ -268,9 +274,9 @@ class CreateBuilderCommand extends CreatorCommand {
       "platform",
       abbr: 'P',
       help: "The platform to build for.",
-      allowed: ["ios", "android", "custom"],
+      allowed: [if (Platform.isMacOS) "ios", "android", "custom"],
       allowedHelp: {
-        "ios": "Build for iOS.",
+        if (Platform.isMacOS) "ios": "Build for iOS.",
         "android": "Build for Android.",
         "custom": "Build for custom platforms."
       },

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:distribute_cli/app_publisher/firebase/command.dart'
     as firebase_command;
 import 'package:distribute_cli/app_publisher/fastlane/command.dart'
@@ -18,7 +20,7 @@ class PublisherCommand extends Commander {
   PublisherCommand() {
     addSubcommand(firebase_command.Command());
     addSubcommand(fastlane_command.Command());
-    addSubcommand(xcrun_command.Command());
+    if (Platform.isMacOS) addSubcommand(xcrun_command.Command());
     addSubcommand(github_command.Command());
   }
 

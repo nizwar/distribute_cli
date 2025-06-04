@@ -5,7 +5,6 @@ homepage: https://github.com/nizwar/distribute_cli.git
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
-  flutter: ">=1.17.0"
 
 dependencies:
   args: ^2.7.0
@@ -17,6 +16,7 @@ dependencies:
 
 dev_dependencies:
   flutter_lints: ^5.0.0
+  test: ^1.21.0
   flutter_test:
     sdk: flutter
 

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:distribute_cli/app_builder/android/arguments.dart'
     as android_arguments;
+import 'package:distribute_cli/parsers/compress_files.dart';
 
 import '../files.dart';
 import '../logger.dart';
@@ -120,7 +121,8 @@ abstract class BuildArguments extends JobArguments {
           ...results
         ].join(" "), environments)}`");
     final process = await Process.start("flutter",
-        ["build", ...results.map((e) => substituteVariables(e, environments))]);
+        ["build", ...results.map((e) => substituteVariables(e, environments))],
+        runInShell: true, includeParentEnvironment: true);
     process.stdout.transform(utf8.decoder).listen(onVerbose);
     process.stderr.transform(utf8.decoder).listen(onError);
     final exitCode = await process.exitCode;
@@ -188,12 +190,8 @@ abstract class BuildArguments extends JobArguments {
         value.deleteSync();
       }
     });
-    final zipExitProcess = await Process.start(
-        "zip", ["-r", "debug_symbols.zip", "."],
-        workingDirectory: outputDir.path);
-    zipExitProcess.stdout.transform(utf8.decoder).listen(onVerbose);
-    zipExitProcess.stderr.transform(utf8.decoder).listen(onVerbose);
-    final zipExitCode = await zipExitProcess.exitCode;
+    final zipExitProcess = await CompressFiles.compress('.', outputDir.path);
+    final zipExitCode = zipExitProcess;
     if (zipExitCode != 0) {
       onVerbose
           ?.call("Failed to generate zip symbols with exit code: $zipExitCode");
