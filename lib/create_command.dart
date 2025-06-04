@@ -8,7 +8,9 @@ import 'package:distribute_cli/app_builder/ios/arguments.dart' as ios_arguments;
 import 'package:distribute_cli/app_publisher/xcrun/arguments.dart'
     as xcrun_publisher;
 import 'package:distribute_cli/command.dart';
+import 'package:distribute_cli/parsers/build_info.dart';
 import 'package:distribute_cli/parsers/job_arguments.dart';
+import 'package:distribute_cli/parsers/variables.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_codec/yaml_codec.dart';
 
@@ -32,7 +34,9 @@ ArgParser get creatorArgParser => ArgParser(allowTrailingOptions: true)
   ..addOption("package-name",
       abbr: 'p',
       help: "Package name of the app to publish.",
-      defaultsTo: "\${ANDROID_PACKAGE}");
+      defaultsTo: BuildInfo.androidPackageName ??
+          BuildInfo.iosBundleId ??
+          "\${ANDROID_PACKAGE}");
 
 /// Command to create a new task or job. Entry point for 'create' subcommands.
 class CreateCommand extends Commander {
@@ -175,6 +179,8 @@ abstract class CreatorCommand extends Commander {
     }
 
     var configJson = _loadYamlAsJson(file);
+    final Variables variables =
+        Variables(configJson["variables"], globalResults);
     var tasks = configJson["tasks"] ?? [];
 
     String? taskKey;
@@ -182,6 +188,7 @@ abstract class CreatorCommand extends Commander {
     String? jobName;
     String? packageName;
     String? description;
+    String? appId;
 
     bool isWizard = argResults?["wizard"] ?? false;
 
@@ -201,10 +208,11 @@ abstract class CreatorCommand extends Commander {
         logger.logError("Task with key $taskKey not found.");
         return;
       }
-      jobName = await prompt("Enter job name");
       jobKey = await prompt("Enter job key");
-      packageName = await prompt("Enter package name");
+      jobName = await prompt("Enter job name");
       description = await prompt("Enter job description", nullable: true);
+      packageName =
+          BuildInfo.androidPackageName ?? await prompt("Enter package name");
     } else {
       taskKey = argResults?["task-key"];
       jobKey = argResults?["key"];
@@ -213,10 +221,34 @@ abstract class CreatorCommand extends Commander {
       description = argResults?["description"];
     }
 
-    if ((taskKey?.isEmpty ?? true) ||
-        (jobKey?.isEmpty ?? true) ||
-        (jobName?.isEmpty ?? true) ||
-        (packageName?.isEmpty ?? true)) {
+    taskKey = await variables.process(taskKey ?? "");
+    jobKey = await variables.process(jobKey ?? "");
+    jobName = await variables.process(jobName ?? "");
+    description = await variables.process(description ?? "");
+    packageName = await variables.process(packageName ?? "\${ANDROID_PACKAGE}");
+
+    final googleServiceFile = File("android/app/google-services.json");
+    if (googleServiceFile.existsSync()) {
+      final googleService = jsonDecode(googleServiceFile.readAsStringSync());
+      final List clients = googleService["client"];
+      final client = clients.firstWhere(
+        (client) =>
+            client["client_info"]["android_client_info"]["package_name"] ==
+            packageName,
+        orElse: () => {},
+      );
+      if (client.isNotEmpty) {
+        appId = client["client_info"]["mobilesdk_app_id"];
+      } else {
+        logger.logWarning(
+            "No Android client found in google-services.json. Please provide package name manually.");
+      }
+    }
+
+    if ((taskKey.isEmpty) ||
+        (jobKey.isEmpty) ||
+        (jobName.isEmpty) ||
+        (packageName.isEmpty)) {
       logger.logError(
           "`task-key`, `key`, `package_name`, and `name` are mandatory.");
       return;
@@ -241,11 +273,15 @@ abstract class CreatorCommand extends Commander {
     if (this is CreateBuilderCommand) {
       List<String> platforms = <String>[];
       if (isWizard) {
-        final input =
-            await prompt("Enter platforms (android, ios)", nullable: true);
-        if (input.isNotEmpty) {
-          platforms =
-              input.split(",").map((platform) => platform.trim()).toList();
+        if (Platform.isMacOS) {
+          final input =
+              await prompt("Enter platforms (android, ios)", nullable: true);
+          if (input.isNotEmpty) {
+            platforms =
+                input.split(",").map((platform) => platform.trim()).toList();
+          }
+        } else {
+          platforms.add("android");
         }
       } else if (argResults!["platform"] != null) {
         platforms = (argResults!["platform"] as List<String>).toList();
@@ -271,7 +307,9 @@ abstract class CreatorCommand extends Commander {
         logger.logInfo("Available tools for publisher job:");
         logger.logInfo("- firebase: Publish to Firebase App Distribution.");
         logger.logInfo("- fastlane: Publish using Fastlane.");
-        logger.logInfo("- xcrun: Publish using Xcode command line tools.");
+        if (Platform.isMacOS) {
+          logger.logInfo("- xcrun: Publish using Xcode command line tools.");
+        }
         logger.logInfo("- github: Publish to GitHub.");
         logger.logEmpty();
         logger.logInfo(
@@ -287,14 +325,16 @@ abstract class CreatorCommand extends Commander {
       publisherJob = PublisherJob(
         fastlane: tools.contains("fastlane") == true
             ? fastlane_publisher.Arguments.defaultConfigs(
-                packageName!, globalResults)
+                packageName, globalResults)
             : null,
         firebase: tools.contains("firebase") == true
             ? firebase_publisher.Arguments.defaultConfigs(
-                "APP_ID", globalResults)
+                appId ?? "APP_ID", globalResults)
             : null,
-        xcrun: tools.contains("xcrun") == true
-            ? xcrun_publisher.Arguments.defaultConfigs(globalResults)
+        xcrun: Platform.isMacOS
+            ? tools.contains("xcrun") == true
+                ? xcrun_publisher.Arguments.defaultConfigs(globalResults)
+                : null
             : null,
         github: tools.contains("github") == true
             ? github_publisher.Arguments.defaultConfigs(globalResults)
@@ -310,10 +350,10 @@ abstract class CreatorCommand extends Commander {
     }
 
     jobs.add(Job(
-            name: jobName!,
+            name: jobName,
             key: jobKey,
             description: description,
-            packageName: packageName!,
+            packageName: packageName,
             builder: builderJob,
             publisher: publisherJob)
         .toJson());
