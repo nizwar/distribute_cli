@@ -10,6 +10,7 @@ import 'package:distribute_cli/app_publisher/fastlane/arguments.dart'
 import 'package:distribute_cli/app_publisher/xcrun/arguments.dart'
     as xcrun_publisher;
 import 'package:distribute_cli/files.dart';
+import 'package:distribute_cli/parsers/compress_files.dart';
 import 'package:distribute_cli/parsers/job_arguments.dart';
 import 'package:distribute_cli/parsers/task_arguments.dart';
 import 'package:distribute_cli/parsers/variables.dart';
@@ -63,13 +64,47 @@ class InitializerCommand extends Commander {
     }
 
     if (!(argResults!['skip-tools'] as bool)) {
-      await _checkTool("firebase", "Firebase", initialized);
-      await _checkTool("fastlane", "Fastlane", initialized, args: ['actions']);
+      await _checkTool("flutter", "Flutter", initialized, args: ['--version'])
+          .catchError((_) => -1);
+      await _checkTool("firebase", "Firebase", initialized)
+          .catchError((_) => -1);
+      await _checkTool("git", "Git", initialized, args: ['--version'])
+          .catchError((_) => -1);
 
-      await _validateFastlaneJson(initialized);
-      await _downloadAndroidMetaData();
+      await CompressFiles.checkTools().then((value) {
+        if (!value) {
+          logger.logWarning(
+              "Compress tool is not installed, some features may not work as expected.");
+        } else {
+          logger.logSuccess('Compress tool is installed.');
+          initialized["compress_tool"] = true;
+        }
+      });
+
+      await _checkTool("fastlane", "Fastlane", initialized, args: ['actions'])
+          .catchError((_) => -1)
+          .then((value) async {
+        if (value == 0) {
+          await _validateFastlaneJson(initialized).then((value) async {
+            if (value == 0) return await _downloadAndroidMetaData();
+          });
+        } else {
+          if (Platform.isWindows) {
+            logger.logWarning(
+                'Tips : In Windows, you can install fastlane using "gem install fastlane", make sure you have Ruby installed.');
+          } else if (Platform.isLinux) {
+            logger.logWarning(
+                'Tips : In Linux, you can install fastlane using "sudo gem install fastlane", make sure you have Ruby installed.');
+          } else if (Platform.isMacOS) {
+            logger.logWarning(
+                'Tips : In MacOS, you can install fastlane using "sudo gem install fastlane", make sure you have Ruby installed.');
+          }
+          initialized["fastlane_json"] = false;
+        }
+      });
       if (Platform.isMacOS) {
-        await _checkTool("xcrun", "XCRun", initialized, args: ["altool", "-h"]);
+        await _checkTool("xcrun", "XCRun", initialized, args: ["altool", "-h"])
+            .catchError((_) => -1);
       }
     }
 
@@ -120,33 +155,47 @@ class InitializerCommand extends Commander {
   /// [toolName] is the name of the tool.
   /// [initialized] is the map to track initialization status.
   /// [args] are additional arguments for the tool.
-  Future<void> _checkTool(
+  Future<int> _checkTool(
       String command, String toolName, Map<String, bool> initialized,
       {List<String> args = const []}) async {
     logger.logDebug("Checking if $toolName is installed...");
     logger.logDebug("Command: $command ${args.join(" ")}");
-    await Process.start(command, args).then((value) async {
+    final process = await Process.start(command, args,
+            includeParentEnvironment: true, runInShell: true)
+        .then((value) async {
       value.stdout.transform(utf8.decoder).listen(logger.logDebug);
       if (await value.exitCode != 0) {
         initialized[toolName.toLowerCase()] = false;
-        logger.logError(
-            '$toolName is not installed. Please install $toolName to proceed.');
+        logger.logWarning(
+            '$toolName is not installed. Some features may not work as expected.');
         if (toolName == "Git") exit(1);
       } else {
         initialized[toolName.toLowerCase()] = true;
         logger.logSuccess('$toolName is installed.');
       }
+      return value;
     });
+    return process.exitCode;
   }
 
   /// Validates the Fastlane JSON key.
   ///
   /// [initialized] is the map to track initialization status.
-  Future<void> _validateFastlaneJson(Map<String, bool> initialized) async {
+  Future<int> _validateFastlaneJson(Map<String, bool> initialized) async {
     final String? jsonKeyPath =
         argResults?['google-service-account'] as String?;
     logger.logDebug("Validating Fastlane JSON key...");
-    await Process.start("fastlane", [
+
+    File jsonKeyFile =
+        jsonKeyPath != null ? File(jsonKeyPath) : Files.fastlaneJson;
+
+    if (!jsonKeyFile.existsSync()) {
+      logger.logWarning(
+          "The Fastlane JSON key file does not exist at the specified path: ${jsonKeyFile.path}");
+      initialized["fastlane_json"] = false;
+      return -1;
+    }
+    return await Process.start("fastlane", [
       'run',
       'validate_play_store_json_key',
       'json_key:${jsonKeyPath ?? Files.fastlaneJson.path}'
@@ -155,6 +204,7 @@ class InitializerCommand extends Commander {
       if (await value.exitCode != 0) {
         initialized["fastlane_json"] = false;
         logger.logError("The Fastlane JSON key is invalid.");
+        return -1;
       } else {
         initialized["fastlane_json"] = true;
         logger.logSuccess('The Fastlane JSON key is valid.');
@@ -169,6 +219,7 @@ class InitializerCommand extends Commander {
             logger.logDebug("Failed to copy the Fastlane JSON key: $error");
           });
         }
+        return 0;
       }
     });
   }
@@ -248,39 +299,39 @@ class InitializerCommand extends Commander {
               ),
             ],
           ).toJson(),
-          Task(
-            name: "iOS Build and deploy",
-            key: "ios",
-            description: "Build and deploy the iOS application to app store.",
-            jobs: [
-              Job(
-                name: "Build iOS",
-                description: "Build the iOS application using Xcode.",
-                key: "build",
-                packageName: "\${{IOS_PACKAGE}}",
-                builder: BuilderJob(
-                    ios: ios_arguments.Arguments(
-                  Variables.fromSystem(globalResults),
-                  binaryType: "ipa",
-                  buildMode: "release",
-                )),
-              ),
-              Job(
-                name: "Publish iOS",
-                description: "Publish the iOS application to app store.",
-                key: "publish",
-                packageName: "\${{IOS_PACKAGE}}",
-                publisher: PublisherJob(
-                  xcrun: xcrun_publisher.Arguments(
+          if (Platform.isMacOS)
+            Task(
+              name: "iOS Build and deploy",
+              key: "ios",
+              description: "Build and deploy the iOS application to app store.",
+              jobs: [
+                Job(
+                  name: "Build iOS",
+                  description: "Build the iOS application using Xcode.",
+                  key: "build",
+                  packageName: "\${{IOS_PACKAGE}}",
+                  builder: BuilderJob(
+                      ios: ios_arguments.Arguments(
                     Variables.fromSystem(globalResults),
-                    filePath: Files.iosDistributionOutputDir.path,
-                    username: "\${{APPLE_ID}}",
-                    password: "\${{APPLE_APP_SPECIFIC_PASSWORD}}",
-                  ),
+                    binaryType: "ipa",
+                    buildMode: "release",
+                  )),
                 ),
-              ),
-            ],
-          ).toJson(),
+                Job(
+                    name: "Publish iOS",
+                    description: "Publish the iOS application to app store.",
+                    key: "publish",
+                    packageName: "\${{IOS_PACKAGE}}",
+                    publisher: PublisherJob(
+                      xcrun: xcrun_publisher.Arguments(
+                        Variables.fromSystem(globalResults),
+                        filePath: Files.iosDistributionOutputDir.path,
+                        username: "\${{APPLE_ID}}",
+                        password: "\${{APPLE_APP_SPECIFIC_PASSWORD}}",
+                      ),
+                    )),
+              ],
+            ).toJson(),
         ]
       };
 }

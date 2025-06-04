@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:distribute_cli/app_builder/android/command.dart'
     as android_command;
 import 'package:distribute_cli/app_builder/custom/command.dart'
@@ -13,7 +15,7 @@ class BuilderCommand extends Commander {
   /// Creates a new [BuilderCommand] and adds subcommands for each platform.
   BuilderCommand() {
     addSubcommand(android_command.Command());
-    addSubcommand(ios_command.Command());
+    if (Platform.isMacOS) addSubcommand(ios_command.Command());
     addSubcommand(custom_command.Command());
   }
 
