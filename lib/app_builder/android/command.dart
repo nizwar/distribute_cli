@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:args/args.dart';
 
 import '../../command.dart';
@@ -28,6 +26,5 @@ class Command extends Commander {
   /// Parses the arguments and builds the Android application using the provided environment.
   /// Returns a [Future] that completes with the exit code of the build process.
   @override
-  Future? run() =>
-      Arguments.fromArgResults(argResults!).build(Platform.environment);
+  Future? run() => Arguments.fromArgResults(argResults!, globalResults).build();
 }

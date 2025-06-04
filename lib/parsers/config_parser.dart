@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:args/args.dart';
 import 'package:yaml/yaml.dart';
 
 import 'job_arguments.dart';
 import 'task_arguments.dart';
+import 'variables.dart';
 
 /// A parser for configuration files used in the distribution process.
 ///
@@ -24,6 +26,8 @@ class ConfigParser {
   /// The environment variables used in the configuration.
   Map<String, dynamic> environments;
 
+  final ArgResults? globalResults;
+
   /// Creates a new [ConfigParser] instance.
   ///
   /// - [tasks]: The list of tasks defined in the configuration.
@@ -34,14 +38,17 @@ class ConfigParser {
     required this.tasks,
     required this.arguments,
     required this.environments,
+    required this.globalResults,
     this.output = "distribution/",
   });
 
   /// Creates a [ConfigParser] instance from a JSON object.
   ///
   /// - [json]: The JSON object containing the configuration data.
-  factory ConfigParser.fromJson(Map<String, dynamic> json) {
+  factory ConfigParser.fromJson(
+      Map<String, dynamic> json, ArgResults? globalResults) {
     return ConfigParser(
+      globalResults: globalResults,
       tasks: json["tasks"],
       environments: json["variables"] as Map<String, dynamic>,
       arguments: (json["arguments"] as Map<String, dynamic>)
@@ -54,7 +61,8 @@ class ConfigParser {
   /// - [path]: The path to the YAML configuration file.
   ///
   /// Throws an exception if the file does not exist or if required keys are missing.
-  factory ConfigParser.distributeYaml(String path) {
+  static Future<ConfigParser> distributeYaml(
+      String path, ArgResults? globalResults) async {
     final file = File(path);
     if (!file.existsSync()) {
       throw Exception("$path file not found, please run init command");
@@ -63,10 +71,20 @@ class ConfigParser {
         jsonDecode(jsonEncode(loadYaml(file.readAsStringSync())));
     List<Task> jobTasks;
 
-    final environments = Map<String, dynamic>.from(Platform.environment.cast())
-      ..addAll((configJson["variables"] as Map<String, dynamic>? ?? {}).map(
-          (key, value) => MapEntry(key,
-              substituteVariables(value.toString(), Platform.environment))));
+    final yamlVariables = Map<String, dynamic>.from(configJson["variables"]);
+    final environments = Map<String, dynamic>.from(Platform.environment.cast());
+    for (var key in yamlVariables.keys) {
+      await Variables.processBySystem(
+              yamlVariables[key].toString(), globalResults)
+          .then((value) {
+        yamlVariables[key] = value;
+      });
+    }
+    environments.addAll(yamlVariables);
+
+    stdout.writeln(JsonEncoder.withIndent("   ").convert(environments));
+
+    Variables variables = Variables(environments, globalResults);
 
     if (configJson["tasks"] == null) {
       throw Exception("tasks's key not found in $path");
@@ -94,10 +112,10 @@ class ConfigParser {
       PublisherJob? publisherArguments;
 
       if (builder != null) {
-        builderArguments = BuilderJob.fromJson(builder);
+        builderArguments = BuilderJob.fromJson(builder, variables);
       }
       if (publisher != null) {
-        publisherArguments = PublisherJob.fromJson(publisher);
+        publisherArguments = PublisherJob.fromJson(publisher, variables);
       }
 
       final output = Job(
@@ -129,38 +147,11 @@ class ConfigParser {
         .toList();
 
     return ConfigParser(
-        tasks: jobTasks,
-        arguments: (configJson["arguments"] as Map<String, dynamic>?)
-            ?.map((key, value) => MapEntry(key, value as dynamic)),
-        environments: environments);
+      globalResults: globalResults,
+      tasks: jobTasks,
+      arguments: (configJson["arguments"] as Map<String, dynamic>?)
+          ?.map((key, value) => MapEntry(key, value as dynamic)),
+      environments: environments,
+    );
   }
-}
-
-/// Substitutes variables in a string with their corresponding values from a map.
-///
-/// This function replaces placeholders in the format `${{VAR_NAME}}` or `${VAR_NAME}`
-/// with the values of the corresponding variables from the provided map.
-///
-/// - [input]: The input string containing placeholders.
-/// - [variables]: A map of variable names and their values (default is an empty map).
-///
-/// Returns the string with placeholders replaced by their corresponding values.
-String substituteVariables(String? input,
-    [Map<String, dynamic> variables = const {}]) {
-  if (input == null) return "";
-
-  // Pattern matches ${{VAR_NAME}} OR ${VAR_NAME}
-  final pattern = RegExp(r'\$\{\{(\w+)\}\}|\$\{(\w+)\}');
-
-  return input.replaceAllMapped(pattern, (match) {
-    final varName = match.group(1) ?? match.group(2); // capture either style
-    final value = variables[varName?.trim()];
-
-    if (value != null) {
-      return value.toString();
-    } else {
-      // If variable is not found, keep the original placeholder
-      return match.group(0)!;
-    }
-  });
 }

@@ -12,6 +12,7 @@ import 'package:distribute_cli/app_publisher/xcrun/arguments.dart'
 import 'package:distribute_cli/files.dart';
 import 'package:distribute_cli/parsers/job_arguments.dart';
 import 'package:distribute_cli/parsers/task_arguments.dart';
+import 'package:distribute_cli/parsers/variables.dart';
 import 'package:yaml_codec/yaml_codec.dart';
 
 import 'app_builder/ios/arguments.dart' as ios_arguments;
@@ -221,7 +222,9 @@ class InitializerCommand extends Commander {
                 packageName: "\${{ANDROID_PACKAGE}}",
                 builder: BuilderJob(
                     android: android_arguments.Arguments(
-                        binaryType: "aab", buildMode: "release")),
+                        Variables.fromSystem(globalResults),
+                        binaryType: "aab",
+                        buildMode: "release")),
               ),
               Job(
                 name: "Publish Android",
@@ -231,6 +234,7 @@ class InitializerCommand extends Commander {
                 packageName: "\${{ANDROID_PACKAGE}}",
                 publisher: PublisherJob(
                   fastlane: fastlane_publisher.Arguments(
+                    Variables.fromSystem(globalResults),
                     filePath: Files.androidDistributionOutputDir.path,
                     metadataPath: Files.androidDistributionMetadataDir.path,
                     jsonKey: Files.fastlaneJson.path,
@@ -256,7 +260,10 @@ class InitializerCommand extends Commander {
                 packageName: "\${{IOS_PACKAGE}}",
                 builder: BuilderJob(
                     ios: ios_arguments.Arguments(
-                        binaryType: "ipa", buildMode: "release")),
+                  Variables.fromSystem(globalResults),
+                  binaryType: "ipa",
+                  buildMode: "release",
+                )),
               ),
               Job(
                 name: "Publish iOS",
@@ -265,6 +272,7 @@ class InitializerCommand extends Commander {
                 packageName: "\${{IOS_PACKAGE}}",
                 publisher: PublisherJob(
                   xcrun: xcrun_publisher.Arguments(
+                    Variables.fromSystem(globalResults),
                     filePath: Files.iosDistributionOutputDir.path,
                     username: "\${{APPLE_ID}}",
                     password: "\${{APPLE_APP_SPECIFIC_PASSWORD}}",

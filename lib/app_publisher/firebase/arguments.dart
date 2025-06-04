@@ -1,4 +1,5 @@
 import 'package:args/args.dart';
+import 'package:distribute_cli/parsers/variables.dart';
 
 import '../../files.dart';
 import '../publisher_arguments.dart';
@@ -30,7 +31,8 @@ class Arguments extends PublisherArguments {
   final String? groupsFile;
 
   /// Creates a new [Arguments] instance for Firebase publishing.
-  Arguments({
+  Arguments(
+    Variables variables, {
     required super.filePath,
     required this.appId,
     required super.binaryType,
@@ -40,10 +42,13 @@ class Arguments extends PublisherArguments {
     this.testersFile,
     this.groups,
     this.groupsFile,
-  }) : super('firebase');
+  }) : super('firebase', variables);
 
   /// Creates an [Arguments] instance from [ArgResults].
-  factory Arguments.fromArgResults(ArgResults results) => Arguments(
+  factory Arguments.fromArgResults(
+          ArgResults results, ArgResults? globalResults) =>
+      Arguments(
+        Variables.fromSystem(globalResults),
         filePath:
             results.rest.firstOrNull ?? Files.androidDistributionOutputDir.path,
         binaryType: results['binary-type'] as String,
@@ -57,11 +62,13 @@ class Arguments extends PublisherArguments {
       );
 
   /// Creates an [Arguments] instance from a JSON map.
-  factory Arguments.fromJson(Map<String, dynamic> json) {
+  factory Arguments.fromJson(Map<String, dynamic> json,
+      {required Variables variables}) {
     if (json['file-path'] == null) throw Exception("file-path is required");
     if (json['app-id'] == null) throw Exception("app-id is required");
     if (json['binary-type'] == null) throw Exception("binary-type is required");
     return Arguments(
+      variables,
       filePath: json["file-path"] as String,
       appId: json['app-id'] as String,
       binaryType: json['binary-type'] as String,
@@ -76,7 +83,7 @@ class Arguments extends PublisherArguments {
 
   /// Returns the command-line arguments for Firebase publishing.
   @override
-  List<String> get results => [
+  List<String> get argumentBuilder => [
         'appdistribution:distribute',
         filePath,
         '--app',
@@ -118,7 +125,9 @@ class Arguments extends PublisherArguments {
             'Path to file with a comma- or newline-separated list of group aliases to distribute to');
 
   /// Returns the default configuration for Firebase publishing.
-  factory Arguments.defaultConfigs(String appId) => Arguments(
+  factory Arguments.defaultConfigs(String appId, ArgResults? globalResults) =>
+      Arguments(
+        Variables.fromSystem(globalResults),
         filePath: Files.androidDistributionOutputDir.path,
         appId: appId,
         binaryType: 'apk',

@@ -1,4 +1,5 @@
 import 'package:args/args.dart';
+import 'package:distribute_cli/parsers/variables.dart';
 
 import '../../files.dart';
 import '../build_arguments.dart';
@@ -27,7 +28,8 @@ class Arguments extends BuildArguments {
   /// Creates an instance of [Arguments] for Android builds.
   ///
   /// Throws an [ArgumentError] if `binaryType` is not `apk` and `splitPerAbi` is true.
-  Arguments({
+  Arguments(
+    super.variables, {
     super.buildMode,
     required super.binaryType,
     super.target,
@@ -64,7 +66,7 @@ class Arguments extends BuildArguments {
   ///
   /// Includes the `--split-per-abi` flag if `splitPerAbi` is true and `binaryType` is `apk`.
   @override
-  List<String> get results => super.results
+  List<String> get argumentBuilder => super.argumentBuilder
     ..addAll([
       if (splitPerAbi && binaryType == 'apk') '--split-per-abi',
       if (configOnly == true) '--config-only',
@@ -95,6 +97,7 @@ class Arguments extends BuildArguments {
   /// [data] - The new values to override the existing ones.
   BuildArguments copyWith(Arguments? data) {
     return Arguments(
+      data?.variables ?? variables,
       buildMode: data?.buildMode ?? buildMode,
       binaryType: data?.binaryType ?? binaryType,
       target: data?.target ?? target,
@@ -165,8 +168,7 @@ class Arguments extends BuildArguments {
         help: 'Ignore deprecation warnings', defaultsTo: false)
     ..addFlag('obfuscate', help: 'Obfuscate the code', defaultsTo: false)
     ..addOption('target-platform',
-        help: 'Target platform (android-arm, android-arm64, android-x64)',
-        defaultsTo: 'android-arm')
+        help: 'Target platform (android-arm, android-arm64, android-x64)')
     ..addOption('android-project-arg', help: 'Android project argument')
     ..addOption('code-size-directory', help: 'Code size directory')
     ..addOption('split-debug-info', help: 'Split debug info');
@@ -174,7 +176,8 @@ class Arguments extends BuildArguments {
   /// Returns the default configuration for Android builds.
   ///
   /// This includes default values for all required arguments.
-  factory Arguments.defaultConfigs() => Arguments(
+  factory Arguments.defaultConfigs(ArgResults? globalResults) => Arguments(
+        Variables.fromSystem(globalResults),
         binaryType: 'apk',
         splitPerAbi: false,
         buildMode: 'release',
@@ -193,8 +196,10 @@ class Arguments extends BuildArguments {
   /// Creates an instance of [Arguments] from parsed command-line arguments.
   ///
   /// [results] - The parsed arguments from the command-line.
-  factory Arguments.fromArgResults(ArgResults results) {
+  factory Arguments.fromArgResults(
+      ArgResults results, ArgResults? globalResults) {
     return Arguments(
+      Variables.fromSystem(globalResults),
       binaryType: results['binary-type'] as String,
       splitPerAbi: results['split-per-abi'] as bool? ?? false,
       output: results['output'] as String? ??
@@ -226,8 +231,10 @@ class Arguments extends BuildArguments {
   /// Creates an instance of [Arguments] from a JSON object.
   ///
   /// [json] - The JSON object containing the argument values.
-  factory Arguments.fromJson(Map<String, dynamic> json) {
+  factory Arguments.fromJson(Map<String, dynamic> json,
+      {required Variables variables}) {
     return Arguments(
+      variables,
       binaryType: json['binary-type'] ?? "apk",
       splitPerAbi: json['split-per-abi'] as bool? ?? false,
       buildMode: json['build-mode'] as String? ?? 'release',

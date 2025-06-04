@@ -1,6 +1,7 @@
 import 'package:args/args.dart';
 
 import '../../files.dart';
+import '../../parsers/variables.dart';
 import '../publisher_arguments.dart';
 
 /// Arguments for publishing iOS apps using Xcrun.
@@ -9,7 +10,8 @@ import '../publisher_arguments.dart';
 /// an iOS app via Xcrun.
 class Arguments extends PublisherArguments {
   /// Constructor for `XcrunIosPublisherArguments`.
-  Arguments({
+  Arguments(
+    Variables variables, {
     required super.filePath,
     this.username,
     this.password,
@@ -26,7 +28,7 @@ class Arguments extends PublisherArguments {
     this.productId,
     this.sku,
     this.outputFormat,
-  }) : super("xcrun", binaryType: "ipa");
+  }) : super("xcrun", variables, binaryType: "ipa");
 
   /// Username for validation and upload.
   final String? username;
@@ -73,7 +75,10 @@ class Arguments extends PublisherArguments {
   /// Output format for the command.
   final String? outputFormat;
 
-  factory Arguments.fromArgParser(ArgResults results) => Arguments(
+  factory Arguments.fromArgParser(
+          ArgResults results, ArgResults? globalResults) =>
+      Arguments(
+        Variables.fromSystem(globalResults),
         filePath:
             results.rest.firstOrNull ?? Files.iosDistributionOutputDir.path,
         username: results['username'] as String?,
@@ -94,9 +99,11 @@ class Arguments extends PublisherArguments {
         outputFormat: results['output-format'] as String?,
       );
 
-  factory Arguments.fromJson(Map<String, dynamic> json) {
+  factory Arguments.fromJson(Map<String, dynamic> json,
+      {required Variables variables}) {
     if (json['file-path'] == null) throw Exception("file-path is required");
     return Arguments(
+      variables,
       filePath: json['file-path'] as String,
       username: json['username'] as String?,
       password: json['password'] as String?,
@@ -119,7 +126,7 @@ class Arguments extends PublisherArguments {
   @override
 
   /// Converts the arguments to a list of strings for command-line execution.
-  List<String> get results {
+  List<String> get argumentBuilder {
     return [
       "altool",
       '--upload-app',
@@ -194,6 +201,7 @@ class Arguments extends PublisherArguments {
         "output-format": outputFormat,
       };
 
-  factory Arguments.defaultConfigs() =>
-      Arguments(filePath: Files.iosDistributionOutputDir.path);
+  factory Arguments.defaultConfigs(ArgResults? globalResults) =>
+      Arguments(Variables.fromSystem(globalResults),
+          filePath: Files.iosDistributionOutputDir.path);
 }

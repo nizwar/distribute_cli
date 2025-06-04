@@ -13,10 +13,4 @@ abstract class Commander extends Command {
   /// The logger instance for logging messages.
   ColorizeLogger get logger =>
       ColorizeLogger(globalResults?['verbose'] ?? false);
-
-  /// Logs a verbose message using the logger.
-  void onVerbose(String message) => logger.logDebug(message);
-
-  /// Logs an error message using the logger.
-  void onError(String message) => logger.logError(message);
 }

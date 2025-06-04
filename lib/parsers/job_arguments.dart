@@ -1,11 +1,14 @@
 import 'package:distribute_cli/app_builder/android/arguments.dart'
     as android_arguments;
+import 'package:distribute_cli/app_builder/build_arguments.dart';
+import 'package:distribute_cli/parsers/variables.dart';
 
 import '../app_builder/ios/arguments.dart' as ios_arguments;
 import '../app_publisher/fastlane/arguments.dart' as fastlane_publisher;
 import '../app_publisher/firebase/arguments.dart' as firebase_publisher;
 import '../app_publisher/github/arguments.dart' as github_publisher;
 import '../app_publisher/xcrun/arguments.dart' as xcrun_publisher;
+import '../logger.dart';
 import 'task_arguments.dart';
 
 /// Enum representing the mode of a job (build or publish).
@@ -31,11 +34,39 @@ enum JobMode {
 
 /// Abstract class for job arguments.
 abstract class JobArguments {
+  final Variables variables;
+
   /// Returns the list of command-line arguments for the job.
-  List<String> get results;
+  List<String> argumentBuilder = [];
+
+  Future<List<String>> get arguments async {
+    final results = List<String>.from(argumentBuilder);
+    for (int i = 0; i < results.length; i++) {
+      results[i] = await variables.process(results[i]);
+    }
+    return results;
+  }
+
+  late ColorizeLogger logger;
+
+  JobArguments(this.variables) {
+    logger = ColorizeLogger(variables.globalResults?['verbose'] ?? false);
+  }
 
   /// Converts the job arguments to a JSON object.
   Map<String, dynamic> toJson();
+
+  Future printJob() async {
+    final rawArguments = toJson();
+    rawArguments.removeWhere((key, value) =>
+        value == null || ((value is List) && value.isEmpty) || value == "");
+    String type = this is BuildArguments ? "Build" : "Publish";
+    logger.logInfo("Running $type with configurations:");
+    for (var value in rawArguments.keys) {
+      logger.logInfo(" - $value: ${rawArguments[value]}");
+    }
+    logger.logEmpty();
+  }
 }
 
 /// Represents a builder job for Android and iOS.
@@ -60,13 +91,14 @@ class BuilderJob {
   }
 
   /// Creates a [BuilderJob] from a JSON object.
-  factory BuilderJob.fromJson(Map<String, dynamic> json) {
+  factory BuilderJob.fromJson(Map<String, dynamic> json, Variables variables) {
     return BuilderJob(
       android: json["android"] != null
-          ? android_arguments.Arguments.fromJson(json["android"])
+          ? android_arguments.Arguments.fromJson(json["android"],
+              variables: variables)
           : null,
       ios: json["ios"] != null
-          ? ios_arguments.Arguments.fromJson(json["ios"])
+          ? ios_arguments.Arguments.fromJson(json["ios"], variables: variables)
           : null,
     );
   }
@@ -105,19 +137,24 @@ class PublisherJob {
         if (github != null) "github": github?.toJson(),
       };
 
-  factory PublisherJob.fromJson(Map<String, dynamic> json) {
+  factory PublisherJob.fromJson(
+      Map<String, dynamic> json, Variables variables) {
     return PublisherJob(
       fastlane: json["fastlane"] != null
-          ? fastlane_publisher.Arguments.fromJson(json["fastlane"])
+          ? fastlane_publisher.Arguments.fromJson(json["fastlane"],
+              variables: variables)
           : null,
       firebase: json["firebase"] != null
-          ? firebase_publisher.Arguments.fromJson(json["firebase"])
+          ? firebase_publisher.Arguments.fromJson(json["firebase"],
+              variables: variables)
           : null,
       xcrun: json["xcrun"] != null
-          ? xcrun_publisher.Arguments.fromJson(json["xcrun"])
+          ? xcrun_publisher.Arguments.fromJson(json["xcrun"],
+              variables: variables)
           : null,
       github: json["github"] != null
-          ? github_publisher.Arguments.fromJson(json["github"])
+          ? github_publisher.Arguments.fromJson(json["github"],
+              variables: variables)
           : null,
     );
   }

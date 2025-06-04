@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:distribute_cli/parsers/variables.dart';
 
 import '../../files.dart';
 import '../publisher_arguments.dart';
@@ -117,7 +118,8 @@ class Arguments extends PublisherArguments {
   final bool uploadDebugSymbols;
 
   /// Constructor for the FastlaneAndroidPublisherArgument class.
-  Arguments({
+  Arguments(
+    Variables variables, {
     required super.filePath,
     required this.metadataPath,
     required this.jsonKey,
@@ -156,9 +158,12 @@ class Arguments extends PublisherArguments {
     this.obbPatchFileSize,
     this.ackBundleInstallationWarning = false,
     this.uploadDebugSymbols = true,
-  }) : super("fastlane");
+  }) : super("fastlane", variables);
 
-  factory Arguments.fromArgResults(ArgResults argResults) => Arguments(
+  factory Arguments.fromArgResults(
+          ArgResults argResults, ArgResults? globalResults) =>
+      Arguments(
+        Variables.fromSystem(globalResults),
         filePath: argResults['file-path'],
         binaryType: argResults['binary-type'],
         versionName: argResults['version-name'],
@@ -208,11 +213,13 @@ class Arguments extends PublisherArguments {
         uploadDebugSymbols: argResults['upload-debug-symbols'] ?? true,
       );
 
-  factory Arguments.fromJson(Map<String, dynamic> json) {
+  factory Arguments.fromJson(Map<String, dynamic> json,
+      {required Variables variables}) {
     if (json['file-path'] == null) throw Exception("file-path is required");
     if (json['binary-type'] == null) throw Exception("binary-type is required");
 
     return Arguments(
+      variables,
       filePath: json['file-path'] ?? "${Files.androidOutputApks.path}/*.apk",
       binaryType: json['binary-type'],
       versionName: json['version-name'],
@@ -262,7 +269,7 @@ class Arguments extends PublisherArguments {
   }
 
   @override
-  List<String> get results {
+  List<String> get argumentBuilder {
     final mappingPathParser = (mappingPaths ?? []);
 
     String filePath = this.filePath;
@@ -467,7 +474,10 @@ class Arguments extends PublisherArguments {
         help:
             'Must be set to true if the bundle installation may trigger a warning on user devices (e.g can only be downloaded over wifi). Typically this is required for bundles over 150MB.');
 
-  factory Arguments.defaultConfigs(String packageName) => Arguments(
+  factory Arguments.defaultConfigs(
+          String packageName, ArgResults? globalResults) =>
+      Arguments(
+        Variables.fromSystem(globalResults),
         filePath: "${Files.androidDistributionOutputDir.path}/*.apk",
         metadataPath: Files.androidDistributionMetadataDir.path,
         jsonKey: Files.fastlaneJson.path,

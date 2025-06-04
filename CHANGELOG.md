@@ -1,3 +1,13 @@
+
+## 2.2.0
+* Add `wizard` command to create a new `distribution.yaml` file interactively
+* Enhance logger to provide more detailed information
+* Enhance code and functionality for better performance
+
+## 2.1.2
+* Add command substitution for `distribution.yaml` variables `%{{COMMAND}}`
+* Optimize the code
+
 ## 2.1.1
 * Fix `distribute run -o` not working on specific jobs
 * Fix wrong output for ios built

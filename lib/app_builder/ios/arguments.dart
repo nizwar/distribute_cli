@@ -1,4 +1,5 @@
 import 'package:args/args.dart';
+import 'package:distribute_cli/parsers/variables.dart';
 
 import '../../files.dart';
 import '../build_arguments.dart';
@@ -15,7 +16,8 @@ class Arguments extends BuildArguments {
   final String? exportMethod;
 
   /// Creates a new [Arguments] instance for iOS builds.
-  Arguments({
+  Arguments(
+    super.variables, {
     super.buildMode,
     required super.binaryType,
     super.output,
@@ -34,6 +36,7 @@ class Arguments extends BuildArguments {
   /// Returns a copy of this [Arguments] with updated values from [data].
   Arguments copyWith(Arguments? data) {
     return Arguments(
+      data?.variables ?? variables,
       buildMode: data?.buildMode ?? buildMode,
       binaryType: data?.binaryType ?? binaryType,
       flavor: data?.flavor ?? flavor,
@@ -81,8 +84,10 @@ class Arguments extends BuildArguments {
     ..addOption('dart-defines-file', help: 'Dart defines file');
 
   /// Creates a new [Arguments] instance from the given [results].
-  factory Arguments.fromArgResults(ArgResults results) {
+  factory Arguments.fromArgResults(
+      ArgResults results, ArgResults? globalResults) {
     return Arguments(
+      Variables.fromSystem(globalResults),
       buildMode: results['build-mode'] as String?,
       binaryType: results.rest.firstOrNull ?? 'ipa',
       target: results['target'] as String?,
@@ -101,8 +106,10 @@ class Arguments extends BuildArguments {
   }
 
   /// Creates a new [Arguments] instance from the given [json] map.
-  factory Arguments.fromJson(Map<String, dynamic> json) {
+  factory Arguments.fromJson(Map<String, dynamic> json,
+      {required Variables variables}) {
     return Arguments(
+      variables,
       output: json['output'] as String? ?? Files.iosDistributionOutputDir.path,
       binaryType: json['binary-type'] ?? "ipa",
       buildMode: json['build-mode'] as String?,
@@ -120,7 +127,8 @@ class Arguments extends BuildArguments {
   }
 
   /// Returns the default configuration for iOS build arguments.
-  static Arguments defaultConfigs() => Arguments(
+  static Arguments defaultConfigs(ArgResults? globalResults) => Arguments(
+        Variables.fromSystem(globalResults),
         binaryType: 'ipa',
         buildMode: 'release',
         target: null,
@@ -154,7 +162,7 @@ class Arguments extends BuildArguments {
       };
 
   @override
-  List<String> get results => super.results
+  List<String> get argumentBuilder => super.argumentBuilder
     ..addAll([
       if (exportOptionsPlist != null)
         '--export-options-plist=$exportOptionsPlist',

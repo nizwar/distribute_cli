@@ -9,7 +9,7 @@ class Task {
   final String name;
 
   /// The unique key of the task (optional).
-  final String? key;
+  final String key;
 
   /// The description of the task (optional).
   final String? description;
@@ -29,9 +29,9 @@ class Task {
   /// [workflows] is the list of workflow names (optional).
   Task({
     required this.name,
+    required this.key,
     required this.jobs,
     this.workflows,
-    this.key,
     this.description,
   });
 

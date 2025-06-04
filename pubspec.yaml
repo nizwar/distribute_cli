@@ -1,6 +1,6 @@
 name: distribute_cli
 description: "Quick way to distribute your app to playstore and appstore"
-version: 2.1.1
+version: 2.2.0
 homepage: https://github.com/nizwar/distribute_cli.git
 
 environment:

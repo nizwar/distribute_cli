@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'logger.dart';
 import 'parsers/config_parser.dart';
 
 import 'command.dart';
@@ -46,8 +45,7 @@ class RunnerCommand extends Commander {
   /// It logs the progress and results of the execution.
   @override
   Future? run() async {
-    final logger = ColorizeLogger(globalResults?['verbose'] ?? false);
-    final configParser = configParserBuilder();
+    final configParser = await configParserBuilder();
     if (configParser == null) {
       logger.logError("Configuration file is not valid or not found.");
       exit(1);
@@ -108,7 +106,12 @@ class RunnerCommand extends Commander {
             results.add(await runPublisher(value.publisher!, configParser)
                 .then((value) {
               if (value != 0) {
-                logger.logError("Publish failed with exit code: $value");
+                if (logger.isVerbose) {
+                  logger.logError("Publish failed with exit code: $value");
+                } else {
+                  logger.logError(
+                      "Publish failed with exit code: $value, details is available in distribution.log");
+                }
               }
               return value;
             }));
@@ -135,9 +138,10 @@ class RunnerCommand extends Commander {
     return;
   }
 
-  ConfigParser? configParserBuilder() {
-    final configParser = ConfigParser.distributeYaml(
-        argResults?['config'] as String? ?? 'distribution.yaml');
+  Future<ConfigParser?> configParserBuilder() async {
+    final configParser = await ConfigParser.distributeYaml(
+        argResults?['config'] as String? ?? 'distribution.yaml',
+        globalResults!);
     if (operationKey.isNotEmpty) {
       if (operationKey.contains(".")) {
         final key = operationKey.split('.');
@@ -171,12 +175,9 @@ class RunnerCommand extends Commander {
 
     if (builder.android != null) {
       logger.logInfo("Building Android binary");
-      final androidResult = await builder.android!
-          .build(config.environments,
-              onError: logger.logErrorVerbose, onVerbose: logger.logDebug)
-          .then((value) {
+      final androidResult = await builder.android!.build().then((value) {
         logger.logEmpty();
-        logger.logSuccess("Android build completed successfully.");
+        logger.logSuccess("Android build finished");
         return value;
       }).catchError((error) {
         logger.logEmpty();
@@ -189,12 +190,9 @@ class RunnerCommand extends Commander {
 
     if (builder.ios != null) {
       logger.logInfo("Building iOS binary");
-      final iosResult = await builder.ios!
-          .build(config.environments,
-              onError: logger.logErrorVerbose, onVerbose: logger.logDebug)
-          .then((value) {
+      final iosResult = await builder.ios!.build().then((value) {
         logger.logEmpty();
-        logger.logSuccess("iOS build completed successfully.");
+        logger.logSuccess("iOS build finished");
         return value;
       }).catchError((error) {
         logger.logEmpty();
@@ -216,69 +214,61 @@ class RunnerCommand extends Commander {
     List<int> results = [];
 
     if (publisher.fastlane != null) {
-      logger.logInfo("Publishing Android binary with Fastlane");
-      final fastlaneResult = await publisher.fastlane!
-          .publish(config.environments,
-              onError: logger.logError, onVerbose: logger.logDebug)
-          .then((value) {
+      logger.logInfo("Publishing binary with Fastlane");
+      final fastlaneResult = await publisher.fastlane!.publish().then((value) {
         logger.logEmpty();
-        logger.logSuccess("Android publish completed successfully.");
+        logger.logSuccess("Fastlane publish process finished");
         return value;
       }).catchError((error) {
         logger.logEmpty();
-        logger.logError("Android publish failed with error: $error");
+        logger.logError("Fastlane publish failed with error: $error");
         return 1;
       });
       results.add(fastlaneResult);
     }
+
     if (publisher.firebase != null) {
       logger.logInfo("Publishing Android binary with Firebase");
-      final firebaseResult = await publisher.firebase!
-          .publish(config.environments,
-              onError: logger.logError, onVerbose: logger.logDebug)
-          .then((value) {
+      final firebaseResult = await publisher.firebase!.publish().then((value) {
         logger.logEmpty();
-        logger.logSuccess("Android publish completed successfully.");
+        logger.logSuccess("Firebase publish process finished");
         return value;
       }).catchError((error) {
         logger.logEmpty();
-        logger.logError("Android publish failed with error: $error");
+        logger.logError("Firebase publish failed with error: $error");
         return 1;
       });
       results.add(firebaseResult);
     }
+
     if (publisher.xcrun != null) {
       logger.logInfo("Publishing iOS binary with Xcrun");
-      final xcrunResult = await publisher.xcrun!
-          .publish(config.environments,
-              onError: logger.logError, onVerbose: logger.logDebug)
-          .then((value) {
+      final xcrunResult = await publisher.xcrun!.publish().then((value) {
         logger.logEmpty();
-        logger.logSuccess("iOS publish completed successfully.");
+        logger.logSuccess("Xcrun publish process finished");
         return value;
       }).catchError((error) {
         logger.logEmpty();
-        logger.logError("iOS publish failed with error: $error");
+        logger.logError("Xcrun publish failed with error: $error");
         return 1;
       });
       results.add(xcrunResult);
     }
+
     if (publisher.github != null) {
       logger.logInfo("Publishing binary with Github");
-      final githubResult = await publisher.github!
-          .publish(config.environments,
-              onError: logger.logError, onVerbose: logger.logDebug)
-          .then((value) {
+      final githubResult = await publisher.github!.publish().then((value) {
         logger.logEmpty();
-        logger.logSuccess("Publish completed successfully.");
+        logger.logSuccess("Github publish process finished");
         return value;
       }).catchError((error) {
         logger.logEmpty();
-        logger.logError("Publish failed with error: $error");
+        logger.logError("Github Publish failed with error: $error");
         return 1;
       });
       results.add(githubResult);
     }
+
     if (results.isEmpty) {
       logger.logError("No publish results found.");
       return 1;

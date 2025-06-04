@@ -1,4 +1,5 @@
 import 'package:args/args.dart';
+import 'package:distribute_cli/parsers/variables.dart';
 
 import '../../files.dart';
 import '../build_arguments.dart';
@@ -8,7 +9,8 @@ import '../build_arguments.dart';
 /// This class extends [BuildArguments] and provides options for custom builds.
 class Arguments extends BuildArguments {
   /// Creates a new [Arguments] instance for custom builds.
-  Arguments({
+  Arguments(
+    super.variables, {
     super.buildMode,
     required super.binaryType,
     required super.buildSourceDir,
@@ -26,6 +28,7 @@ class Arguments extends BuildArguments {
   /// Returns a copy of this [Arguments] with updated values from [data].
   BuildArguments copyWith(Arguments? data) {
     return Arguments(
+      data?.variables ?? variables,
       buildMode: data?.buildMode ?? buildMode,
       binaryType: data?.binaryType ?? binaryType,
       customArgs: data?.customArgs ?? customArgs,
@@ -70,8 +73,10 @@ class Arguments extends BuildArguments {
     ..addOption('dart-defines-file', help: 'Dart defines file');
 
   /// Creates a new [Arguments] instance from [ArgResults].
-  factory Arguments.fromArgResults(ArgResults results) {
+  factory Arguments.fromArgResults(
+      ArgResults results, ArgResults? globalResults) {
     return Arguments(
+      Variables.fromSystem(globalResults),
       binaryType: results['binary-type'] as String,
       buildMode: results['build-mode'] as String?,
       target: results['target'] as String?,
@@ -88,8 +93,10 @@ class Arguments extends BuildArguments {
   }
 
   /// Creates a new [Arguments] instance from a JSON object.
-  factory Arguments.fromJson(Map<String, dynamic> json) {
+  factory Arguments.fromJson(Map<String, dynamic> json,
+      {required Variables variables}) {
     return Arguments(
+      variables,
       binaryType: json['binary-type'] as String,
       buildMode: json['build-mode'] as String?,
       target: json['target'] as String?,

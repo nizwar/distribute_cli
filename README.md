@@ -1,4 +1,4 @@
-# Distribute CLI v2.1.0
+# Distribute CLI v2.1.x
 
 Distribute CLI is a command-line tool to automate building and distributing Flutter applications for Android and iOS. It provides a unified workflow for building, publishing, and managing app distribution with a single YAML configuration file.
 
@@ -182,16 +182,38 @@ distribute run
 Creates new tasks or jobs in `distribution.yaml`.
 
 #### Example: Create a Task
+You can create a new task with a name, key, and description.
+Use `--wizard` to interactively create the task.
+
+```zsh
+distribute create task builder -w
+```
+
+or create a specific task directly:
 ```zsh
 distribute create task --name="My Task" --key=my_task --description="Description here"
 ```
 
 #### Example: Create a Builder Job
+You can create a builder job for Android or iOS.
+Use `--wizard` to interactively create the job.
+```zsh
+distribute create job builder -w
+```
+
+or create a specific builder job directly:
 ```zsh
 distribute create job builder -t my_task -n "Build Android" -k build_android -P android
 ```
 
 #### Example: Create a Publisher Job
+You can create a publisher job for Fastlane or any other supported publisher.
+Use `--wizard` to interactively create the job.
+```zsh
+distribute create job publisher -w
+```
+
+or create a specific publisher job directly:
 ```zsh
 distribute create job publisher -t my_task -n "Publish Android" -k publish_android -T fastlane
 ```
@@ -200,6 +222,8 @@ distribute create job publisher -t my_task -n "Publish Android" -k publish_andro
 
 ## Variable Substitution
 Use `${{KEY}}` in `distribution.yaml` to reference environment variables or custom variables defined in the `variables` section.
+
+Use `%{{KEY}}` to reference command calls that will result strings like `${{echo "Some Strings"}}` or `${{git log --pretty=format:\"%s%d\" -n 10}}`.
 
 ---
 

@@ -28,13 +28,17 @@ class ColorizeLogger {
   /// ANSI reset code to reset terminal colors.
   final String _reset = '\x1B[0m';
 
-  /// Logs a message with the specified [color].
+  /// Logs a message with the specified [level].
   ///
   /// If [isVerbose] is true or the log level is not debug, the message is printed to stdout.
   /// All messages are appended to `distribution.log`.
-  void log(String message, {LogLevel color = LogLevel.info}) {
-    if ((isVerbose || color != LogLevel.debug) && message.trim().isNotEmpty) {
-      stdout.writeln('${color.color}$message$_reset');
+  void log(String message, {LogLevel level = LogLevel.info}) async {
+    if (isVerbose) {
+      stdout.writeln('${level.color}$message$_reset');
+    } else {
+      if (level != LogLevel.debug && level != LogLevel.errorVerbose) {
+        stdout.writeln('${level.color}$message$_reset');
+      }
     }
     File("distribution.log")
         .writeAsStringSync("$message\n", mode: FileMode.append);
@@ -42,26 +46,26 @@ class ColorizeLogger {
 
   /// Logs an error message in red.
   void logError(String message) =>
-      log("[ERROR] $message", color: LogLevel.error);
+      log("[ERROR] $message", level: LogLevel.error);
 
   /// Logs an error message in red (verbose).
   void logErrorVerbose(String message) =>
-      log("[ERROR] $message", color: LogLevel.errorVerbose);
+      log("[ERROR] $message", level: LogLevel.errorVerbose);
 
   /// Logs a warning message in yellow.
   void logWarning(String message) =>
-      log("[WARNING] $message", color: LogLevel.warning);
+      log("[WARNING] $message", level: LogLevel.warning);
 
   /// Logs a success message in green.
   void logSuccess(String message) =>
-      log("[SUCCESS] $message", color: LogLevel.success);
+      log("[SUCCESS] $message", level: LogLevel.success);
 
   /// Logs an informational message in orange.
-  void logInfo(String message) => log("[INFO] $message", color: LogLevel.info);
+  void logInfo(String message) => log("[INFO] $message", level: LogLevel.info);
 
   /// Logs a debug message in the default terminal color.
   void logDebug(String message) =>
-      log("[VERBOSE] $message", color: LogLevel.debug);
+      log("[VERBOSE] $message", level: LogLevel.debug);
 
   /// Logs an empty line to stdout.
   void logEmpty() {

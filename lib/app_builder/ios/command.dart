@@ -33,6 +33,6 @@ class Command extends Commander {
       logger.logError("This command is only supported on macOS.");
       return 1;
     }
-    return Arguments.fromArgResults(argResults!).build(Platform.environment);
+    return Arguments.fromArgResults(argResults!, globalResults).build();
   }
 }

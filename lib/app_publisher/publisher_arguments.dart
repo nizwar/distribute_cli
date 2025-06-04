@@ -1,10 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-
-import '../logger.dart';
-
 import '../files.dart';
-import '../parsers/config_parser.dart';
 import '../parsers/job_arguments.dart';
 
 /// Base class for all app publisher arguments.
@@ -25,54 +21,41 @@ abstract class PublisherArguments extends JobArguments {
   late PublisherJob parent;
 
   /// Constructor for the app publisher argument.
-  PublisherArguments(this.publisher,
+  PublisherArguments(this.publisher, super.variables,
       {required this.filePath, required this.binaryType});
 
   /// Start the upload process.
   ///
   /// - [environments]: The environment variables for the process.
-  /// - [onVerbose]: Callback for verbose output.
-  /// - [onError]: Callback for error output.
-  Future<int> publish(final environments,
-      {Function(String)? onVerbose, Function(String)? onError}) async {
-    await processFilesArgs(onVerbose: onVerbose, onError: onError);
-
-    ColorizeLogger logger = ColorizeLogger(true);
-    final rawArguments = toJson();
-    rawArguments.removeWhere((key, value) =>
-        value == null || ((value is List) && value.isEmpty) || value == "");
-    if (logger.isVerbose) {
-      logger.logInfo("Running Publish with configurations:");
-      for (var value in rawArguments.keys) {
-        logger.logInfo(" - $value: ${rawArguments[value]}");
-      }
-      logger.logEmpty();
-    }
-    onVerbose?.call("Starting upload with `$publisher ${results.join(" ")}`");
-    final process = await Process.start(publisher,
-        results.map((e) => substituteVariables(e, environments)).toList());
-    process.stdout.transform(utf8.decoder).listen(onVerbose);
-    process.stderr.transform(utf8.decoder).listen(onError);
+  Future<int> publish() async {
+    await processFilesArgs();
+    await printJob();
+    final arguments = await this.arguments;
+    logger.logDebug
+        .call("Starting upload with `$publisher ${(arguments).join(" ")}`");
+    final process = await Process.start(publisher, arguments);
+    process.stdout.transform(utf8.decoder).listen(logger.logDebug);
+    process.stderr.transform(utf8.decoder).listen(logger.logErrorVerbose);
 
     return await process.exitCode;
   }
 
   /// Process file arguments before publishing.
-  Future<void> processFilesArgs(
-      {Function(String)? onVerbose, Function(String)? onError}) async {
+  Future<void> processFilesArgs() async {
     if (filePath.isEmpty) {
-      onError?.call("File path is empty");
+      logger.logErrorVerbose.call("File path is empty");
     }
 
     if (await FileSystemEntity.isDirectory(filePath)) {
       final binaryType = this.binaryType;
-      if (Directory(filePath).existsSync() &&
-          Directory(filePath)
+      final dir = Directory(filePath);
+      if (dir.existsSync() &&
+          dir
               .listSync()
               .where((item) => item.path.endsWith(binaryType))
               .isEmpty) {
         if ((binaryType == "apk" || binaryType == "aab")) {
-          onVerbose?.call(
+          logger.logDebug.call(
               "Scanning ${this.binaryType} on ${Files.androidOutputApks.path}");
           final sourceDir = binaryType == "apk"
               ? Files.androidOutputApks
@@ -81,13 +64,13 @@ abstract class PublisherArguments extends JobArguments {
                   fileType: [binaryType]) ??
               "";
         } else if (binaryType == "ipa") {
-          onVerbose?.call(
+          logger.logDebug.call(
               "Scanning ${this.binaryType} on ${Files.iosOutputIPA.path}");
           filePath = await Files.copyFiles(Files.iosOutputIPA.path, filePath,
                   fileType: ["ipa"]) ??
               "";
         } else {
-          onError?.call("Invalid binary type: $binaryType");
+          logger.logErrorVerbose.call("Invalid binary type: $binaryType");
         }
       } else {
         filePath = Directory(filePath)
@@ -99,7 +82,7 @@ abstract class PublisherArguments extends JobArguments {
     }
 
     if (filePath.isEmpty) {
-      onError?.call("File path is empty");
+      logger.logErrorVerbose.call("File path is empty");
     }
   }
 }

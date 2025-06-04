@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:args/args.dart';
 import '../../command.dart';
 import 'arguments.dart' as xcrun;
@@ -28,6 +27,6 @@ class Command extends Commander {
   /// Parses the arguments and publishes the iOS application using the [Arguments] class.
   /// Returns a [Future] that completes with the exit code of the publish process.
   @override
-  Future? run() => xcrun.Arguments.fromArgParser(argResults!)
-      .publish(Platform.environment, onVerbose: onVerbose, onError: onError);
+  Future? run() =>
+      xcrun.Arguments.fromArgParser(argResults!, globalResults).publish();
 }

@@ -19,20 +19,20 @@ import 'parsers/task_arguments.dart';
 
 /// Returns an [ArgParser] configured for job creation commands.
 ArgParser get creatorArgParser => ArgParser(allowTrailingOptions: true)
+  ..addFlag('wizard',
+      abbr: 'w',
+      help: "Use the wizard to create a task or job.",
+      defaultsTo: false)
   ..addOption("task-key",
-      abbr: 't',
-      help: "Option is used to specify the task for the command.",
-      mandatory: true)
-  ..addOption("name",
-      abbr: 'n', help: "The name of the job to create.", mandatory: true)
-  ..addOption("key",
-      abbr: 'k', help: "The key of the job to create.", mandatory: true)
+      abbr: 't', help: "Option is used to specify the task for the command.")
+  ..addOption("name", abbr: 'n', help: "The name of the job to create.")
+  ..addOption("key", abbr: 'k', help: "The key of the job to create.")
   ..addOption("description",
       abbr: 'd', help: "The description of the job to create.")
-  ..addOption("package_name",
+  ..addOption("package-name",
       abbr: 'p',
       help: "Package name of the app to publish.",
-      defaultsTo: "com.example.app");
+      defaultsTo: "\${ANDROID_PACKAGE}");
 
 /// Command to create a new task or job. Entry point for 'create' subcommands.
 class CreateCommand extends Commander {
@@ -65,24 +65,19 @@ class CreateTaskCommand extends CreatorCommand {
   @override
   final ArgParser argParser = ArgParser()
     ..addOption("name",
-        abbr: "n",
-        help: "The name of the task or job to create.",
-        mandatory: true)
-    ..addOption("key",
-        abbr: "k",
-        help: "The key of the task or job to create.",
-        mandatory: true)
+        abbr: "n", help: "The name of the task or job to create.")
+    ..addOption("key", abbr: "k", help: "The key of the task or job to create.")
+    ..addFlag("wizard",
+        abbr: "w",
+        help: "Use the wizard to create a task or job.",
+        defaultsTo: false)
     ..addOption("description",
         abbr: "d", help: "The description of the task or job to create.");
 
   /// Runs the command to create a new task and update the config file.
   @override
   Future<void> run() async {
-    final taskKey = argResults!["key"]!;
-    final taskName = argResults!["name"]!;
-    final taskDescription = argResults?["description"];
     final configPath = globalResults?["config"] ?? "distribution.yaml";
-
     final file = File(configPath);
     if (!file.existsSync()) {
       logger.logError("Configuration file not found: $configPath");
@@ -93,14 +88,43 @@ class CreateTaskCommand extends CreatorCommand {
     configJson["tasks"] ??= [];
     final tasks = configJson["tasks"] as List<dynamic>;
 
+    String? taskKey;
+    String? taskName;
+    String? taskDescription;
+
+    bool isWizard = argResults?["wizard"] ?? false;
+
+    if (isWizard) {
+      logger.logInfo("Starting task creation wizard...");
+      logger.logInfo("Available tasks:");
+      for (var task in tasks) {
+        logger.logInfo("- ${task["name"]} (Key: ${task["key"]})");
+      }
+      logger.logEmpty();
+      logger.logInfo("Please provide the following details:");
+      taskName = await prompt("Enter new task name");
+      taskKey = await prompt("Enter new task key");
+      taskDescription =
+          await prompt("Enter new task description", nullable: true);
+    } else {
+      taskKey = argResults?["key"];
+      taskName = argResults?["name"];
+      taskDescription = argResults?["description"];
+    }
+
+    if ((taskKey?.isEmpty ?? true) || (taskName?.isEmpty ?? true)) {
+      logger.logError("`key` and `name` are mandatory.");
+      return;
+    }
+
     if (tasks.any((task) => task["key"] == taskKey)) {
       logger.logError("Task with key $taskKey already exists.");
       return;
     }
 
     tasks.add(Task(
-        name: taskName,
-        key: taskKey,
+        name: taskName!,
+        key: taskKey!,
         description: taskDescription,
         workflows: [],
         jobs: []).toJson());
@@ -142,12 +166,7 @@ abstract class CreatorCommand extends Commander {
   /// Runs the command to create a job and update the config file.
   @override
   Future<void> run() async {
-    final taskKey = argResults!["task-key"]!;
-    final jobKey = argResults!["key"]!;
-    final jobName = argResults!["name"]!;
-    final packageName = argResults!["package_name"]!;
-    final description = argResults?["description"];
-    final configPath = globalResults?["config"] ?? "distribution.yaml";
+    String configPath = globalResults?["config"] ?? "distribution.yaml";
 
     final file = File(configPath);
     if (!file.existsSync()) {
@@ -157,6 +176,51 @@ abstract class CreatorCommand extends Commander {
 
     var configJson = _loadYamlAsJson(file);
     var tasks = configJson["tasks"] ?? [];
+
+    String? taskKey;
+    String? jobKey;
+    String? jobName;
+    String? packageName;
+    String? description;
+
+    bool isWizard = argResults?["wizard"] ?? false;
+
+    if (isWizard) {
+      logger.logInfo("Starting job creation wizard...");
+      logger.logInfo("Available tasks:");
+      for (var task in tasks) {
+        logger.logInfo("${task["key"]} (${task["name"]})");
+        for (var job in task["jobs"] ?? []) {
+          logger.logInfo(" | ${job["key"]} - ${job["name"]}");
+        }
+      }
+      logger.logEmpty();
+      logger.logInfo("Please provide the following details:");
+      taskKey = await prompt("Enter task key");
+      if (tasks.indexWhere((task) => task["key"] == taskKey) == -1) {
+        logger.logError("Task with key $taskKey not found.");
+        return;
+      }
+      jobName = await prompt("Enter job name");
+      jobKey = await prompt("Enter job key");
+      packageName = await prompt("Enter package name");
+      description = await prompt("Enter job description", nullable: true);
+    } else {
+      taskKey = argResults?["task-key"];
+      jobKey = argResults?["key"];
+      jobName = argResults?["name"];
+      packageName = argResults?["package-name"];
+      description = argResults?["description"];
+    }
+
+    if ((taskKey?.isEmpty ?? true) ||
+        (jobKey?.isEmpty ?? true) ||
+        (jobName?.isEmpty ?? true) ||
+        (packageName?.isEmpty ?? true)) {
+      logger.logError(
+          "`task-key`, `key`, `package_name`, and `name` are mandatory.");
+      return;
+    }
 
     final taskIndex = tasks.indexWhere((task) => task["key"] == taskKey);
     if (taskIndex == -1) {
@@ -172,35 +236,73 @@ abstract class CreatorCommand extends Commander {
       return;
     }
 
-    final builderJob = this is CreateBuilderCommand
-        ? BuilderJob(
-            android:
-                (argResults!["platform"] as List?)?.contains("android") == true
-                    ? android_arguments.Arguments.defaultConfigs()
-                    : null,
-            ios: (argResults!["platform"] as List?)?.contains("ios") == true
-                ? ios_arguments.Arguments.defaultConfigs()
-                : null,
-          )
-        : null;
-    final publisherJob = this is CreatePublisherCommand
-        ? PublisherJob(
-            fastlane:
-                (argResults!["tools"] as List?)?.contains("fastlane") == true
-                    ? fastlane_publisher.Arguments.defaultConfigs(packageName)
-                    : null,
-            firebase:
-                (argResults!["tools"] as List?)?.contains("firebase") == true
-                    ? firebase_publisher.Arguments.defaultConfigs("APP_ID")
-                    : null,
-            xcrun: (argResults!["tools"] as List?)?.contains("xcrun") == true
-                ? xcrun_publisher.Arguments.defaultConfigs()
-                : null,
-            github: (argResults!["tools"] as List?)?.contains("github") == true
-                ? github_publisher.Arguments.defaultConfigs()
-                : null,
-          )
-        : null;
+    BuilderJob? builderJob;
+
+    if (this is CreateBuilderCommand) {
+      List<String> platforms = <String>[];
+      if (isWizard) {
+        final input =
+            await prompt("Enter platforms (android, ios)", nullable: true);
+        if (input.isNotEmpty) {
+          platforms =
+              input.split(",").map((platform) => platform.trim()).toList();
+        }
+      } else if (argResults!["platform"] != null) {
+        platforms = (argResults!["platform"] as List<String>).toList();
+      }
+      builderJob = BuilderJob(
+        android: platforms.contains("android") == true
+            ? android_arguments.Arguments.defaultConfigs(globalResults)
+            : null,
+        ios: platforms.contains("ios") == true
+            ? ios_arguments.Arguments.defaultConfigs(globalResults)
+            : null,
+      );
+    } else {
+      builderJob = null;
+    }
+
+    PublisherJob? publisherJob;
+
+    if (this is CreatePublisherCommand) {
+      List<String> tools = <String>[];
+
+      if (isWizard) {
+        logger.logInfo("Available tools for publisher job:");
+        logger.logInfo("- firebase: Publish to Firebase App Distribution.");
+        logger.logInfo("- fastlane: Publish using Fastlane.");
+        logger.logInfo("- xcrun: Publish using Xcode command line tools.");
+        logger.logInfo("- github: Publish to GitHub.");
+        logger.logEmpty();
+        logger.logInfo(
+            "Please select the tools you want to use (comma-separated):");
+        final input = stdin.readLineSync();
+        if (input != null && input.isNotEmpty) {
+          tools = input.split(",").map((tool) => tool.trim()).toList();
+        }
+      } else if (argResults!["tools"] != null) {
+        tools = (argResults!["tools"] as List<String>).toList();
+      }
+
+      publisherJob = PublisherJob(
+        fastlane: tools.contains("fastlane") == true
+            ? fastlane_publisher.Arguments.defaultConfigs(
+                packageName!, globalResults)
+            : null,
+        firebase: tools.contains("firebase") == true
+            ? firebase_publisher.Arguments.defaultConfigs(
+                "APP_ID", globalResults)
+            : null,
+        xcrun: tools.contains("xcrun") == true
+            ? xcrun_publisher.Arguments.defaultConfigs(globalResults)
+            : null,
+        github: tools.contains("github") == true
+            ? github_publisher.Arguments.defaultConfigs(globalResults)
+            : null,
+      );
+    } else {
+      publisherJob = null;
+    }
 
     if (builderJob == null && publisherJob == null) {
       logger.logError("Invalid job type. Use 'builder' or 'publisher'.");
@@ -208,10 +310,10 @@ abstract class CreatorCommand extends Commander {
     }
 
     jobs.add(Job(
-            name: jobName,
+            name: jobName!,
             key: jobKey,
             description: description,
-            packageName: packageName,
+            packageName: packageName!,
             builder: builderJob,
             publisher: publisherJob)
         .toJson());
@@ -221,6 +323,16 @@ abstract class CreatorCommand extends Commander {
     configJson["tasks"] = tasks;
     await _writeYaml(file, configJson);
     logger.logSuccess("Job created successfully: $jobName");
+  }
+
+  Future<String> prompt(String message, {bool nullable = false}) async {
+    stdout.write("$message${nullable ? " (Optional)" : ""}: ");
+    final value = stdin.readLineSync();
+    if ((value == null || value.isEmpty) && !nullable) {
+      logger.logError("Input cannot be empty.");
+      return prompt(message);
+    }
+    return value ?? "";
   }
 }
 
