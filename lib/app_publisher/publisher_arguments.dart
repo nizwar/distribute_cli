@@ -33,7 +33,8 @@ abstract class PublisherArguments extends JobArguments {
     final arguments = await this.arguments;
     logger.logDebug
         .call("Starting upload with `$publisher ${(arguments).join(" ")}`");
-    final process = await Process.start(publisher, arguments);
+    final process = await Process.start(publisher, arguments,
+        runInShell: true, includeParentEnvironment: true);
     process.stdout.transform(utf8.decoder).listen(logger.logDebug);
     process.stderr.transform(utf8.decoder).listen(logger.logErrorVerbose);
 

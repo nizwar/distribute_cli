@@ -105,7 +105,8 @@ abstract class BuildArguments extends JobArguments {
     final arguments = await this.arguments;
     logger.logDebug.call(
         "Starting build with flutter ${["build", ...arguments].join(" ")}");
-    final process = await Process.start("flutter", ["build", ...arguments]);
+    final process = await Process.start("flutter", ["build", ...arguments],
+        runInShell: true, includeParentEnvironment: true);
     process.stdout.transform(utf8.decoder).listen(logger.logDebug);
     process.stderr.transform(utf8.decoder).listen(logger.logErrorVerbose);
     final exitCode = await process.exitCode;
