@@ -33,13 +33,13 @@ class ConfigParser {
   /// - [tasks]: The list of tasks defined in the configuration.
   /// - [arguments]: The map of job arguments defined in the configuration.
   /// - [environments]: The environment variables used in the configuration.
-  /// - [output]: The output directory for distribution files (default is "distribution/").
+  /// - [output]: The output directory for distribution files (default is "distribution").
   ConfigParser({
     required this.tasks,
     required this.arguments,
     required this.environments,
     required this.globalResults,
-    this.output = "distribution/",
+    this.output = "distribution",
   });
 
   /// Creates a [ConfigParser] instance from a JSON object.

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:path/path.dart' as path;
 
 class BuildInfo {
   static String? androidPackageName;
@@ -7,10 +8,9 @@ class BuildInfo {
   static String? macOSBundleId;
   static String? windowsPackageName;
   static String? linuxPackageName;
-
   static Future<Map<String, dynamic>> applyBuildInfo() async {
     if ((Directory("android").existsSync())) {
-      final androidFile = File("android/app/build.gradle");
+      final androidFile = File(path.join("android", "app", "build.gradle"));
 
       if (androidFile.existsSync()) {
         final content = await androidFile.readAsString();
@@ -23,7 +23,8 @@ class BuildInfo {
       }
     }
     if ((Directory("ios").existsSync())) {
-      final iosFile = File("ios/Runner.xcodeproj/project.pbxproj");
+      final iosFile =
+          File(path.join("ios", "Runner.xcodeproj", "project.pbxproj"));
       if (iosFile.existsSync()) {
         final content = await iosFile.readAsString();
         final bundleIdMatch =
@@ -35,7 +36,7 @@ class BuildInfo {
       }
     }
     if ((Directory("web").existsSync())) {
-      final webFile = File("web/index.html");
+      final webFile = File(path.join("web", "index.html"));
       if (webFile.existsSync()) {
         final content = await webFile.readAsString();
         final appNameMatch =
@@ -47,7 +48,8 @@ class BuildInfo {
       }
     }
     if ((Directory("macos").existsSync())) {
-      final macOSFile = File("macos/Runner.xcodeproj/project.pbxproj");
+      final macOSFile =
+          File(path.join("macos", "Runner.xcodeproj", "project.pbxproj"));
       if (macOSFile.existsSync()) {
         final content = await macOSFile.readAsString();
         final bundleIdMatch =
@@ -59,7 +61,7 @@ class BuildInfo {
       }
     }
     if ((Directory("windows").existsSync())) {
-      final windowsFile = File("windows/runner/Runner.rc");
+      final windowsFile = File(path.join("windows", "runner", "Runner.rc"));
       if (windowsFile.existsSync()) {
         final content = await windowsFile.readAsString();
         final packageNameMatch =
@@ -71,7 +73,7 @@ class BuildInfo {
       }
     }
     if ((Directory("linux").existsSync())) {
-      final linuxFile = File("linux/CMakeLists.txt");
+      final linuxFile = File(path.join("linux", "CMakeLists.txt"));
       if (linuxFile.existsSync()) {
         final content = await linuxFile.readAsString();
         final packageNameMatch =

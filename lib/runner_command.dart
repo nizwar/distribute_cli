@@ -107,9 +107,9 @@ class RunnerCommand extends Commander {
                 .then((value) {
               if (value != 0) {
                 if (logger.isVerbose) {
-                  logger.logError("Publish failed with exit code: $value");
+                  logger.logInfo("Publish failed with exit code: $value");
                 } else {
-                  logger.logError(
+                  logger.logInfo(
                       "Publish failed with exit code: $value, details is available in distribution.log");
                 }
               }

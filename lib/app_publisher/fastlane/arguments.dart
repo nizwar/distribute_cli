@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:distribute_cli/parsers/build_info.dart';
 import 'package:distribute_cli/parsers/variables.dart';
+import 'package:path/path.dart' as path;
 
 import '../../files.dart';
 import '../publisher_arguments.dart';
@@ -232,7 +234,7 @@ class Arguments extends PublisherArguments {
       rollout: double.tryParse(json['rollout'] ?? ''),
       metadataPath:
           json['metadata-path'] ?? Files.androidDistributionMetadataDir.path,
-      jsonKey: json['json-key'] ?? "distribution/fastlane.json",
+      jsonKey: json['json-key'] ?? path.join("distribution", "fastlane.json"),
       apkPaths: (json['apk-paths'])?.toString().split(","),
       aabPaths: (json['aab-paths'])?.toString().split(","),
       skipUploadApk: json['skip-upload-apk'] ?? false,
@@ -342,10 +344,13 @@ class Arguments extends PublisherArguments {
         help:
             'The binary type of the application to use. Valid values are apk, aab.',
         defaultsTo: "apk")
-    ..addOption('package-name',
-        abbr: 'p',
-        help: 'The package name of the application to use.',
-        mandatory: true)
+    ..addOption(
+      'package-name',
+      abbr: 'p',
+      help: 'The package name of the application to use.',
+      defaultsTo: BuildInfo.androidPackageName,
+      mandatory: BuildInfo.androidPackageName == null,
+    )
     ..addOption('version-name',
         help:
             'Version name (used when uploading new APKs/AABs) - defaults to versionName in build.gradle or AndroidManifest.xml.')

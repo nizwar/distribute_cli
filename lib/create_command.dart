@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 
 import 'package:args/args.dart';
+import 'package:path/path.dart' as path;
 import 'package:distribute_cli/app_builder/android/arguments.dart'
     as android_arguments;
 import 'package:distribute_cli/app_builder/ios/arguments.dart' as ios_arguments;
@@ -227,7 +228,8 @@ abstract class CreatorCommand extends Commander {
     description = await variables.process(description ?? "");
     packageName = await variables.process(packageName ?? "\${ANDROID_PACKAGE}");
 
-    final googleServiceFile = File("android/app/google-services.json");
+    final googleServiceFile =
+        File(path.join("android", "app", "google-services.json"));
     if (googleServiceFile.existsSync()) {
       final googleService = jsonDecode(googleServiceFile.readAsStringSync());
       final List clients = googleService["client"];

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:path/path.dart' as path;
 
 import 'package:distribute_cli/app_builder/android/arguments.dart'
     as android_arguments;
@@ -163,8 +164,15 @@ abstract class BuildArguments extends JobArguments {
 
   Future<int> _generateAndCopyZipSymbols() async {
     logger.logDebug.call("Generating zip symbols");
-    final outputDir = Directory(
-        "build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib");
+    final outputDir = Directory(path.join(
+        "build",
+        "app",
+        "intermediates",
+        "merged_native_libs",
+        "release",
+        "mergeReleaseNativeLibs",
+        "out",
+        "lib"));
     if (!outputDir.existsSync()) {
       logger.logDebug.call("Failed to generate zip symbols");
       return 1;
@@ -182,15 +190,18 @@ abstract class BuildArguments extends JobArguments {
           .call("Failed to generate zip symbols with exit code: $zipExitCode");
       return zipExitCode;
     } else {
-      final zipFile = File("${outputDir.path}/debug_symbols.zip");
+      final zipFile = File(path.join(outputDir.path, "debug_symbols.zip"));
       logger.logDebug.call("Debug symbols generated successfully");
       try {
-        if (File("$output/debug_symbols.zip").existsSync()) {
-          await File("$output/debug_symbols.zip").delete();
+        final androidOutputPath = Files.androidDistributionOutputDir.path;
+        final debugSymbolsPath =
+            path.join(androidOutputPath, "debug_symbols.zip");
+        if (File(debugSymbolsPath).existsSync()) {
+          await File(debugSymbolsPath).delete();
         }
-        await zipFile.copy("$output/debug_symbols.zip");
-        logger.logDebug.call(
-            "Debug symbols generated and copied to $output/debug_symbols.zip");
+        await zipFile.copy(debugSymbolsPath);
+        logger.logDebug
+            .call("Debug symbols generated and copied to $debugSymbolsPath");
       } catch (e) {
         logger.logDebug.call("Failed to copy debug symbols: $e");
         return 1;

@@ -15,6 +15,7 @@ import 'package:distribute_cli/parsers/compress_files.dart';
 import 'package:distribute_cli/parsers/job_arguments.dart';
 import 'package:distribute_cli/parsers/task_arguments.dart';
 import 'package:distribute_cli/parsers/variables.dart';
+import 'package:path/path.dart' as path;
 import 'package:yaml_codec/yaml_codec.dart';
 
 import 'app_builder/ios/arguments.dart' as ios_arguments;
@@ -62,14 +63,13 @@ class InitializerCommand extends Commander {
     final initialized = <String, bool>{};
     String configFilePath =
         globalResults?['config'] as String? ?? 'distribution.yaml';
-
     _logWelcome();
     _checkPubspecFile();
-    await _createDirectory(
-        "distribution/android/output", initialized, "android_directory");
+    await _createDirectory(path.join("distribution", "android", "output"),
+        initialized, "android_directory");
     if (Platform.isMacOS) {
-      await _createDirectory(
-          "distribution/ios/output", initialized, "ios_directory");
+      await _createDirectory(path.join("distribution", "ios", "output"),
+          initialized, "ios_directory");
     }
 
     if (!(argResults!['skip-tools'] as bool)) {

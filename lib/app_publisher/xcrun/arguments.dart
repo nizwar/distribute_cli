@@ -1,4 +1,5 @@
 import 'package:args/args.dart';
+import 'package:distribute_cli/parsers/build_info.dart';
 
 import '../../files.dart';
 import '../../parsers/variables.dart';
@@ -174,7 +175,8 @@ class Arguments extends PublisherArguments {
     ..addFlag('validate-app',
         negatable: false, help: 'Validates the app archive for the App Store')
     ..addOption('upload-package', help: 'Path to the app archive for upload')
-    ..addOption('bundle-id', help: 'Bundle ID of the app')
+    ..addOption('bundle-id',
+        help: 'Bundle ID of the app', defaultsTo: BuildInfo.iosBundleId)
     ..addOption('product-id', help: 'Product ID for hosted content')
     ..addOption('sku', help: 'SKU for hosted content')
     ..addOption('output-format',
