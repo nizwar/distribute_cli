@@ -1,4 +1,4 @@
-## 2.3.0+2
+## 2.3.1
 * Enhance documentations
 
 ## 2.3.0+1
