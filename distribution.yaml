@@ -1,0 +1,134 @@
+name: "Distribution CLI"
+description: "A CLI tool to build and publish your application."
+variables:
+  ANDROID_PACKAGE: null
+  IOS_PACKAGE: null
+  APPLE_ID: "${APPLE_ID}"
+  APPLE_APP_SPECIFIC_PASSWORD: "${APPLE_APP_SPECIFIC_PASSWORD}"
+tasks:
+  - name: "Android Build and deploy"
+    key: "android"
+    workflows:
+      - "build"
+      - "publish"
+    description: "Build and deploy the Android application to playstore."
+    jobs:
+      - name: "Build Android"
+        key: "build"
+        description: "Build the Android application using Gradle."
+        package_name: "${{ANDROID_PACKAGE}}"
+        builder:
+          android:
+            binary-type: "aab"
+            split-per-abi: false
+            build-mode: "release"
+            target: null
+            flavor: null
+            build-name: null
+            build-number: null
+            pub: true
+            dart-defines: null
+            dart-defines-file: null
+            arguments: null
+            output: null
+            generate-debug-symbols: true
+            config-only: null
+            track-widget-creation: null
+            android-skip-build-dependency-validation: null
+            analyze-size: null
+            ignore-deprecation: null
+            obfuscate: null
+            target-platform: null
+            android-project-arg: null
+            code-size-directory: null
+            split-debug-info: null
+      - name: "Publish Android"
+        key: "publish"
+        description: "Publish the Android application to playstore as internal test track."
+        package_name: "${{ANDROID_PACKAGE}}"
+        publisher:
+          fastlane:
+            file-path: "distribution/android/output"
+            binary-type: "aab"
+            version-name: null
+            version-code: null
+            release-status: null
+            track: "internal"
+            rollout: null
+            metadata-path: "distribution/android/metadata"
+            json-key: "distribution/google-key.json"
+            json-key-data: null
+            apk: null
+            apk-paths: null
+            aab: null
+            aab-paths: null
+            skip-upload-apk: false
+            skip-upload-aab: false
+            skip-upload-metadata: false
+            skip-upload-changelogs: false
+            skip-upload-images: true
+            skip-upload-screenshots: true
+            sync-image-upload: false
+            track-promote-to: "production"
+            track-promote-release-status: "completed"
+            validate-only: false
+            mapping: null
+            mapping-paths: null
+            root-url: null
+            timeout: 300
+            version-codes-to-retain: null
+            changes-not-sent-for-review: false
+            rescue-changes-not-sent-for-review: true
+            in-app-update-priority: null
+            obb-main-references-version: null
+            obb-main-file-size: null
+            obb-patch-references-version: null
+            obb-patch-file-size: null
+            ack-bundle-installation-warning: false
+            upload-debug-symbols: true
+  - name: "iOS Build and deploy"
+    key: "ios"
+    description: "Build and deploy the iOS application to app store."
+    jobs:
+      - name: "Build iOS"
+        key: "build"
+        description: "Build the iOS application using Xcode."
+        package_name: "${{IOS_PACKAGE}}"
+        builder:
+          ios:
+            binary-type: "ipa"
+            build-mode: "release"
+            target: null
+            flavor: null
+            dart-defines: null
+            dart-defines-file: null
+            build-name: null
+            build-number: null
+            export-options-plist: null
+            export-method: null
+            arguments: null
+            pub: true
+            output: null
+      - name: "Publish iOS"
+        key: "publish"
+        description: "Publish the iOS application to app store."
+        package_name: "${{IOS_PACKAGE}}"
+        publisher:
+          xcrun:
+            file-path: "distribution/ios/output"
+            username: "${{APPLE_ID}}"
+            password: "${{APPLE_APP_SPECIFIC_PASSWORD}}"
+            binary-type: "ipa"
+            api-key: null
+            api-issuer: null
+            apple-id: null
+            bundle-version: null
+            bundle-short-version-string: null
+            asc-public-id: null
+            type: null
+            validate-app: false
+            upload-package: null
+            bundle-id: null
+            product-id: null
+            sku: null
+            output-format: null
