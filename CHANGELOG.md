@@ -1,3 +1,7 @@
+## 2.3.4
+* Fix typo
+* Read applicationId from gradleKts
+
 ## 2.3.3
 * Distribute debug symbols and path separator fixes 
 
