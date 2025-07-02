@@ -129,9 +129,7 @@ class Arguments extends PublisherArguments {
     required this.releaseName,
     this.releaseBody = "",
   }) : super("github", variables) {
-    _dio = Dio(BaseOptions(
-      baseUrl: "https://api.github.com",
-    ));
+    _dio = Dio(BaseOptions(baseUrl: "https://api.github.com"));
   }
 
   /// Builds the command arguments list (not used for GitHub API).
@@ -166,13 +164,13 @@ class Arguments extends PublisherArguments {
   /// ```
   @override
   Map<String, dynamic> toJson() => {
-        "file-path": filePath,
-        "repo-name": repoName,
-        "repo-owner": repoOwner,
-        "token": token,
-        "release-name": releaseName,
-        "release-body": releaseBody,
-      };
+    "file-path": filePath,
+    "repo-name": repoName,
+    "repo-owner": repoOwner,
+    "token": token,
+    "release-name": releaseName,
+    "release-body": releaseBody,
+  };
 
   /// Executes the GitHub Releases publishing workflow.
   ///
@@ -200,31 +198,34 @@ class Arguments extends PublisherArguments {
   @override
   Future<int> publish() async {
     final argumentBuilder = Arguments.fromJson(
-        await variables.processMap(toJson()),
-        variables: variables);
+      await variables.processMap(toJson()),
+      variables: variables,
+    );
     await argumentBuilder.printJob();
 
     final arguments = await argumentBuilder.arguments;
 
     argumentBuilder._dio.options.headers["Authorization"] =
         "token ${await variables.process(token)}";
-    logger.logDebug
-        .call("Starting upload with `$publisher ${arguments.join(" ")}`");
+    logger.logDebug.call(
+      "Starting upload with `$publisher ${arguments.join(" ")}`",
+    );
     logger.logDebug.call("Initializing Github API client");
 
     final uploadUrl =
         (await argumentBuilder._getReleaseUploadUrl().catchError((e) => null) ??
-            await argumentBuilder
-                ._getLatestReleaseUploadUrl()
-                .catchError((e) => null) ??
-            await argumentBuilder._createRelease().catchError((e) => null));
+        await argumentBuilder._getLatestReleaseUploadUrl().catchError(
+          (e) => null,
+        ) ??
+        await argumentBuilder._createRelease().catchError((e) => null));
     if (uploadUrl == null) {
       logger.logErrorVerbose.call("Failed to get upload URL");
       return 1;
     }
 
     logger.logInfo(
-        "${await FileSystemEntity.isDirectory(filePath) ? "Directory" : "File"} detected on path: $filePath");
+      "${await FileSystemEntity.isDirectory(filePath) ? "Directory" : "File"} detected on path: $filePath",
+    );
     if (await FileSystemEntity.isDirectory(filePath)) {
       logger.logInfo("Path is a directory");
       logger.logInfo("NOTE : All files in the directory will be uploaded");
@@ -232,8 +233,9 @@ class Arguments extends PublisherArguments {
         if (file is File && file.path.endsWith(binaryType)) {
           final downloadUrl = await argumentBuilder.uploadFile(uploadUrl, file);
           if (downloadUrl == null) continue;
-          logger.logDebug
-              .call("${file.path} uploaded successfully: $downloadUrl");
+          logger.logDebug.call(
+            "${file.path} uploaded successfully: $downloadUrl",
+          );
         }
       }
     } else {
@@ -241,8 +243,10 @@ class Arguments extends PublisherArguments {
         logger.logErrorVerbose.call("File does not exist");
         return 1;
       }
-      final downloadUrl =
-          await argumentBuilder.uploadFile(uploadUrl, File(filePath));
+      final downloadUrl = await argumentBuilder.uploadFile(
+        uploadUrl,
+        File(filePath),
+      );
       if (downloadUrl == null) return 1;
 
       logger.logDebug.call("File uploaded successfully: $downloadUrl");
@@ -284,8 +288,9 @@ class Arguments extends PublisherArguments {
   /// Returns upload URL string if latest release matches, null otherwise.
   /// Used as fallback when specific release name is not found.
   Future<String?> _getLatestReleaseUploadUrl() async {
-    final response =
-        await _dio.get('/repos/$repoOwner/$repoName/releases/latest');
+    final response = await _dio.get(
+      '/repos/$repoOwner/$repoName/releases/latest',
+    );
     if (response.statusCode == 200) {
       if (response.data["name"] == repoName) {
         return response.data["upload_url"].replaceAll("{?name,label}", "");
@@ -311,13 +316,15 @@ class Arguments extends PublisherArguments {
   /// Returns upload URL string if creation successful, null on failure.
   /// Used when no existing release is found for asset uploads.
   Future<String?> _createRelease() async {
-    final response =
-        await _dio.post('/repos/$repoOwner/$repoName/releases', data: {
-      "tag_name": releaseName,
-      "name": releaseName,
-      "body": "Release $releaseName\n$releaseBody",
-      "draft": true,
-    });
+    final response = await _dio.post(
+      '/repos/$repoOwner/$repoName/releases',
+      data: {
+        "tag_name": releaseName,
+        "name": releaseName,
+        "body": "Release $releaseName\n$releaseBody",
+        "draft": true,
+      },
+    );
     if (response.statusCode == 201) {
       return response.data["upload_url"].replaceAll("{?name,label}", "");
     }
@@ -352,11 +359,13 @@ class Arguments extends PublisherArguments {
     final fileName = file.path.split(Platform.pathSeparator).last;
     logger.logDebug.call("Uploading file: $fileName to $uploadUrl");
     try {
-      final response = await _dio.post(uploadUrl,
-          data: FormData.fromMap({
-            "file": await MultipartFile.fromFile(file.path, filename: fileName)
-          }),
-          queryParameters: {"name": fileName});
+      final response = await _dio.post(
+        uploadUrl,
+        data: FormData.fromMap({
+          "file": await MultipartFile.fromFile(file.path, filename: fileName),
+        }),
+        queryParameters: {"name": fileName},
+      );
       if (response.statusCode == 201) {
         return response.data["browser_download_url"];
       }
@@ -364,8 +373,9 @@ class Arguments extends PublisherArguments {
       logger.logErrorVerbose.call("Failed to upload file: $fileName");
       if (e.response != null) {
         if (e.response?.data is Map<String, dynamic>) {
-          logger.logErrorVerbose
-              .call("Response : ${e.response?.data["message"]}");
+          logger.logErrorVerbose.call(
+            "Response : ${e.response?.data["message"]}",
+          );
         } else {
           logger.logErrorVerbose.call("Response : ${e.response?.data}");
         }
@@ -391,19 +401,32 @@ class Arguments extends PublisherArguments {
   /// - Release management
   /// - Content and metadata
   static ArgParser parser = ArgParser()
-    ..addOption('file-path',
-        abbr: 'f', help: 'The path to the file to upload', mandatory: true)
-    ..addOption('token',
-        help: 'The token to use for github authentication.', mandatory: true)
-    ..addOption('repo-name',
-        help: 'The name of the repository to upload the file to.',
-        mandatory: true)
-    ..addOption('repo-owner',
-        help: 'The owner of the repository to upload the file to.',
-        mandatory: true)
+    ..addOption(
+      'file-path',
+      abbr: 'f',
+      help: 'The path to the file to upload',
+      mandatory: true,
+    )
+    ..addOption(
+      'token',
+      help: 'The token to use for github authentication.',
+      mandatory: true,
+    )
+    ..addOption(
+      'repo-name',
+      help: 'The name of the repository to upload the file to.',
+      mandatory: true,
+    )
+    ..addOption(
+      'repo-owner',
+      help: 'The owner of the repository to upload the file to.',
+      mandatory: true,
+    )
     ..addOption('release-name', help: 'The release name to upload the file to.')
-    ..addOption('release-body',
-        help: 'The release body to upload the file to.');
+    ..addOption(
+      'release-body',
+      help: 'The release body to upload the file to.',
+    );
 
   /// Creates Arguments instance from command-line arguments.
   ///
@@ -421,7 +444,9 @@ class Arguments extends PublisherArguments {
   /// Note: Binary type filtering is handled during file processing
   /// rather than at argument parsing time for flexibility.
   factory Arguments.fromArgResults(
-      ArgResults argResults, ArgResults? globalResults) {
+    ArgResults argResults,
+    ArgResults? globalResults,
+  ) {
     return Arguments(
       Variables.fromSystem(globalResults),
       filePath: argResults['file-path'] as String,
@@ -463,8 +488,10 @@ class Arguments extends PublisherArguments {
   ///   "release-body": "Initial release"
   /// }
   /// ```
-  factory Arguments.fromJson(Map<String, dynamic> json,
-      {required Variables variables}) {
+  factory Arguments.fromJson(
+    Map<String, dynamic> json, {
+    required Variables variables,
+  }) {
     if (json["file-path"] == null) throw Exception("file-path is required");
     if (json["repo-name"] == null) throw Exception("repo-name is required");
     if (json["repo-owner"] == null) throw Exception("repo-owner is required");
@@ -499,13 +526,13 @@ class Arguments extends PublisherArguments {
   /// Note: This configuration is not functional and requires
   /// proper values for all repository and authentication parameters.
   factory Arguments.defaultConfigs(ArgResults? globalResults) => Arguments(
-        Variables.fromSystem(globalResults),
-        filePath: Files.iosDistributionDir.parent.path,
-        binaryType: '',
-        repoName: '',
-        repoOwner: '',
-        token: '',
-        releaseName: '',
-        releaseBody: '',
-      );
+    Variables.fromSystem(globalResults),
+    filePath: Files.iosDistributionDir.parent.path,
+    binaryType: '',
+    repoName: '',
+    repoOwner: '',
+    token: '',
+    releaseName: '',
+    releaseBody: '',
+  );
 }

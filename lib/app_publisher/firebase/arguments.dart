@@ -159,20 +159,21 @@ class Arguments extends PublisherArguments {
   /// Uses first rest argument as file path if available, otherwise
   /// defaults to standard Android distribution output directory.
   factory Arguments.fromArgResults(
-          ArgResults results, ArgResults? globalResults) =>
-      Arguments(
-        Variables.fromSystem(globalResults),
-        filePath:
-            results.rest.firstOrNull ?? Files.androidDistributionOutputDir.path,
-        binaryType: results['binary-type'] as String,
-        appId: results['app-id'] as String,
-        releaseNotes: results['release-notes'] as String?,
-        releaseNotesFile: results['release-notes-file'] as String?,
-        testers: results['testers'] as String?,
-        testersFile: results['testers-file'] as String?,
-        groups: results['groups'] as String?,
-        groupsFile: results['groups-file'] as String?,
-      );
+    ArgResults results,
+    ArgResults? globalResults,
+  ) => Arguments(
+    Variables.fromSystem(globalResults),
+    filePath:
+        results.rest.firstOrNull ?? Files.androidDistributionOutputDir.path,
+    binaryType: results['binary-type'] as String,
+    appId: results['app-id'] as String,
+    releaseNotes: results['release-notes'] as String?,
+    releaseNotesFile: results['release-notes-file'] as String?,
+    testers: results['testers'] as String?,
+    testersFile: results['testers-file'] as String?,
+    groups: results['groups'] as String?,
+    groupsFile: results['groups-file'] as String?,
+  );
 
   /// Creates Arguments instance from JSON configuration.
   ///
@@ -201,8 +202,10 @@ class Arguments extends PublisherArguments {
   ///   "groups": "qa-team,beta-users"
   /// }
   /// ```
-  factory Arguments.fromJson(Map<String, dynamic> json,
-      {required Variables variables}) {
+  factory Arguments.fromJson(
+    Map<String, dynamic> json, {
+    required Variables variables,
+  }) {
     if (json['file-path'] == null) throw Exception("file-path is required");
     if (json['app-id'] == null) throw Exception("app-id is required");
     if (json['binary-type'] == null) throw Exception("binary-type is required");
@@ -241,17 +244,17 @@ class Arguments extends PublisherArguments {
   /// ```
   @override
   List<String> get argumentBuilder => [
-        'appdistribution:distribute',
-        filePath,
-        '--app',
-        appId,
-        if (releaseNotes != null) '--release-notes=$releaseNotes',
-        if (releaseNotesFile != null) '--release-notes-file=$releaseNotesFile',
-        if (testers != null) '--testers=$testers',
-        if (testersFile != null) '--testers-file=$testersFile',
-        if (groups != null) '--groups=$groups',
-        if (groupsFile != null) '--groups-file=$groupsFile',
-      ];
+    'appdistribution:distribute',
+    filePath,
+    '--app',
+    appId,
+    if (releaseNotes != null) '--release-notes=$releaseNotes',
+    if (releaseNotesFile != null) '--release-notes-file=$releaseNotesFile',
+    if (testers != null) '--testers=$testers',
+    if (testersFile != null) '--testers-file=$testersFile',
+    if (groups != null) '--groups=$groups',
+    if (groupsFile != null) '--groups-file=$groupsFile',
+  ];
 
   /// Command-line argument parser for Firebase App Distribution.
   ///
@@ -266,31 +269,49 @@ class Arguments extends PublisherArguments {
   /// - Tester and group management
   /// - Distribution configuration
   static ArgParser parser = ArgParser()
-    ..addOption('file-path',
-        abbr: 'f', help: 'Path to the file to upload', mandatory: true)
-    ..addOption('binary-type',
-        abbr: 'b',
-        help:
-            'The binary type of the application to use. Valid values are apk, aab.',
-        defaultsTo: 'apk')
-    ..addOption('app-id',
-        abbr: 'a', help: 'The app id of your Firebase app', mandatory: true)
+    ..addOption(
+      'file-path',
+      abbr: 'f',
+      help: 'Path to the file to upload',
+      mandatory: true,
+    )
+    ..addOption(
+      'binary-type',
+      abbr: 'b',
+      help:
+          'The binary type of the application to use. Valid values are apk, aab.',
+      defaultsTo: 'apk',
+    )
+    ..addOption(
+      'app-id',
+      abbr: 'a',
+      help: 'The app id of your Firebase app',
+      mandatory: true,
+    )
     ..addOption('release-notes', abbr: 'r', help: 'Release notes to include')
     ..addOption('release-notes-file', help: 'Path to file with release notes')
-    ..addOption('testers',
-        abbr: 't',
-        help: 'A comma-separated list of tester emails to distribute to')
-    ..addOption('testers-file',
-        abbr: 'T',
-        help:
-            'Path to file with a comma- or newline-separated list of tester emails to distribute to')
-    ..addOption('groups',
-        abbr: 'g',
-        help: 'A comma-separated list of group aliases to distribute to')
-    ..addOption('groups-file',
-        abbr: 'G',
-        help:
-            'Path to file with a comma- or newline-separated list of group aliases to distribute to');
+    ..addOption(
+      'testers',
+      abbr: 't',
+      help: 'A comma-separated list of tester emails to distribute to',
+    )
+    ..addOption(
+      'testers-file',
+      abbr: 'T',
+      help:
+          'Path to file with a comma- or newline-separated list of tester emails to distribute to',
+    )
+    ..addOption(
+      'groups',
+      abbr: 'g',
+      help: 'A comma-separated list of group aliases to distribute to',
+    )
+    ..addOption(
+      'groups-file',
+      abbr: 'G',
+      help:
+          'Path to file with a comma- or newline-separated list of group aliases to distribute to',
+    );
 
   /// Creates default Firebase configuration for an app.
   ///
@@ -338,14 +359,14 @@ class Arguments extends PublisherArguments {
   /// ```
   @override
   Map<String, dynamic> toJson() => {
-        'file-path': filePath,
-        'app-id': appId,
-        'binary-type': binaryType,
-        'release-notes': releaseNotes,
-        'release-notes-file': releaseNotesFile,
-        'testers': testers,
-        'testers-file': testersFile,
-        'groups': groups,
-        'groups-file': groupsFile,
-      };
+    'file-path': filePath,
+    'app-id': appId,
+    'binary-type': binaryType,
+    'release-notes': releaseNotes,
+    'release-notes-file': releaseNotesFile,
+    'testers': testers,
+    'testers-file': testersFile,
+    'groups': groups,
+    'groups-file': groupsFile,
+  };
 }

@@ -28,18 +28,19 @@ class CompressFiles {
   static Future<bool> checkTools() async {
     if (Platform.isWindows) {
       // Check if PowerShell Compress-Archive cmdlet is available
-      return await Process.run(
-        "powershell",
-        ["Get-Command", "Compress-Archive"],
-        runInShell: true,
-      ).then((value) => value.exitCode == 0);
+      return await Process.run("powershell", [
+        "Get-Command",
+        "Compress-Archive",
+      ], runInShell: true).then((value) => value.exitCode == 0);
     } else if (Platform.isMacOS || Platform.isLinux) {
       // Check if zip command is available in PATH
-      return await Process.run("which", ["zip"])
-          .then((value) => value.exitCode == 0);
+      return await Process.run("which", [
+        "zip",
+      ]).then((value) => value.exitCode == 0);
     } else {
       throw UnsupportedError(
-          "Unsupported platform for compression tools check");
+        "Unsupported platform for compression tools check",
+      );
     }
   }
 
@@ -81,15 +82,18 @@ class CompressFiles {
           "-Path",
           "*", // Compress all files in the working directory
           "-DestinationPath",
-          "debug_symbols.zip"
+          "debug_symbols.zip",
         ],
         runInShell: true,
         workingDirectory: source, // Set working directory to source path
       ).then((value) => value.exitCode);
     } else if (Platform.isMacOS || Platform.isLinux) {
       // Use zip command with recursive option
-      return Process.run("zip", ["-r", "debug_symbols.zip", "."],
-              workingDirectory: source) // Set working directory to source path
+      return Process.run("zip", [
+            "-r",
+            "debug_symbols.zip",
+            ".",
+          ], workingDirectory: source) // Set working directory to source path
           .then((value) => value.exitCode);
     } else {
       throw UnsupportedError("Unsupported platform for compression");

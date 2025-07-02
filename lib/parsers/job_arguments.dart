@@ -112,8 +112,10 @@ abstract class JobArguments {
   Future printJob() async {
     final rawArguments = toJson();
     // Remove null, empty lists, and empty string values for cleaner output
-    rawArguments.removeWhere((key, value) =>
-        value == null || ((value is List) && value.isEmpty) || value == "");
+    rawArguments.removeWhere(
+      (key, value) =>
+          value == null || ((value is List) && value.isEmpty) || value == "",
+    );
 
     // Determine job type based on instance type
     String type = this is BuildArguments ? "Build" : "Publish";
@@ -190,8 +192,10 @@ class BuilderJob {
   factory BuilderJob.fromJson(Map<String, dynamic> json, Variables variables) {
     return BuilderJob(
       android: json["android"] != null
-          ? android_arguments.Arguments.fromJson(json["android"],
-              variables: variables)
+          ? android_arguments.Arguments.fromJson(
+              json["android"],
+              variables: variables,
+            )
           : null,
       ios: json["ios"] != null
           ? ios_arguments.Arguments.fromJson(json["ios"], variables: variables)
@@ -204,9 +208,9 @@ class BuilderJob {
   /// Returns a `Map<String, dynamic>` containing only the platform
   /// configurations that are present (non-null).
   Map<String, dynamic> toJson() => {
-        if (android != null) "android": android?.toJson(),
-        if (ios != null) "ios": ios?.toJson(),
-      };
+    if (android != null) "android": android?.toJson(),
+    if (ios != null) "ios": ios?.toJson(),
+  };
 }
 
 /// Container for publisher-specific arguments.
@@ -272,7 +276,8 @@ class PublisherJob {
         firebase == null &&
         github == null) {
       throw Exception(
-          "Fastlane, Firebase, Github, or XCrun publisher argument must be provided.");
+        "Fastlane, Firebase, Github, or XCrun publisher argument must be provided.",
+      );
     }
     // Establish parent-child relationships for configuration hierarchy
     fastlane?.parent = this;
@@ -286,11 +291,11 @@ class PublisherJob {
   /// Returns a `Map<String, dynamic>` containing only the publisher
   /// configurations that are present (non-null).
   Map<String, dynamic> toJson() => {
-        if (fastlane != null) "fastlane": fastlane?.toJson(),
-        if (firebase != null) "firebase": firebase?.toJson(),
-        if (xcrun != null) "xcrun": xcrun?.toJson(),
-        if (github != null) "github": github?.toJson(),
-      };
+    if (fastlane != null) "fastlane": fastlane?.toJson(),
+    if (firebase != null) "firebase": firebase?.toJson(),
+    if (xcrun != null) "xcrun": xcrun?.toJson(),
+    if (github != null) "github": github?.toJson(),
+  };
 
   /// Creates a `PublisherJob` from JSON configuration.
   ///
@@ -300,23 +305,33 @@ class PublisherJob {
   /// Returns a new `PublisherJob` instance with publisher-specific arguments
   /// parsed from the JSON configuration.
   factory PublisherJob.fromJson(
-      Map<String, dynamic> json, Variables variables) {
+    Map<String, dynamic> json,
+    Variables variables,
+  ) {
     return PublisherJob(
       fastlane: json["fastlane"] != null
-          ? fastlane_publisher.Arguments.fromJson(json["fastlane"],
-              variables: variables)
+          ? fastlane_publisher.Arguments.fromJson(
+              json["fastlane"],
+              variables: variables,
+            )
           : null,
       firebase: json["firebase"] != null
-          ? firebase_publisher.Arguments.fromJson(json["firebase"],
-              variables: variables)
+          ? firebase_publisher.Arguments.fromJson(
+              json["firebase"],
+              variables: variables,
+            )
           : null,
       xcrun: json["xcrun"] != null
-          ? xcrun_publisher.Arguments.fromJson(json["xcrun"],
-              variables: variables)
+          ? xcrun_publisher.Arguments.fromJson(
+              json["xcrun"],
+              variables: variables,
+            )
           : null,
       github: json["github"] != null
-          ? github_publisher.Arguments.fromJson(json["github"],
-              variables: variables)
+          ? github_publisher.Arguments.fromJson(
+              json["github"],
+              variables: variables,
+            )
           : null,
     );
   }
@@ -367,10 +382,10 @@ class Job {
     this.builder,
     this.publisher,
   }) : assert(
-          (builder != null && publisher == null) ||
-              (builder == null && publisher != null),
-          "Either builder or publisher must be provided, not both.",
-        ) {
+         (builder != null && publisher == null) ||
+             (builder == null && publisher != null),
+         "Either builder or publisher must be provided, not both.",
+       ) {
     if (builder != null) {
       builder?.parent = this;
     } else if (publisher != null) {
@@ -398,11 +413,11 @@ class Job {
 
   /// Converts the `Job` instance to a JSON object.
   Map<String, dynamic> toJson() => {
-        "name": name,
-        "key": key,
-        "description": description,
-        "package_name": packageName,
-        if (builder != null) "builder": builder?.toJson(),
-        if (publisher != null) "publisher": publisher?.toJson(),
-      };
+    "name": name,
+    "key": key,
+    "description": description,
+    "package_name": packageName,
+    if (builder != null) "builder": builder?.toJson(),
+    if (publisher != null) "publisher": publisher?.toJson(),
+  };
 }

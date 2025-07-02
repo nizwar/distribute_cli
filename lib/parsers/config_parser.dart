@@ -67,13 +67,16 @@ class ConfigParser {
   ///
   /// Returns a new ConfigParser instance with the parsed configuration data
   factory ConfigParser.fromJson(
-      Map<String, dynamic> json, ArgResults? globalResults) {
+    Map<String, dynamic> json,
+    ArgResults? globalResults,
+  ) {
     return ConfigParser(
       globalResults: globalResults,
       tasks: json["tasks"],
       environments: json["variables"] as Map<String, dynamic>,
-      arguments: (json["arguments"] as Map<String, dynamic>)
-          .map((key, value) => MapEntry(key, value as dynamic)),
+      arguments: (json["arguments"] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(key, value as dynamic),
+      ),
     );
   }
 
@@ -93,21 +96,25 @@ class ConfigParser {
   /// - Required keys (`tasks`, `name`, `description`) are missing
   /// - Job configuration is invalid (missing `package_name`)
   static Future<ConfigParser> distributeYaml(
-      String path, ArgResults? globalResults) async {
+    String path,
+    ArgResults? globalResults,
+  ) async {
     final file = File(path);
     if (!file.existsSync()) {
       throw Exception("$path file not found, please run init command");
     }
-    Map<String, dynamic> configJson =
-        jsonDecode(jsonEncode(loadYaml(file.readAsStringSync())));
+    Map<String, dynamic> configJson = jsonDecode(
+      jsonEncode(loadYaml(file.readAsStringSync())),
+    );
     List<Task> jobTasks;
 
     final yamlVariables = Map<String, dynamic>.from(configJson["variables"]);
     final environments = Map<String, dynamic>.from(Platform.environment.cast());
     for (var key in yamlVariables.keys) {
       await Variables.processBySystem(
-              yamlVariables[key].toString(), globalResults)
-          .then((value) {
+        yamlVariables[key].toString(),
+        globalResults,
+      ).then((value) {
         yamlVariables[key] = value;
       });
     }
@@ -126,10 +133,12 @@ class ConfigParser {
     }
 
     Job parseJob(Map<String, dynamic> json) {
-      Map<String, dynamic>? builder =
-          json.containsKey("builder") ? json["builder"] : null;
-      Map<String, dynamic>? publisher =
-          json.containsKey("publisher") ? json["publisher"] : null;
+      Map<String, dynamic>? builder = json.containsKey("builder")
+          ? json["builder"]
+          : null;
+      Map<String, dynamic>? publisher = json.containsKey("publisher")
+          ? json["publisher"]
+          : null;
       final packageName = json["package_name"];
       final key = json["key"];
 
@@ -178,8 +187,9 @@ class ConfigParser {
     return ConfigParser(
       globalResults: globalResults,
       tasks: jobTasks,
-      arguments: (configJson["arguments"] as Map<String, dynamic>?)
-          ?.map((key, value) => MapEntry(key, value as dynamic)),
+      arguments: (configJson["arguments"] as Map<String, dynamic>?)?.map(
+        (key, value) => MapEntry(key, value as dynamic),
+      ),
       environments: environments,
     );
   }

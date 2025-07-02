@@ -50,8 +50,9 @@ class ColorizeLogger {
         stdout.writeln('${level.color}$message$_reset');
       }
     }
-    File("distribution.log")
-        .writeAsStringSync("$message\n", mode: FileMode.append);
+    File(
+      "distribution.log",
+    ).writeAsStringSync("$message\n", mode: FileMode.append);
   }
 
   /// Logs an error message in red color with `[ERROR]` prefix.

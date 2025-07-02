@@ -137,28 +137,28 @@ abstract class BuildArguments extends JobArguments {
   /// Arguments are conditionally included based on their values.
   @override
   List<String> get argumentBuilder => [
-        // Include binary type if not empty
-        if (binaryType.isNotEmpty) binaryType,
-        // Include target file specification
-        if (target?.isNotEmpty ?? false) '--target=$target',
-        // Include build mode flag
-        if (buildMode?.isNotEmpty ?? false) '--$buildMode',
-        // Include flavor specification
-        if (flavor?.isNotEmpty ?? false) '--flavor=$flavor',
-        // Include Dart defines
-        if (dartDefines?.isNotEmpty ?? false) '--dart-defines=$dartDefines',
-        // Include Dart defines file
-        if (dartDefinesFile?.isNotEmpty ?? false)
-          '--dart-defines-file=$dartDefinesFile',
-        // Include build name/version
-        if (buildName?.isNotEmpty ?? false) '--build-name=$buildName',
-        // Include build number/version code
-        if (buildNumber?.isNotEmpty ?? false) '--build-number=$buildNumber',
-        // Include pub get flag
-        if (pub) '--pub' else '--no-pub',
-        // Include any custom arguments
-        if (customArgs != null) ...customArgs!,
-      ];
+    // Include binary type if not empty
+    if (binaryType.isNotEmpty) binaryType,
+    // Include target file specification
+    if (target?.isNotEmpty ?? false) '--target=$target',
+    // Include build mode flag
+    if (buildMode?.isNotEmpty ?? false) '--$buildMode',
+    // Include flavor specification
+    if (flavor?.isNotEmpty ?? false) '--flavor=$flavor',
+    // Include Dart defines
+    if (dartDefines?.isNotEmpty ?? false) '--dart-defines=$dartDefines',
+    // Include Dart defines file
+    if (dartDefinesFile?.isNotEmpty ?? false)
+      '--dart-defines-file=$dartDefinesFile',
+    // Include build name/version
+    if (buildName?.isNotEmpty ?? false) '--build-name=$buildName',
+    // Include build number/version code
+    if (buildNumber?.isNotEmpty ?? false) '--build-number=$buildNumber',
+    // Include pub get flag
+    if (pub) '--pub' else '--no-pub',
+    // Include any custom arguments
+    if (customArgs != null) ...customArgs!,
+  ];
 
   /// Executes the complete build process.
   ///
@@ -179,11 +179,16 @@ abstract class BuildArguments extends JobArguments {
     // Get processed arguments with variable substitution
     final arguments = await this.arguments;
     logger.logDebug.call(
-        "Starting build with flutter ${["build", ...arguments].join(" ")}");
+      "Starting build with flutter ${["build", ...arguments].join(" ")}",
+    );
 
     // Start Flutter build process
-    final process = await Process.start("flutter", ["build", ...arguments],
-        runInShell: true, includeParentEnvironment: true);
+    final process = await Process.start(
+      "flutter",
+      ["build", ...arguments],
+      runInShell: true,
+      includeParentEnvironment: true,
+    );
 
     // Stream build output to logger
     process.stdout.transform(utf8.decoder).listen(logger.logDebug);
@@ -225,16 +230,21 @@ abstract class BuildArguments extends JobArguments {
       String target =
           androidArgs.output ?? Files.androidDistributionOutputDir.path;
 
-      final output = await Files.copyFiles(buildSourceDir, target,
-              fileType: [binaryType], mode: buildMode ?? "release")
-          .catchError((e) {
-        logger.logErrorVerbose.call(e.toString());
-        return null;
-      });
+      final output =
+          await Files.copyFiles(
+            buildSourceDir,
+            target,
+            fileType: [binaryType],
+            mode: buildMode ?? "release",
+          ).catchError((e) {
+            logger.logErrorVerbose.call(e.toString());
+            return null;
+          });
 
       if (output == null) {
-        logger.logErrorVerbose
-            .call("Failed to copy files from $buildSourceDir to $target");
+        logger.logErrorVerbose.call(
+          "Failed to copy files from $buildSourceDir to $target",
+        );
         return 1;
       }
     } else if (this is ios_arguments.Arguments) {
@@ -242,13 +252,17 @@ abstract class BuildArguments extends JobArguments {
       ios_arguments.Arguments iosArgs = this as ios_arguments.Arguments;
       String target = iosArgs.output ?? Files.iosDistributionOutputDir.path;
 
-      final output = await Files.copyFiles(buildSourceDir, target,
-              fileType: ["ipa"], mode: buildMode ?? "release")
-          .catchError((e) => null);
+      final output = await Files.copyFiles(
+        buildSourceDir,
+        target,
+        fileType: ["ipa"],
+        mode: buildMode ?? "release",
+      ).catchError((e) => null);
 
       if (output == null) {
-        logger.logErrorVerbose
-            .call("Failed to copy files from $buildSourceDir to $target");
+        logger.logErrorVerbose.call(
+          "Failed to copy files from $buildSourceDir to $target",
+        );
         return 1;
       }
     }
@@ -266,7 +280,8 @@ abstract class BuildArguments extends JobArguments {
     logger.logDebug.call("Generating zip symbols");
 
     // Locate the native libraries directory containing debug symbols
-    final outputDir = Directory(path.join(
+    final outputDir = Directory(
+      path.join(
         "build",
         "app",
         "intermediates",
@@ -274,7 +289,9 @@ abstract class BuildArguments extends JobArguments {
         "release",
         "mergeReleaseNativeLibs",
         "out",
-        "lib"));
+        "lib",
+      ),
+    );
 
     if (!outputDir.existsSync()) {
       logger.logDebug.call("Failed to generate zip symbols");
@@ -289,13 +306,16 @@ abstract class BuildArguments extends JobArguments {
     });
 
     // Compress the debug symbols
-    final zipExitProcess =
-        await CompressFiles.compress(outputDir.path, "debug_symbols.zip");
+    final zipExitProcess = await CompressFiles.compress(
+      outputDir.path,
+      "debug_symbols.zip",
+    );
     final zipExitCode = zipExitProcess;
 
     if (zipExitCode != 0) {
-      logger.logDebug
-          .call("Failed to generate zip symbols with exit code: $zipExitCode");
+      logger.logDebug.call(
+        "Failed to generate zip symbols with exit code: $zipExitCode",
+      );
       return zipExitCode;
     } else {
       final zipFile = File(path.join(outputDir.path, "debug_symbols.zip"));
@@ -304,8 +324,10 @@ abstract class BuildArguments extends JobArguments {
       try {
         // Copy debug symbols to Android distribution directory
         final androidOutputPath = Files.androidDistributionOutputDir.path;
-        final debugSymbolsPath =
-            path.join(androidOutputPath, "debug_symbols.zip");
+        final debugSymbolsPath = path.join(
+          androidOutputPath,
+          "debug_symbols.zip",
+        );
 
         // Remove existing debug symbols if present
         if (File(debugSymbolsPath).existsSync()) {
@@ -314,8 +336,9 @@ abstract class BuildArguments extends JobArguments {
 
         // Copy the new debug symbols
         await zipFile.copy(debugSymbolsPath);
-        logger.logDebug
-            .call("Debug symbols generated and copied to $debugSymbolsPath");
+        logger.logDebug.call(
+          "Debug symbols generated and copied to $debugSymbolsPath",
+        );
       } catch (e) {
         logger.logDebug.call("Failed to copy debug symbols: $e");
         return 1;

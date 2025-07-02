@@ -186,30 +186,45 @@ class Arguments extends BuildArguments {
   /// --output ./custom-builds/ --build-name "v2.1.0" --build-number 42
   /// ```
   static ArgParser parser = ArgParser()
-    ..addOption('target',
-        abbr: 't',
-        help:
-            'The main entry-point file of the application, as run on the device.')
-    ..addOption('binary-type',
-        abbr: 'b',
-        help: 'Binary type (apk, aab, ipa, ios, macos, etc)',
-        defaultsTo: 'apk')
-    ..addOption('build-mode',
-        abbr: 'm',
-        help: 'Build mode (debug, profile, release)',
-        defaultsTo: 'release')
+    ..addOption(
+      'target',
+      abbr: 't',
+      help:
+          'The main entry-point file of the application, as run on the device.',
+    )
+    ..addOption(
+      'binary-type',
+      abbr: 'b',
+      help: 'Binary type (apk, aab, ipa, ios, macos, etc)',
+      defaultsTo: 'apk',
+    )
+    ..addOption(
+      'build-mode',
+      abbr: 'm',
+      help: 'Build mode (debug, profile, release)',
+      defaultsTo: 'release',
+    )
     ..addOption('flavor', abbr: 'f', help: 'Build flavor')
-    ..addOption('arguments',
-        abbr: 'a', help: 'Custom arguments to pass to the build command')
+    ..addOption(
+      'arguments',
+      abbr: 'a',
+      help: 'Custom arguments to pass to the build command',
+    )
     ..addOption('dart-defines', abbr: 'd', help: 'Dart defines')
     ..addOption('build-name', abbr: 'n', help: 'Build name')
     ..addOption('build-number', abbr: 'N', help: 'Build number')
-    ..addOption('output',
-        abbr: 'o',
-        help: 'Output path for the build',
-        defaultsTo: Files.customOutputDir.path)
-    ..addFlag('pub',
-        abbr: 'p', help: 'Run pub get before building', defaultsTo: true)
+    ..addOption(
+      'output',
+      abbr: 'o',
+      help: 'Output path for the build',
+      defaultsTo: Files.customOutputDir.path,
+    )
+    ..addFlag(
+      'pub',
+      abbr: 'p',
+      help: 'Run pub get before building',
+      defaultsTo: true,
+    )
     ..addOption('dart-defines-file', help: 'Dart defines file');
 
   /// Factory constructor creating Arguments from command-line results.
@@ -256,7 +271,9 @@ class Arguments extends BuildArguments {
   /// // - pub: true (default)
   /// ```
   factory Arguments.fromArgResults(
-      ArgResults results, ArgResults? globalResults) {
+    ArgResults results,
+    ArgResults? globalResults,
+  ) {
     return Arguments(
       Variables.fromSystem(globalResults),
       binaryType: results['binary-type'] as String,
@@ -337,8 +354,10 @@ class Arguments extends BuildArguments {
   /// final args = Arguments.fromJson(config, variables: systemVars);
   /// final result = await args.build();
   /// ```
-  factory Arguments.fromJson(Map<String, dynamic> json,
-      {required Variables variables}) {
+  factory Arguments.fromJson(
+    Map<String, dynamic> json, {
+    required Variables variables,
+  }) {
     return Arguments(
       variables,
       binaryType: json['binary-type'] as String,
@@ -406,16 +425,16 @@ class Arguments extends BuildArguments {
   /// ```
   @override
   Map<String, dynamic> toJson() => {
-        'binary-type': binaryType,
-        'build-mode': buildMode,
-        'target': target,
-        'flavor': flavor,
-        'dart-defines': dartDefines,
-        'dart-defines-file': dartDefinesFile,
-        'build-name': buildName,
-        'build-number': buildNumber,
-        'pub': pub,
-        'arguments': customArgs,
-        'output': output,
-      };
+    'binary-type': binaryType,
+    'build-mode': buildMode,
+    'target': target,
+    'flavor': flavor,
+    'dart-defines': dartDefines,
+    'dart-defines-file': dartDefinesFile,
+    'build-name': buildName,
+    'build-number': buildNumber,
+    'pub': pub,
+    'arguments': customArgs,
+    'output': output,
+  };
 }

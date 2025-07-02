@@ -156,7 +156,9 @@ class Variables {
   ///
   /// Returns the processed string with variables substituted
   static Future<String> processBySystem(
-      String? input, ArgResults? globalResults) async {
+    String? input,
+    ArgResults? globalResults,
+  ) async {
     return Variables.fromSystem(globalResults).process(input);
   }
 

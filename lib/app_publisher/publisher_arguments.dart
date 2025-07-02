@@ -70,8 +70,12 @@ abstract class PublisherArguments extends JobArguments {
   ///
   /// Initializes the base publisher configuration with the specified
   /// parameters and inherits job argument functionality.
-  PublisherArguments(this.publisher, super.variables,
-      {required this.filePath, required this.binaryType});
+  PublisherArguments(
+    this.publisher,
+    super.variables, {
+    required this.filePath,
+    required this.binaryType,
+  });
 
   /// Initiates the application publishing process.
   ///
@@ -93,12 +97,17 @@ abstract class PublisherArguments extends JobArguments {
     await processFilesArgs();
     await printJob();
     final arguments = await this.arguments;
-    logger.logDebug
-        .call("Starting upload with `$publisher ${(arguments).join(" ")}`");
+    logger.logDebug.call(
+      "Starting upload with `$publisher ${(arguments).join(" ")}`",
+    );
 
     // Start the publisher process with arguments
-    final process = await Process.start(publisher, arguments,
-        runInShell: true, includeParentEnvironment: true);
+    final process = await Process.start(
+      publisher,
+      arguments,
+      runInShell: true,
+      includeParentEnvironment: true,
+    );
 
     // Stream stdout and stderr with appropriate logging levels
     process.stdout.transform(utf8.decoder).listen(logger.logDebug);
@@ -143,20 +152,30 @@ abstract class PublisherArguments extends JobArguments {
         // Handle Android binary types (APK and AAB)
         if ((binaryType == "apk" || binaryType == "aab")) {
           logger.logDebug.call(
-              "Scanning ${this.binaryType} on ${Files.androidOutputApks.path}");
+            "Scanning ${this.binaryType} on ${Files.androidOutputApks.path}",
+          );
           final sourceDir = binaryType == "apk"
               ? Files.androidOutputApks
               : Files.androidOutputAppbundles;
-          filePath = await Files.copyFiles(sourceDir.path, filePath,
-                  fileType: [binaryType]) ??
+          filePath =
+              await Files.copyFiles(
+                sourceDir.path,
+                filePath,
+                fileType: [binaryType],
+              ) ??
               "";
         }
         // Handle iOS binary type (IPA)
         else if (binaryType == "ipa") {
           logger.logDebug.call(
-              "Scanning ${this.binaryType} on ${Files.iosOutputIPA.path}");
-          filePath = await Files.copyFiles(Files.iosOutputIPA.path, filePath,
-                  fileType: ["ipa"]) ??
+            "Scanning ${this.binaryType} on ${Files.iosOutputIPA.path}",
+          );
+          filePath =
+              await Files.copyFiles(
+                Files.iosOutputIPA.path,
+                filePath,
+                fileType: ["ipa"],
+              ) ??
               "";
         } else {
           logger.logErrorVerbose.call("Invalid binary type: $binaryType");
@@ -165,8 +184,10 @@ abstract class PublisherArguments extends JobArguments {
         // Find the first file matching the binary type in the directory
         filePath = Directory(filePath)
             .listSync()
-            .firstWhere((element) =>
-                element is File && element.path.endsWith(this.binaryType))
+            .firstWhere(
+              (element) =>
+                  element is File && element.path.endsWith(this.binaryType),
+            )
             .path;
       }
     }

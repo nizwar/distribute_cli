@@ -34,7 +34,9 @@ void main(List<String> args) async {
 
   // Create the main command runner for the distribute CLI
   final runner = CommandRunner(
-      'distribute', 'Run commands to distribute your app packages.');
+    'distribute',
+    'Run commands to distribute your app packages.',
+  );
 
   // Clean up any existing log files
   final logs = File("distribution.log");
@@ -43,10 +45,17 @@ void main(List<String> args) async {
   }
 
   // Add global command line options
-  runner.argParser.addFlag("verbose",
-      abbr: 'v', defaultsTo: false, help: "Enable verbose output.");
-  runner.argParser.addOption("config",
-      defaultsTo: "distribution.yaml", help: "Path to the configuration file.");
+  runner.argParser.addFlag(
+    "verbose",
+    abbr: 'v',
+    defaultsTo: false,
+    help: "Enable verbose output.",
+  );
+  runner.argParser.addOption(
+    "config",
+    defaultsTo: "distribution.yaml",
+    help: "Path to the configuration file.",
+  );
 
   // Register all available commands
   runner.addCommand(InitializerCommand());
