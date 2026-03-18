@@ -71,7 +71,7 @@ class BuildInfo {
         final content = await file!.readAsString();
         final packageNameMatch =
             RegExp(r'applicationId\s+"([^"]+)"').firstMatch(content) ??
-            RegExp(r'applicationId\s*=\s*"([^"]+)"').firstMatch(content);
+                RegExp(r'applicationId\s*=\s*"([^"]+)"').firstMatch(content);
         if (packageNameMatch != null) {
           androidPackageName = packageNameMatch.group(1);
         }

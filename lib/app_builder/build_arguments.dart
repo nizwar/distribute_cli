@@ -137,28 +137,28 @@ abstract class BuildArguments extends JobArguments {
   /// Arguments are conditionally included based on their values.
   @override
   List<String> get argumentBuilder => [
-    // Include binary type if not empty
-    if (binaryType.isNotEmpty) binaryType,
-    // Include target file specification
-    if (target?.isNotEmpty ?? false) '--target=$target',
-    // Include build mode flag
-    if (buildMode?.isNotEmpty ?? false) '--$buildMode',
-    // Include flavor specification
-    if (flavor?.isNotEmpty ?? false) '--flavor=$flavor',
-    // Include Dart defines
-    if (dartDefines?.isNotEmpty ?? false) '--dart-defines=$dartDefines',
-    // Include Dart defines file
-    if (dartDefinesFile?.isNotEmpty ?? false)
-      '--dart-define-from-file=$dartDefinesFile',
-    // Include build name/version
-    if (buildName?.isNotEmpty ?? false) '--build-name=$buildName',
-    // Include build number/version code
-    if (buildNumber?.isNotEmpty ?? false) '--build-number=$buildNumber',
-    // Include pub get flag
-    if (pub) '--pub' else '--no-pub',
-    // Include any custom arguments
-    if (customArgs != null) ...customArgs!,
-  ];
+        // Include binary type if not empty
+        if (binaryType.isNotEmpty) binaryType,
+        // Include target file specification
+        if (target?.isNotEmpty ?? false) '--target=$target',
+        // Include build mode flag
+        if (buildMode?.isNotEmpty ?? false) '--$buildMode',
+        // Include flavor specification
+        if (flavor?.isNotEmpty ?? false) '--flavor=$flavor',
+        // Include Dart defines
+        if (dartDefines?.isNotEmpty ?? false) '--dart-defines=$dartDefines',
+        // Include Dart defines file
+        if (dartDefinesFile?.isNotEmpty ?? false)
+          '--dart-define-from-file=$dartDefinesFile',
+        // Include build name/version
+        if (buildName?.isNotEmpty ?? false) '--build-name=$buildName',
+        // Include build number/version code
+        if (buildNumber?.isNotEmpty ?? false) '--build-number=$buildNumber',
+        // Include pub get flag
+        if (pub) '--pub' else '--no-pub',
+        // Include any custom arguments
+        if (customArgs != null) ...customArgs!,
+      ];
 
   /// Executes the complete build process.
   ///
@@ -233,14 +233,13 @@ abstract class BuildArguments extends JobArguments {
       final sourceDirs = _androidArtifactSourceDirs();
       String? output;
       for (final sourceDir in sourceDirs) {
-        output =
-            await Files.copyFiles(
-              sourceDir,
-              target,
-              fileType: [binaryType],
-              mode: buildMode ?? "release",
-              flavor: flavor,
-            ).catchError((_) => null);
+        output = await Files.copyFiles(
+          sourceDir,
+          target,
+          fileType: [binaryType],
+          mode: buildMode ?? "release",
+          flavor: flavor,
+        ).catchError((_) => null);
 
         if (output != null) {
           logger.logDebug.call(
@@ -273,7 +272,8 @@ abstract class BuildArguments extends JobArguments {
         ).catchError((_) => null);
 
         if (output != null) {
-          logger.logDebug.call("Copied ipa artifact from $sourceDir to $target");
+          logger.logDebug
+              .call("Copied ipa artifact from $sourceDir to $target");
           break;
         }
       }

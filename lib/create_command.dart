@@ -52,8 +52,7 @@ ArgParser get creatorArgParser => ArgParser(allowTrailingOptions: true)
     "package-name",
     abbr: 'p',
     help: "Package name of the app to publish.",
-    defaultsTo:
-        BuildInfo.androidPackageName ??
+    defaultsTo: BuildInfo.androidPackageName ??
         BuildInfo.iosBundleId ??
         "\${ANDROID_PACKAGE}",
   );
@@ -331,10 +330,8 @@ abstract class CreatorCommand extends Commander {
             nullable: true,
           );
           if (input.isNotEmpty) {
-            platforms = input
-                .split(",")
-                .map((platform) => platform.trim())
-                .toList();
+            platforms =
+                input.split(",").map((platform) => platform.trim()).toList();
           }
         } else {
           platforms.add("android");
@@ -394,8 +391,8 @@ abstract class CreatorCommand extends Commander {
             : null,
         xcrun: Platform.isMacOS
             ? tools.contains("xcrun") == true
-                  ? xcrun_publisher.Arguments.defaultConfigs(globalResults)
-                  : null
+                ? xcrun_publisher.Arguments.defaultConfigs(globalResults)
+                : null
             : null,
         github: tools.contains("github") == true
             ? github_publisher.Arguments.defaultConfigs(globalResults)

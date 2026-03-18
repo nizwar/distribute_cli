@@ -1,3 +1,8 @@
+## 2.3.5
+* Fix dart-define-from-file
+* Upgrade packages
+* Flavor app supports
+
 ## 2.3.4
 * Fix typo
 * Read applicationId from gradleKts

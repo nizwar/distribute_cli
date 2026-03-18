@@ -208,9 +208,9 @@ class BuilderJob {
   /// Returns a `Map<String, dynamic>` containing only the platform
   /// configurations that are present (non-null).
   Map<String, dynamic> toJson() => {
-    if (android != null) "android": android?.toJson(),
-    if (ios != null) "ios": ios?.toJson(),
-  };
+        if (android != null) "android": android?.toJson(),
+        if (ios != null) "ios": ios?.toJson(),
+      };
 }
 
 /// Container for publisher-specific arguments.
@@ -291,11 +291,11 @@ class PublisherJob {
   /// Returns a `Map<String, dynamic>` containing only the publisher
   /// configurations that are present (non-null).
   Map<String, dynamic> toJson() => {
-    if (fastlane != null) "fastlane": fastlane?.toJson(),
-    if (firebase != null) "firebase": firebase?.toJson(),
-    if (xcrun != null) "xcrun": xcrun?.toJson(),
-    if (github != null) "github": github?.toJson(),
-  };
+        if (fastlane != null) "fastlane": fastlane?.toJson(),
+        if (firebase != null) "firebase": firebase?.toJson(),
+        if (xcrun != null) "xcrun": xcrun?.toJson(),
+        if (github != null) "github": github?.toJson(),
+      };
 
   /// Creates a `PublisherJob` from JSON configuration.
   ///
@@ -382,10 +382,10 @@ class Job {
     this.builder,
     this.publisher,
   }) : assert(
-         (builder != null && publisher == null) ||
-             (builder == null && publisher != null),
-         "Either builder or publisher must be provided, not both.",
-       ) {
+          (builder != null && publisher == null) ||
+              (builder == null && publisher != null),
+          "Either builder or publisher must be provided, not both.",
+        ) {
     if (builder != null) {
       builder?.parent = this;
     } else if (publisher != null) {
@@ -413,11 +413,11 @@ class Job {
 
   /// Converts the `Job` instance to a JSON object.
   Map<String, dynamic> toJson() => {
-    "name": name,
-    "key": key,
-    "description": description,
-    "package_name": packageName,
-    if (builder != null) "builder": builder?.toJson(),
-    if (publisher != null) "publisher": publisher?.toJson(),
-  };
+        "name": name,
+        "key": key,
+        "description": description,
+        "package_name": packageName,
+        if (builder != null) "builder": builder?.toJson(),
+        if (publisher != null) "publisher": publisher?.toJson(),
+      };
 }

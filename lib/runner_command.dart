@@ -90,9 +90,8 @@ class RunnerCommand extends Commander {
             logger.logEmpty();
             jobs = [];
             for (var workflow in task.workflows!) {
-              final job = task.jobs
-                  .where((job) => job.key == workflow)
-                  .firstOrNull;
+              final job =
+                  task.jobs.where((job) => job.key == workflow).firstOrNull;
               if (job != null) {
                 jobs.add(job);
               } else {
@@ -208,36 +207,30 @@ class RunnerCommand extends Commander {
 
     if (builder.android != null) {
       logger.logInfo("Building Android binary");
-      final androidResult = await builder.android!
-          .build()
-          .then((value) {
-            logger.logEmpty();
-            logger.logSuccess("Android build finished");
-            return value;
-          })
-          .catchError((error) {
-            logger.logEmpty();
-            logger.logError("Android build failed with error: $error");
-            return 1;
-          });
+      final androidResult = await builder.android!.build().then((value) {
+        logger.logEmpty();
+        logger.logSuccess("Android build finished");
+        return value;
+      }).catchError((error) {
+        logger.logEmpty();
+        logger.logError("Android build failed with error: $error");
+        return 1;
+      });
 
       results.add(androidResult);
     }
 
     if (builder.ios != null) {
       logger.logInfo("Building iOS binary");
-      final iosResult = await builder.ios!
-          .build()
-          .then((value) {
-            logger.logEmpty();
-            logger.logSuccess("iOS build finished");
-            return value;
-          })
-          .catchError((error) {
-            logger.logEmpty();
-            logger.logError("iOS build failed with error: $error");
-            return 1;
-          });
+      final iosResult = await builder.ios!.build().then((value) {
+        logger.logEmpty();
+        logger.logSuccess("iOS build finished");
+        return value;
+      }).catchError((error) {
+        logger.logEmpty();
+        logger.logError("iOS build failed with error: $error");
+        return 1;
+      });
       results.add(iosResult);
     }
 
@@ -254,69 +247,57 @@ class RunnerCommand extends Commander {
 
     if (publisher.fastlane != null) {
       logger.logInfo("Publishing binary with Fastlane");
-      final fastlaneResult = await publisher.fastlane!
-          .publish()
-          .then((value) {
-            logger.logEmpty();
-            logger.logSuccess("Fastlane publish process finished");
-            return value;
-          })
-          .catchError((error) {
-            logger.logEmpty();
-            logger.logError("Fastlane publish failed with error: $error");
-            return 1;
-          });
+      final fastlaneResult = await publisher.fastlane!.publish().then((value) {
+        logger.logEmpty();
+        logger.logSuccess("Fastlane publish process finished");
+        return value;
+      }).catchError((error) {
+        logger.logEmpty();
+        logger.logError("Fastlane publish failed with error: $error");
+        return 1;
+      });
       results.add(fastlaneResult);
     }
 
     if (publisher.firebase != null) {
       logger.logInfo("Publishing Android binary with Firebase");
-      final firebaseResult = await publisher.firebase!
-          .publish()
-          .then((value) {
-            logger.logEmpty();
-            logger.logSuccess("Firebase publish process finished");
-            return value;
-          })
-          .catchError((error) {
-            logger.logEmpty();
-            logger.logError("Firebase publish failed with error: $error");
-            return 1;
-          });
+      final firebaseResult = await publisher.firebase!.publish().then((value) {
+        logger.logEmpty();
+        logger.logSuccess("Firebase publish process finished");
+        return value;
+      }).catchError((error) {
+        logger.logEmpty();
+        logger.logError("Firebase publish failed with error: $error");
+        return 1;
+      });
       results.add(firebaseResult);
     }
 
     if (publisher.xcrun != null) {
       logger.logInfo("Publishing iOS binary with Xcrun");
-      final xcrunResult = await publisher.xcrun!
-          .publish()
-          .then((value) {
-            logger.logEmpty();
-            logger.logSuccess("Xcrun publish process finished");
-            return value;
-          })
-          .catchError((error) {
-            logger.logEmpty();
-            logger.logError("Xcrun publish failed with error: $error");
-            return 1;
-          });
+      final xcrunResult = await publisher.xcrun!.publish().then((value) {
+        logger.logEmpty();
+        logger.logSuccess("Xcrun publish process finished");
+        return value;
+      }).catchError((error) {
+        logger.logEmpty();
+        logger.logError("Xcrun publish failed with error: $error");
+        return 1;
+      });
       results.add(xcrunResult);
     }
 
     if (publisher.github != null) {
       logger.logInfo("Publishing binary with Github");
-      final githubResult = await publisher.github!
-          .publish()
-          .then((value) {
-            logger.logEmpty();
-            logger.logSuccess("Github publish process finished");
-            return value;
-          })
-          .catchError((error) {
-            logger.logEmpty();
-            logger.logError("Github Publish failed with error: $error");
-            return 1;
-          });
+      final githubResult = await publisher.github!.publish().then((value) {
+        logger.logEmpty();
+        logger.logSuccess("Github publish process finished");
+        return value;
+      }).catchError((error) {
+        logger.logEmpty();
+        logger.logError("Github Publish failed with error: $error");
+        return 1;
+      });
       results.add(githubResult);
     }
 

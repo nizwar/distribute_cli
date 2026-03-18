@@ -248,25 +248,28 @@ class Arguments extends PublisherArguments {
   factory Arguments.fromArgParser(
     ArgResults results,
     ArgResults? globalResults,
-  ) => Arguments(
-    Variables.fromSystem(globalResults),
-    filePath: results.rest.firstOrNull ?? Files.iosDistributionOutputDir.path,
-    username: results['username'] as String?,
-    password: results['password'] as String?,
-    apiKey: results['api-key'] as String?,
-    apiIssuer: results['api-issuer'] as String?,
-    appleId: results['apple-id'] as String?,
-    bundleVersion: results['bundle-version'] as String?,
-    bundleShortVersionString: results['bundle-short-version-string'] as String?,
-    ascPublicId: results['asc-public-id'] as String?,
-    type: results['type'] as String?,
-    validateApp: results['validate-app'] as bool? ?? false,
-    uploadPackage: results['upload-package'] as String?,
-    bundleId: results['bundle-id'] as String?,
-    productId: results['product-id'] as String?,
-    sku: results['sku'] as String?,
-    outputFormat: results['output-format'] as String?,
-  );
+  ) =>
+      Arguments(
+        Variables.fromSystem(globalResults),
+        filePath:
+            results.rest.firstOrNull ?? Files.iosDistributionOutputDir.path,
+        username: results['username'] as String?,
+        password: results['password'] as String?,
+        apiKey: results['api-key'] as String?,
+        apiIssuer: results['api-issuer'] as String?,
+        appleId: results['apple-id'] as String?,
+        bundleVersion: results['bundle-version'] as String?,
+        bundleShortVersionString:
+            results['bundle-short-version-string'] as String?,
+        ascPublicId: results['asc-public-id'] as String?,
+        type: results['type'] as String?,
+        validateApp: results['validate-app'] as bool? ?? false,
+        uploadPackage: results['upload-package'] as String?,
+        bundleId: results['bundle-id'] as String?,
+        productId: results['product-id'] as String?,
+        sku: results['sku'] as String?,
+        outputFormat: results['output-format'] as String?,
+      );
 
   /// Creates Arguments instance from JSON configuration.
   ///
@@ -454,24 +457,24 @@ class Arguments extends PublisherArguments {
   /// ```
   @override
   Map<String, dynamic> toJson() => {
-    "file-path": filePath,
-    "username": username,
-    "password": password,
-    "binary-type": binaryType,
-    "api-key": apiKey,
-    "api-issuer": apiIssuer,
-    "apple-id": appleId,
-    "bundle-version": bundleVersion,
-    "bundle-short-version-string": bundleShortVersionString,
-    "asc-public-id": ascPublicId,
-    "type": type,
-    "validate-app": validateApp,
-    "upload-package": uploadPackage,
-    "bundle-id": bundleId,
-    "product-id": productId,
-    "sku": sku,
-    "output-format": outputFormat,
-  };
+        "file-path": filePath,
+        "username": username,
+        "password": password,
+        "binary-type": binaryType,
+        "api-key": apiKey,
+        "api-issuer": apiIssuer,
+        "apple-id": appleId,
+        "bundle-version": bundleVersion,
+        "bundle-short-version-string": bundleShortVersionString,
+        "asc-public-id": ascPublicId,
+        "type": type,
+        "validate-app": validateApp,
+        "upload-package": uploadPackage,
+        "bundle-id": bundleId,
+        "product-id": productId,
+        "sku": sku,
+        "output-format": outputFormat,
+      };
 
   /// Creates default Xcrun configuration for basic usage.
   ///
@@ -490,7 +493,7 @@ class Arguments extends PublisherArguments {
   /// Note: This configuration requires proper authentication
   /// parameters (username/password or API key/issuer) before use.
   factory Arguments.defaultConfigs(ArgResults? globalResults) => Arguments(
-    Variables.fromSystem(globalResults),
-    filePath: Files.iosDistributionOutputDir.path,
-  );
+        Variables.fromSystem(globalResults),
+        filePath: Files.iosDistributionOutputDir.path,
+      );
 }

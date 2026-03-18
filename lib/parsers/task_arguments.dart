@@ -49,10 +49,10 @@ class Task {
 
   /// Converts the [Task] instance to a JSON object.
   Map<String, dynamic> toJson() => {
-    "name": name,
-    "key": key,
-    if (workflows != null) "workflows": workflows,
-    "description": description,
-    "jobs": jobs.map((job) => job.toJson()).toList(),
-  };
+        "name": name,
+        "key": key,
+        if (workflows != null) "workflows": workflows,
+        "description": description,
+        "jobs": jobs.map((job) => job.toJson()).toList(),
+      };
 }

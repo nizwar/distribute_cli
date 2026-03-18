@@ -164,13 +164,13 @@ class Arguments extends PublisherArguments {
   /// ```
   @override
   Map<String, dynamic> toJson() => {
-    "file-path": filePath,
-    "repo-name": repoName,
-    "repo-owner": repoOwner,
-    "token": token,
-    "release-name": releaseName,
-    "release-body": releaseBody,
-  };
+        "file-path": filePath,
+        "repo-name": repoName,
+        "repo-owner": repoOwner,
+        "token": token,
+        "release-name": releaseName,
+        "release-body": releaseBody,
+      };
 
   /// Executes the GitHub Releases publishing workflow.
   ///
@@ -214,10 +214,10 @@ class Arguments extends PublisherArguments {
 
     final uploadUrl =
         (await argumentBuilder._getReleaseUploadUrl().catchError((e) => null) ??
-        await argumentBuilder._getLatestReleaseUploadUrl().catchError(
-          (e) => null,
-        ) ??
-        await argumentBuilder._createRelease().catchError((e) => null));
+            await argumentBuilder._getLatestReleaseUploadUrl().catchError(
+                  (e) => null,
+                ) ??
+            await argumentBuilder._createRelease().catchError((e) => null));
     if (uploadUrl == null) {
       logger.logErrorVerbose.call("Failed to get upload URL");
       return 1;
@@ -526,13 +526,13 @@ class Arguments extends PublisherArguments {
   /// Note: This configuration is not functional and requires
   /// proper values for all repository and authentication parameters.
   factory Arguments.defaultConfigs(ArgResults? globalResults) => Arguments(
-    Variables.fromSystem(globalResults),
-    filePath: Files.iosDistributionDir.parent.path,
-    binaryType: '',
-    repoName: '',
-    repoOwner: '',
-    token: '',
-    releaseName: '',
-    releaseBody: '',
-  );
+        Variables.fromSystem(globalResults),
+        filePath: Files.iosDistributionDir.parent.path,
+        binaryType: '',
+        repoName: '',
+        repoOwner: '',
+        token: '',
+        releaseName: '',
+        releaseBody: '',
+      );
 }

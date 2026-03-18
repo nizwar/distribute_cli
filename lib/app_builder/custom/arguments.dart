@@ -425,16 +425,16 @@ class Arguments extends BuildArguments {
   /// ```
   @override
   Map<String, dynamic> toJson() => {
-    'binary-type': binaryType,
-    'build-mode': buildMode,
-    'target': target,
-    'flavor': flavor,
-    'dart-defines': dartDefines,
-    'dart-defines-file': dartDefinesFile,
-    'build-name': buildName,
-    'build-number': buildNumber,
-    'pub': pub,
-    'arguments': customArgs,
-    'output': output,
-  };
+        'binary-type': binaryType,
+        'build-mode': buildMode,
+        'target': target,
+        'flavor': flavor,
+        'dart-defines': dartDefines,
+        'dart-defines-file': dartDefinesFile,
+        'build-name': buildName,
+        'build-number': buildNumber,
+        'pub': pub,
+        'arguments': customArgs,
+        'output': output,
+      };
 }

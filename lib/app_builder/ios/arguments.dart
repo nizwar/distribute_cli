@@ -269,21 +269,21 @@ class Arguments extends BuildArguments {
   ///
   /// This configuration can be used as a starting point and customized as needed.
   static Arguments defaultConfigs(ArgResults? globalResults) => Arguments(
-    Variables.fromSystem(globalResults),
-    binaryType: 'ipa',
-    buildMode: 'release',
-    target: null,
-    flavor: null,
-    dartDefines: null,
-    dartDefinesFile: null,
-    buildName: null,
-    buildNumber: null,
-    pub: true,
-    exportOptionsPlist: null,
-    exportMethod: null,
-    output: Files.iosDistributionOutputDir.path,
-    customArgs: [],
-  );
+        Variables.fromSystem(globalResults),
+        binaryType: 'ipa',
+        buildMode: 'release',
+        target: null,
+        flavor: null,
+        dartDefines: null,
+        dartDefinesFile: null,
+        buildName: null,
+        buildNumber: null,
+        pub: true,
+        exportOptionsPlist: null,
+        exportMethod: null,
+        output: Files.iosDistributionOutputDir.path,
+        customArgs: [],
+      );
 
   /// Converts the iOS arguments to JSON representation.
   ///
@@ -298,20 +298,20 @@ class Arguments extends BuildArguments {
   /// including null values for optional parameters.
   @override
   Map<String, dynamic> toJson() => {
-    'binary-type': binaryType,
-    'build-mode': buildMode,
-    'target': target,
-    'flavor': flavor,
-    'dart-defines': dartDefines,
-    'dart-defines-file': dartDefinesFile,
-    'build-name': buildName,
-    'build-number': buildNumber,
-    'export-options-plist': exportOptionsPlist,
-    'export-method': exportMethod,
-    'arguments': customArgs,
-    'pub': pub,
-    'output': output,
-  };
+        'binary-type': binaryType,
+        'build-mode': buildMode,
+        'target': target,
+        'flavor': flavor,
+        'dart-defines': dartDefines,
+        'dart-defines-file': dartDefinesFile,
+        'build-name': buildName,
+        'build-number': buildNumber,
+        'export-options-plist': exportOptionsPlist,
+        'export-method': exportMethod,
+        'arguments': customArgs,
+        'pub': pub,
+        'output': output,
+      };
 
   /// Builds the command-line arguments list for the iOS build process.
   ///

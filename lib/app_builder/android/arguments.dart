@@ -194,10 +194,10 @@ class Arguments extends BuildArguments {
     this.codeSizeDirectory,
     this.splitDebugInfo,
   }) : super(
-         buildSourceDir: binaryType == "apk"
-             ? Files.androidOutputApks.path
-             : Files.androidOutputAppbundles.path,
-       ) {
+          buildSourceDir: binaryType == "apk"
+              ? Files.androidOutputApks.path
+              : Files.androidOutputAppbundles.path,
+        ) {
     // Validate that splitPerAbi is only used with APK binary type
     if (binaryType != 'apk' && splitPerAbi) {
       throw ArgumentError('binaryType must be "apk" to use splitPerAbi');
@@ -310,7 +310,7 @@ class Arguments extends BuildArguments {
       trackWidgetCreation: data?.trackWidgetCreation ?? trackWidgetCreation,
       androidSkipBuildDependencyValidation:
           data?.androidSkipBuildDependencyValidation ??
-          androidSkipBuildDependencyValidation,
+              androidSkipBuildDependencyValidation,
       analyzeSize: data?.analyzeSize ?? analyzeSize,
       ignoreDeprecation: data?.ignoreDeprecation ?? ignoreDeprecation,
       obfuscate: data?.obfuscate ?? obfuscate,
@@ -411,21 +411,21 @@ class Arguments extends BuildArguments {
   ///
   /// This includes default values for all required arguments.
   factory Arguments.defaultConfigs(ArgResults? globalResults) => Arguments(
-    Variables.fromSystem(globalResults),
-    binaryType: 'apk',
-    splitPerAbi: false,
-    buildMode: 'release',
-    buildName: null,
-    buildNumber: null,
-    pub: true,
-    target: null,
-    flavor: null,
-    dartDefines: null,
-    dartDefinesFile: null,
-    output: Files.androidDistributionOutputDir.path,
-    generateDebugSymbols: true,
-    customArgs: [],
-  );
+        Variables.fromSystem(globalResults),
+        binaryType: 'apk',
+        splitPerAbi: false,
+        buildMode: 'release',
+        buildName: null,
+        buildNumber: null,
+        pub: true,
+        target: null,
+        flavor: null,
+        dartDefines: null,
+        dartDefinesFile: null,
+        output: Files.androidDistributionOutputDir.path,
+        generateDebugSymbols: true,
+        customArgs: [],
+      );
 
   /// Creates an instance of [Arguments] from parsed command-line arguments.
   ///
@@ -438,8 +438,7 @@ class Arguments extends BuildArguments {
       Variables.fromSystem(globalResults),
       binaryType: results['binary-type'] as String,
       splitPerAbi: results['split-per-abi'] as bool? ?? false,
-      output:
-          results['output'] as String? ??
+      output: results['output'] as String? ??
           Files.androidDistributionOutputDir.path,
       buildMode: results['build-mode'] as String?,
       target: results['target'] as String?,
@@ -505,29 +504,29 @@ class Arguments extends BuildArguments {
   /// Converts this [Arguments] instance to a JSON object.
   @override
   Map<String, dynamic> toJson() => {
-    'binary-type': binaryType,
-    'split-per-abi': splitPerAbi,
-    'build-mode': buildMode,
-    'target': target,
-    'flavor': flavor,
-    'build-name': buildName,
-    'build-number': buildNumber,
-    'pub': pub,
-    'dart-defines': dartDefines,
-    'dart-defines-file': dartDefinesFile,
-    'arguments': customArgs,
-    'output': output,
-    'generate-debug-symbols': generateDebugSymbols,
-    'config-only': configOnly,
-    'track-widget-creation': trackWidgetCreation,
-    'android-skip-build-dependency-validation':
-        androidSkipBuildDependencyValidation,
-    'analyze-size': analyzeSize,
-    'ignore-deprecation': ignoreDeprecation,
-    'obfuscate': obfuscate,
-    'target-platform': targetPlatform,
-    'android-project-arg': androidProjectArg,
-    'code-size-directory': codeSizeDirectory,
-    'split-debug-info': splitDebugInfo,
-  };
+        'binary-type': binaryType,
+        'split-per-abi': splitPerAbi,
+        'build-mode': buildMode,
+        'target': target,
+        'flavor': flavor,
+        'build-name': buildName,
+        'build-number': buildNumber,
+        'pub': pub,
+        'dart-defines': dartDefines,
+        'dart-defines-file': dartDefinesFile,
+        'arguments': customArgs,
+        'output': output,
+        'generate-debug-symbols': generateDebugSymbols,
+        'config-only': configOnly,
+        'track-widget-creation': trackWidgetCreation,
+        'android-skip-build-dependency-validation':
+            androidSkipBuildDependencyValidation,
+        'analyze-size': analyzeSize,
+        'ignore-deprecation': ignoreDeprecation,
+        'obfuscate': obfuscate,
+        'target-platform': targetPlatform,
+        'android-project-arg': androidProjectArg,
+        'code-size-directory': codeSizeDirectory,
+        'split-debug-info': splitDebugInfo,
+      };
 }

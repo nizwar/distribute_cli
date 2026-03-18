@@ -211,16 +211,16 @@ abstract class PublisherArguments extends JobArguments {
   }
 
   List<String> get _androidSourceCandidates => [
-    Files.androidOutputApks.path,
-    path.join("build", "app", "outputs", "apk"),
-    Files.androidOutputAppbundles.path,
-    path.join("build", "app", "outputs"),
-    path.join("build", "app"),
-  ];
+        Files.androidOutputApks.path,
+        path.join("build", "app", "outputs", "apk"),
+        Files.androidOutputAppbundles.path,
+        path.join("build", "app", "outputs"),
+        path.join("build", "app"),
+      ];
 
   List<String> get _iosSourceCandidates => [
-    Files.iosOutputIPA.path,
-    path.join("build", "ios"),
-    "build",
-  ];
+        Files.iosOutputIPA.path,
+        path.join("build", "ios"),
+        "build",
+      ];
 }

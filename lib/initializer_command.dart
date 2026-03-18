@@ -231,26 +231,25 @@ class InitializerCommand extends Commander {
   }) async {
     logger.logDebug("Checking if $toolName is installed...");
     logger.logDebug("Command: $command ${args.join(" ")}");
-    final process =
-        await Process.start(
-          command,
-          args,
-          includeParentEnvironment: true,
-          runInShell: true,
-        ).then((value) async {
-          value.stdout.transform(utf8.decoder).listen(logger.logDebug);
-          if (await value.exitCode != 0) {
-            initialized[toolName.toLowerCase()] = false;
-            logger.logWarning(
-              '$toolName is not installed. Some features may not work as expected.',
-            );
-            if (toolName == "Git") exit(1);
-          } else {
-            initialized[toolName.toLowerCase()] = true;
-            logger.logSuccess('$toolName is installed.');
-          }
-          return value;
-        });
+    final process = await Process.start(
+      command,
+      args,
+      includeParentEnvironment: true,
+      runInShell: true,
+    ).then((value) async {
+      value.stdout.transform(utf8.decoder).listen(logger.logDebug);
+      if (await value.exitCode != 0) {
+        initialized[toolName.toLowerCase()] = false;
+        logger.logWarning(
+          '$toolName is not installed. Some features may not work as expected.',
+        );
+        if (toolName == "Git") exit(1);
+      } else {
+        initialized[toolName.toLowerCase()] = true;
+        logger.logSuccess('$toolName is installed.');
+      }
+      return value;
+    });
     return process.exitCode;
   }
 
@@ -262,9 +261,8 @@ class InitializerCommand extends Commander {
         argResults?['google-service-account'] as String?;
     logger.logDebug("Validating Fastlane JSON key...");
 
-    File jsonKeyFile = jsonKeyPath != null
-        ? File(jsonKeyPath)
-        : Files.fastlaneJson;
+    File jsonKeyFile =
+        jsonKeyPath != null ? File(jsonKeyPath) : Files.fastlaneJson;
 
     if (!jsonKeyFile.existsSync()) {
       logger.logWarning(
@@ -295,16 +293,13 @@ class InitializerCommand extends Commander {
           if (await Files.fastlaneJson.exists()) {
             await Files.fastlaneJson.delete();
           }
-          await File(jsonKeyPath)
-              .copy(Files.fastlaneJson.path)
-              .then((_) {
-                logger.logDebug(
-                  "Fastlane JSON key copied to ${Files.fastlaneJson.path}",
-                );
-              })
-              .catchError((error) {
-                logger.logDebug("Failed to copy the Fastlane JSON key: $error");
-              });
+          await File(jsonKeyPath).copy(Files.fastlaneJson.path).then((_) {
+            logger.logDebug(
+              "Fastlane JSON key copied to ${Files.fastlaneJson.path}",
+            );
+          }).catchError((error) {
+            logger.logDebug("Failed to copy the Fastlane JSON key: $error");
+          });
         }
         return 0;
       }
@@ -350,91 +345,92 @@ class InitializerCommand extends Commander {
   }
 
   Map<String, dynamic> get structures => {
-    "name": "Distribution CLI",
-    "description": "A CLI tool to build and publish your application.",
-    "variables": {
-      "ANDROID_PACKAGE": argResults?['android-package-name'] as String?,
-      "IOS_PACKAGE": argResults?['ios-package-name'] as String?,
-      "APPLE_ID": "\${APPLE_ID}",
-      "APPLE_APP_SPECIFIC_PASSWORD": "\${APPLE_APP_SPECIFIC_PASSWORD}",
-    },
-    "tasks": [
-      Task(
-        name: "Android Build and deploy",
-        key: "android",
-        description: "Build and deploy the Android application to playstore.",
-        workflows: ["build", "publish"],
-        jobs: [
-          Job(
-            name: "Build Android",
-            description: "Build the Android application using Gradle.",
-            key: "build",
-            packageName: "\${{ANDROID_PACKAGE}}",
-            builder: BuilderJob(
-              android: android_arguments.Arguments(
-                Variables.fromSystem(globalResults),
-                binaryType: "aab",
-                buildMode: "release",
-              ),
-            ),
-          ),
-          Job(
-            name: "Publish Android",
+        "name": "Distribution CLI",
+        "description": "A CLI tool to build and publish your application.",
+        "variables": {
+          "ANDROID_PACKAGE": argResults?['android-package-name'] as String?,
+          "IOS_PACKAGE": argResults?['ios-package-name'] as String?,
+          "APPLE_ID": "\${APPLE_ID}",
+          "APPLE_APP_SPECIFIC_PASSWORD": "\${APPLE_APP_SPECIFIC_PASSWORD}",
+        },
+        "tasks": [
+          Task(
+            name: "Android Build and deploy",
+            key: "android",
             description:
-                "Publish the Android application to playstore as internal test track.",
-            key: "publish",
-            packageName: "\${{ANDROID_PACKAGE}}",
-            publisher: PublisherJob(
-              fastlane: fastlane_publisher.Arguments(
-                Variables.fromSystem(globalResults),
-                filePath: Files.androidDistributionOutputDir.path,
-                metadataPath: Files.androidDistributionMetadataDir.path,
-                jsonKey: Files.fastlaneJson.path,
-                track: 'internal',
-                trackPromoteTo: 'production',
-                binaryType: 'aab',
-                skipUploadImages: true,
-                skipUploadScreenshots: true,
+                "Build and deploy the Android application to playstore.",
+            workflows: ["build", "publish"],
+            jobs: [
+              Job(
+                name: "Build Android",
+                description: "Build the Android application using Gradle.",
+                key: "build",
+                packageName: "\${{ANDROID_PACKAGE}}",
+                builder: BuilderJob(
+                  android: android_arguments.Arguments(
+                    Variables.fromSystem(globalResults),
+                    binaryType: "aab",
+                    buildMode: "release",
+                  ),
+                ),
               ),
-            ),
-          ),
+              Job(
+                name: "Publish Android",
+                description:
+                    "Publish the Android application to playstore as internal test track.",
+                key: "publish",
+                packageName: "\${{ANDROID_PACKAGE}}",
+                publisher: PublisherJob(
+                  fastlane: fastlane_publisher.Arguments(
+                    Variables.fromSystem(globalResults),
+                    filePath: Files.androidDistributionOutputDir.path,
+                    metadataPath: Files.androidDistributionMetadataDir.path,
+                    jsonKey: Files.fastlaneJson.path,
+                    track: 'internal',
+                    trackPromoteTo: 'production',
+                    binaryType: 'aab',
+                    skipUploadImages: true,
+                    skipUploadScreenshots: true,
+                  ),
+                ),
+              ),
+            ],
+          ).toJson(),
+          if (Platform.isMacOS)
+            Task(
+              name: "iOS Build and deploy",
+              key: "ios",
+              description: "Build and deploy the iOS application to app store.",
+              jobs: [
+                Job(
+                  name: "Build iOS",
+                  description: "Build the iOS application using Xcode.",
+                  key: "build",
+                  packageName: "\${{IOS_PACKAGE}}",
+                  builder: BuilderJob(
+                    ios: ios_arguments.Arguments(
+                      Variables.fromSystem(globalResults),
+                      binaryType: "ipa",
+                      buildMode: "release",
+                    ),
+                  ),
+                ),
+                Job(
+                  name: "Publish iOS",
+                  description: "Publish the iOS application to app store.",
+                  key: "publish",
+                  packageName: "\${{IOS_PACKAGE}}",
+                  publisher: PublisherJob(
+                    xcrun: xcrun_publisher.Arguments(
+                      Variables.fromSystem(globalResults),
+                      filePath: Files.iosDistributionOutputDir.path,
+                      username: "\${{APPLE_ID}}",
+                      password: "\${{APPLE_APP_SPECIFIC_PASSWORD}}",
+                    ),
+                  ),
+                ),
+              ],
+            ).toJson(),
         ],
-      ).toJson(),
-      if (Platform.isMacOS)
-        Task(
-          name: "iOS Build and deploy",
-          key: "ios",
-          description: "Build and deploy the iOS application to app store.",
-          jobs: [
-            Job(
-              name: "Build iOS",
-              description: "Build the iOS application using Xcode.",
-              key: "build",
-              packageName: "\${{IOS_PACKAGE}}",
-              builder: BuilderJob(
-                ios: ios_arguments.Arguments(
-                  Variables.fromSystem(globalResults),
-                  binaryType: "ipa",
-                  buildMode: "release",
-                ),
-              ),
-            ),
-            Job(
-              name: "Publish iOS",
-              description: "Publish the iOS application to app store.",
-              key: "publish",
-              packageName: "\${{IOS_PACKAGE}}",
-              publisher: PublisherJob(
-                xcrun: xcrun_publisher.Arguments(
-                  Variables.fromSystem(globalResults),
-                  filePath: Files.iosDistributionOutputDir.path,
-                  username: "\${{APPLE_ID}}",
-                  password: "\${{APPLE_APP_SPECIFIC_PASSWORD}}",
-                ),
-              ),
-            ),
-          ],
-        ).toJson(),
-    ],
-  };
+      };
 }

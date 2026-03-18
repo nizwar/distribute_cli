@@ -133,12 +133,10 @@ class ConfigParser {
     }
 
     Job parseJob(Map<String, dynamic> json) {
-      Map<String, dynamic>? builder = json.containsKey("builder")
-          ? json["builder"]
-          : null;
-      Map<String, dynamic>? publisher = json.containsKey("publisher")
-          ? json["publisher"]
-          : null;
+      Map<String, dynamic>? builder =
+          json.containsKey("builder") ? json["builder"] : null;
+      Map<String, dynamic>? publisher =
+          json.containsKey("publisher") ? json["publisher"] : null;
       final packageName = json["package_name"];
       final key = json["key"];
 
