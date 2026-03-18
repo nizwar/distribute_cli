@@ -108,6 +108,9 @@ class Arguments extends PublisherArguments {
   /// ```
   final String? groupsFile;
 
+  /// Token to login in Firebase's CL Server
+  final String? cliToken;
+
   /// Creates a new Firebase App Distribution arguments instance.
   ///
   /// Initializes Firebase-specific configuration for automated app distribution
@@ -142,6 +145,7 @@ class Arguments extends PublisherArguments {
     this.testersFile,
     this.groups,
     this.groupsFile,
+    this.cliToken,
   }) : super('firebase', variables);
 
   /// Creates Arguments instance from command-line arguments.
@@ -161,19 +165,21 @@ class Arguments extends PublisherArguments {
   factory Arguments.fromArgResults(
     ArgResults results,
     ArgResults? globalResults,
-  ) => Arguments(
-    Variables.fromSystem(globalResults),
-    filePath:
-        results.rest.firstOrNull ?? Files.androidDistributionOutputDir.path,
-    binaryType: results['binary-type'] as String,
-    appId: results['app-id'] as String,
-    releaseNotes: results['release-notes'] as String?,
-    releaseNotesFile: results['release-notes-file'] as String?,
-    testers: results['testers'] as String?,
-    testersFile: results['testers-file'] as String?,
-    groups: results['groups'] as String?,
-    groupsFile: results['groups-file'] as String?,
-  );
+  ) =>
+      Arguments(
+        Variables.fromSystem(globalResults),
+        filePath:
+            results.rest.firstOrNull ?? Files.androidDistributionOutputDir.path,
+        binaryType: results['binary-type'] as String,
+        appId: results['app-id'] as String,
+        releaseNotes: results['release-notes'] as String?,
+        releaseNotesFile: results['release-notes-file'] as String?,
+        testers: results['testers'] as String?,
+        testersFile: results['testers-file'] as String?,
+        groups: results['groups'] as String?,
+        groupsFile: results['groups-file'] as String?,
+        cliToken: results["cli-token"] as String?,
+      );
 
   /// Creates Arguments instance from JSON configuration.
   ///
@@ -209,18 +215,17 @@ class Arguments extends PublisherArguments {
     if (json['file-path'] == null) throw Exception("file-path is required");
     if (json['app-id'] == null) throw Exception("app-id is required");
     if (json['binary-type'] == null) throw Exception("binary-type is required");
-    return Arguments(
-      variables,
-      filePath: json["file-path"] as String,
-      appId: json['app-id'] as String,
-      binaryType: json['binary-type'] as String,
-      releaseNotes: json['release-notes'] as String?,
-      releaseNotesFile: json['release-notes-file'] as String?,
-      testers: json['testers'] as String?,
-      testersFile: json['testers-file'] as String?,
-      groups: json['groups'] as String?,
-      groupsFile: json['groups-file'] as String?,
-    );
+    return Arguments(variables,
+        filePath: json["file-path"] as String,
+        appId: json['app-id'] as String,
+        binaryType: json['binary-type'] as String,
+        releaseNotes: json['release-notes'] as String?,
+        releaseNotesFile: json['release-notes-file'] as String?,
+        testers: json['testers'] as String?,
+        testersFile: json['testers-file'] as String?,
+        groups: json['groups'] as String?,
+        groupsFile: json['groups-file'] as String?,
+        cliToken: json['token']);
   }
 
   /// Builds the Firebase CLI command arguments list.
@@ -244,17 +249,18 @@ class Arguments extends PublisherArguments {
   /// ```
   @override
   List<String> get argumentBuilder => [
-    'appdistribution:distribute',
-    filePath,
-    '--app',
-    appId,
-    if (releaseNotes != null) '--release-notes=$releaseNotes',
-    if (releaseNotesFile != null) '--release-notes-file=$releaseNotesFile',
-    if (testers != null) '--testers=$testers',
-    if (testersFile != null) '--testers-file=$testersFile',
-    if (groups != null) '--groups=$groups',
-    if (groupsFile != null) '--groups-file=$groupsFile',
-  ];
+        'appdistribution:distribute',
+        filePath,
+        '--app',
+        appId,
+        if (releaseNotes != null) '--release-notes=$releaseNotes',
+        if (releaseNotesFile != null) '--release-notes-file=$releaseNotesFile',
+        if (testers != null) '--testers=$testers',
+        if (testersFile != null) '--testers-file=$testersFile',
+        if (groups != null) '--groups=$groups',
+        if (groupsFile != null) '--groups-file=$groupsFile',
+        if (cliToken != null) '--token=$cliToken'
+      ];
 
   /// Command-line argument parser for Firebase App Distribution.
   ///
@@ -311,6 +317,10 @@ class Arguments extends PublisherArguments {
       abbr: 'G',
       help:
           'Path to file with a comma- or newline-separated list of group aliases to distribute to',
+    )
+    ..addOption(
+      "token",
+      help: 'Firebase\'s CI Token',
     );
 
   /// Creates default Firebase configuration for an app.
@@ -359,14 +369,15 @@ class Arguments extends PublisherArguments {
   /// ```
   @override
   Map<String, dynamic> toJson() => {
-    'file-path': filePath,
-    'app-id': appId,
-    'binary-type': binaryType,
-    'release-notes': releaseNotes,
-    'release-notes-file': releaseNotesFile,
-    'testers': testers,
-    'testers-file': testersFile,
-    'groups': groups,
-    'groups-file': groupsFile,
-  };
+        'file-path': filePath,
+        'app-id': appId,
+        'binary-type': binaryType,
+        'release-notes': releaseNotes,
+        'release-notes-file': releaseNotesFile,
+        'testers': testers,
+        'testers-file': testersFile,
+        'groups': groups,
+        'groups-file': groupsFile,
+        'token': cliToken,
+      };
 }

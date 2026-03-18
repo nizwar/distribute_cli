@@ -149,7 +149,7 @@ abstract class BuildArguments extends JobArguments {
     if (dartDefines?.isNotEmpty ?? false) '--dart-defines=$dartDefines',
     // Include Dart defines file
     if (dartDefinesFile?.isNotEmpty ?? false)
-      '--dart-defines-file=$dartDefinesFile',
+      '--dart-define-from-file=$dartDefinesFile',
     // Include build name/version
     if (buildName?.isNotEmpty ?? false) '--build-name=$buildName',
     // Include build number/version code
