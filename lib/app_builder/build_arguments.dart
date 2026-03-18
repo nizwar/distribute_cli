@@ -230,20 +230,29 @@ abstract class BuildArguments extends JobArguments {
       String target =
           androidArgs.output ?? Files.androidDistributionOutputDir.path;
 
-      final output =
-          await Files.copyFiles(
-            buildSourceDir,
-            target,
-            fileType: [binaryType],
-            mode: buildMode ?? "release",
-          ).catchError((e) {
-            logger.logErrorVerbose.call(e.toString());
-            return null;
-          });
+      final sourceDirs = _androidArtifactSourceDirs();
+      String? output;
+      for (final sourceDir in sourceDirs) {
+        output =
+            await Files.copyFiles(
+              sourceDir,
+              target,
+              fileType: [binaryType],
+              mode: buildMode ?? "release",
+              flavor: flavor,
+            ).catchError((_) => null);
+
+        if (output != null) {
+          logger.logDebug.call(
+            "Copied $binaryType artifact from $sourceDir to $target",
+          );
+          break;
+        }
+      }
 
       if (output == null) {
         logger.logErrorVerbose.call(
-          "Failed to copy files from $buildSourceDir to $target",
+          "Failed to copy files from ${sourceDirs.join(', ')} to $target",
         );
         return 1;
       }
@@ -252,21 +261,54 @@ abstract class BuildArguments extends JobArguments {
       ios_arguments.Arguments iosArgs = this as ios_arguments.Arguments;
       String target = iosArgs.output ?? Files.iosDistributionOutputDir.path;
 
-      final output = await Files.copyFiles(
-        buildSourceDir,
-        target,
-        fileType: ["ipa"],
-        mode: buildMode ?? "release",
-      ).catchError((e) => null);
+      final sourceDirs = _iosArtifactSourceDirs();
+      String? output;
+      for (final sourceDir in sourceDirs) {
+        output = await Files.copyFiles(
+          sourceDir,
+          target,
+          fileType: ["ipa"],
+          mode: buildMode ?? "release",
+          flavor: flavor,
+        ).catchError((_) => null);
+
+        if (output != null) {
+          logger.logDebug.call("Copied ipa artifact from $sourceDir to $target");
+          break;
+        }
+      }
 
       if (output == null) {
         logger.logErrorVerbose.call(
-          "Failed to copy files from $buildSourceDir to $target",
+          "Failed to copy files from ${sourceDirs.join(', ')} to $target",
         );
         return 1;
       }
     }
     return 0;
+  }
+
+  List<String> _androidArtifactSourceDirs() {
+    final outputRoot = path.join("build", "app", "outputs");
+    final candidates = <String>[
+      buildSourceDir,
+      Files.androidOutputApks.path,
+      path.join(outputRoot, "apk"),
+      Files.androidOutputAppbundles.path,
+      outputRoot,
+      path.join("build", "app"),
+    ];
+    return candidates.toSet().toList();
+  }
+
+  List<String> _iosArtifactSourceDirs() {
+    final candidates = <String>[
+      buildSourceDir,
+      Files.iosOutputIPA.path,
+      path.join("build", "ios"),
+      "build",
+    ];
+    return candidates.toSet().toList();
   }
 
   /// Generates and copies debug symbols for Android release builds.

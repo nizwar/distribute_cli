@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:path/path.dart' as path;
+
 import '../files.dart';
 import '../parsers/job_arguments.dart';
 
@@ -151,30 +153,19 @@ abstract class PublisherArguments extends JobArguments {
               .isEmpty) {
         // Handle Android binary types (APK and AAB)
         if ((binaryType == "apk" || binaryType == "aab")) {
-          logger.logDebug.call(
-            "Scanning ${this.binaryType} on ${Files.androidOutputApks.path}",
-          );
-          final sourceDir = binaryType == "apk"
-              ? Files.androidOutputApks
-              : Files.androidOutputAppbundles;
-          filePath =
-              await Files.copyFiles(
-                sourceDir.path,
-                filePath,
-                fileType: [binaryType],
+          filePath = await _copyFromCandidateSources(
+                targetDir: filePath,
+                binaryType: binaryType,
+                sources: _androidSourceCandidates,
               ) ??
               "";
         }
         // Handle iOS binary type (IPA)
         else if (binaryType == "ipa") {
-          logger.logDebug.call(
-            "Scanning ${this.binaryType} on ${Files.iosOutputIPA.path}",
-          );
-          filePath =
-              await Files.copyFiles(
-                Files.iosOutputIPA.path,
-                filePath,
-                fileType: ["ipa"],
+          filePath = await _copyFromCandidateSources(
+                targetDir: filePath,
+                binaryType: binaryType,
+                sources: _iosSourceCandidates,
               ) ??
               "";
         } else {
@@ -197,4 +188,39 @@ abstract class PublisherArguments extends JobArguments {
       logger.logErrorVerbose.call("File path is empty");
     }
   }
+
+  Future<String?> _copyFromCandidateSources({
+    required String targetDir,
+    required String binaryType,
+    required List<String> sources,
+  }) async {
+    for (final source in sources.toSet()) {
+      final output = await Files.copyFiles(
+        source,
+        targetDir,
+        fileType: [binaryType],
+      ).catchError((_) => null);
+      if (output != null) {
+        logger.logDebug.call(
+          "Scanning ${this.binaryType} on $source",
+        );
+        return output;
+      }
+    }
+    return null;
+  }
+
+  List<String> get _androidSourceCandidates => [
+    Files.androidOutputApks.path,
+    path.join("build", "app", "outputs", "apk"),
+    Files.androidOutputAppbundles.path,
+    path.join("build", "app", "outputs"),
+    path.join("build", "app"),
+  ];
+
+  List<String> get _iosSourceCandidates => [
+    Files.iosOutputIPA.path,
+    path.join("build", "ios"),
+    "build",
+  ];
 }

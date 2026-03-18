@@ -132,53 +132,105 @@ class Files {
     String target, {
     List<String> fileType = const [],
     String mode = "release",
+    String? flavor,
   }) async {
     final sourceDir = Directory(source);
-    final files = await sourceDir.list().toList();
+    if (!sourceDir.existsSync()) {
+      throw Exception("No files found in ${sourceDir.path}");
+    }
+
     final targetDir = Directory(target);
     if (!targetDir.existsSync()) {
       await targetDir.create(recursive: true);
     }
-    final output = <String>[];
-    if (files.isEmpty) {
-      throw Exception("No files found in ${sourceDir.path}");
-    }
-    for (var item in files) {
-      if (item is Directory) {
-        final copiedFiles = await copyFiles(
-          item.path,
-          target,
-          fileType: fileType,
-        );
-        if (copiedFiles != null) output.add(copiedFiles);
-      } else {
-        if (fileType.isEmpty) {
-          if (item is File) {
-            final fileName = path.basename(item.path);
-            final targetPath = path.join(target, fileName);
-            output.add(targetPath);
-            if (File(targetPath).existsSync()) {
-              await File(targetPath).delete();
-            }
-            await item.copy(targetPath);
-          }
-        } else if (item is File &&
-            fileType.contains(path.extension(item.path).substring(1))) {
-          final fileName = path.basename(item.path);
-          final targetPath = path.join(target, fileName);
-          output.add(targetPath);
-          if (File(targetPath).existsSync()) {
-            await File(targetPath).delete();
-          }
-          await item.copy(targetPath);
+
+    final entities = await sourceDir.list(recursive: true).toList();
+    final extensions = fileType.map((value) => value.toLowerCase()).toSet();
+
+    final candidates = <_FileCandidate>[];
+    for (final entity in entities) {
+      if (entity is! File) continue;
+      if (extensions.isNotEmpty) {
+        final extension = path.extension(entity.path).toLowerCase();
+        if (!extensions.contains(extension.replaceFirst('.', ''))) {
+          continue;
         }
       }
+
+      final sourcePath = entity.path.toLowerCase();
+      final score = _artifactScore(sourcePath, mode: mode, flavor: flavor);
+      final modifiedAt = entity.lastModifiedSync();
+      candidates.add(
+        _FileCandidate(path: entity.path, score: score, modifiedAt: modifiedAt),
+      );
     }
-    if (output.isEmpty) {
+
+    if (candidates.isEmpty) {
       throw Exception(
         "Does not contain any files with the specified type: $fileType",
       );
     }
+
+    candidates.sort((a, b) {
+      final scoreComparison = b.score.compareTo(a.score);
+      if (scoreComparison != 0) return scoreComparison;
+      return b.modifiedAt.compareTo(a.modifiedAt);
+    });
+
+    final output = <String>[];
+    for (final candidate in candidates) {
+      final fileName = path.basename(candidate.path);
+      final targetPath = path.join(target, fileName);
+      output.add(targetPath);
+      if (File(targetPath).existsSync()) {
+        await File(targetPath).delete();
+      }
+      await File(candidate.path).copy(targetPath);
+    }
+
     return output.first;
   }
+
+  static int _artifactScore(
+    String sourcePath, {
+    required String mode,
+    String? flavor,
+  }) {
+    var score = 0;
+    final normalizedPath = sourcePath.toLowerCase();
+    final normalizedMode = mode.toLowerCase();
+    final normalizedFlavor = flavor?.toLowerCase();
+
+    if (normalizedFlavor != null && normalizedFlavor.isNotEmpty) {
+      if (normalizedPath.contains('/$normalizedFlavor/')) score += 50;
+      if (normalizedPath.contains('-$normalizedFlavor-')) score += 50;
+      if (normalizedPath.contains(normalizedFlavor)) score += 20;
+    }
+
+    if (normalizedMode.isNotEmpty) {
+      if (normalizedPath.contains('/$normalizedMode/')) score += 40;
+      if (normalizedPath.contains('-$normalizedMode-')) score += 40;
+      if (normalizedPath.contains('-$normalizedMode.')) score += 40;
+      if (normalizedPath.contains(normalizedMode)) score += 15;
+    }
+
+    if (normalizedPath.contains('/outputs/')) score += 10;
+    if (normalizedPath.contains('/bundle/')) score += 8;
+    if (normalizedPath.contains('/flutter-apk/')) score += 8;
+    if (normalizedPath.contains('/apk/')) score += 5;
+
+    return score;
+  }
+}
+
+class _FileCandidate {
+  final String path;
+  final int score;
+  final DateTime modifiedAt;
+
+  const _FileCandidate({
+    required this.path,
+    required this.score,
+    required this.modifiedAt,
+  });
 }
