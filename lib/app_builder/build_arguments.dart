@@ -7,6 +7,7 @@ import 'package:distribute_cli/app_builder/android/arguments.dart'
 import 'package:distribute_cli/parsers/compress_files.dart';
 
 import '../files.dart';
+import '../logger.dart';
 import '../parsers/job_arguments.dart';
 import 'ios/arguments.dart' as ios_arguments;
 
@@ -145,8 +146,8 @@ abstract class BuildArguments extends JobArguments {
         if (buildMode?.isNotEmpty ?? false) '--$buildMode',
         // Include flavor specification
         if (flavor?.isNotEmpty ?? false) '--flavor=$flavor',
-        // Include Dart defines
-        if (dartDefines?.isNotEmpty ?? false) '--dart-defines=$dartDefines',
+        // Include Dart defines, one `--dart-define` per key/value pair
+        ...dartDefineArguments,
         // Include Dart defines file
         if (dartDefinesFile?.isNotEmpty ?? false)
           '--dart-define-from-file=$dartDefinesFile',
@@ -159,6 +160,23 @@ abstract class BuildArguments extends JobArguments {
         // Include any custom arguments
         if (customArgs != null) ...customArgs!,
       ];
+
+  /// Expands [dartDefines] into the `--dart-define` flags the Flutter CLI expects.
+  ///
+  /// Flutter has no `--dart-defines` option: each constant must be passed
+  /// through its own repeated `--dart-define=KEY=VALUE` flag. Configuration
+  /// files keep using the friendlier comma separated form
+  /// (`"KEY1=VALUE1,KEY2=VALUE2"`), which is split here.
+  List<String> get dartDefineArguments {
+    final defines = dartDefines;
+    if (defines == null || defines.trim().isEmpty) return const [];
+    return defines
+        .split(',')
+        .map((define) => define.trim())
+        .where((define) => define.isNotEmpty)
+        .map((define) => '--dart-define=$define')
+        .toList();
+  }
 
   /// Executes the complete build process.
   ///
@@ -173,22 +191,34 @@ abstract class BuildArguments extends JobArguments {
   /// The build process includes proper error handling and logging
   /// at each step to facilitate debugging build issues.
   Future<int> build() async {
+    await registerSecrets();
+
     // Display build configuration before starting
     await printJob();
 
     // Get processed arguments with variable substitution
     final arguments = await this.arguments;
-    logger.logDebug.call(
-      "Starting build with flutter ${["build", ...arguments].join(" ")}",
-    );
+    final commandLine = ["flutter", "build", ...arguments].join(" ");
+
+    logger.logCommand(commandLine);
+    if (JobArguments.dryRun) return 0;
 
     // Start Flutter build process
-    final process = await Process.start(
-      "flutter",
-      ["build", ...arguments],
-      runInShell: true,
-      includeParentEnvironment: true,
-    );
+    final Process process;
+    try {
+      process = await Process.start(
+        "flutter",
+        ["build", ...arguments],
+        runInShell: true,
+        includeParentEnvironment: true,
+      );
+    } on ProcessException catch (e) {
+      logger.logError(
+        "Unable to start `flutter`: ${e.message}. "
+        "Make sure the Flutter SDK is installed and available in your PATH.",
+      );
+      return 127;
+    }
 
     // Stream build output to logger
     process.stdout.transform(utf8.decoder).listen(logger.logDebug);
@@ -197,7 +227,18 @@ abstract class BuildArguments extends JobArguments {
     // Wait for build completion
     final exitCode = await process.exitCode;
     if (exitCode != 0) {
-      logger.logDebug.call("Build failed with exit code: $exitCode");
+      // `distribute build android` returns straight to the process exit code,
+      // so without this line a failed standalone build printed nothing at all:
+      // flutter's own diagnostics go to logErrorVerbose, which is hidden below
+      // --verbose. The runner adds its own per-job line on top, naming the job.
+      logger.logError("flutter build failed with exit code $exitCode");
+      if (!logger.isVerbose) {
+        logger.logDetail(
+          ColorizeLogger.fileLoggingEnabled
+              ? "re-run with --verbose, or see ${ColorizeLogger.logFilePath}"
+              : "re-run with --verbose to see flutter's output",
+        );
+      }
       return exitCode;
     }
 
@@ -311,6 +352,91 @@ abstract class BuildArguments extends JobArguments {
     return candidates.toSet().toList();
   }
 
+  /// Locates the merged native libraries directory produced by Gradle.
+  ///
+  /// The layout cannot be hardcoded. Gradle names the intermediates directory
+  /// after the *variant*, so a flavored build writes to `prodRelease` rather
+  /// than `release`, and the task subdirectory
+  /// (`mergeProdReleaseNativeLibs`) varies with the flavor and the Android
+  /// Gradle Plugin version - older versions omit it entirely. Hardcoding
+  /// `release/mergeReleaseNativeLibs` therefore silently missed every flavored
+  /// build.
+  ///
+  /// Searches `<root>/build/app/intermediates/merged_native_libs` for a variant
+  /// directory matching [mode] (and [flavor], when given), then for the `out/lib`
+  /// directory beneath it. Returns `null` when nothing matches.
+  static Directory? findNativeSymbolsDirectory({
+    required String mode,
+    String? flavor,
+    Directory? root,
+  }) {
+    final base = Directory(
+      path.join(
+        root?.path ?? '.',
+        "build",
+        "app",
+        "intermediates",
+        "merged_native_libs",
+      ),
+    );
+    if (!base.existsSync()) return null;
+
+    final normalizedMode = mode.toLowerCase();
+    final normalizedFlavor = flavor?.toLowerCase();
+
+    // Gradle names the directory `<flavor><Mode>`, or just `<mode>` when there
+    // is no flavor. Substring matching got this wrong in both directions:
+    // flavor `dev` also matched `devQaRelease`, and with no flavor at all a
+    // leftover `debugRelease` matched `release` and won on name length — which
+    // is how a debug variant's `.so` files could be shipped as the release
+    // symbol archive.
+    final exact = normalizedFlavor == null || normalizedFlavor.isEmpty
+        ? normalizedMode
+        : '$normalizedFlavor$normalizedMode';
+
+    final all = base.listSync().whereType<Directory>().toList();
+    final variants = all.where((directory) {
+      return path.basename(directory.path).toLowerCase() == exact;
+    }).toList();
+
+    if (variants.isEmpty) {
+      // Nothing matched exactly. Fall back to the old, looser match so an
+      // unusual Gradle setup still finds something, but order by modification
+      // time: the directory this build just wrote is the one that matters,
+      // and the longest name is not evidence of anything.
+      variants.addAll(
+        all.where((directory) {
+          final name = path.basename(directory.path).toLowerCase();
+          if (!name.contains(normalizedMode)) return false;
+          if (normalizedFlavor != null && normalizedFlavor.isNotEmpty) {
+            return name.contains(normalizedFlavor);
+          }
+          return true;
+        }),
+      );
+      variants.sort(
+        (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+      );
+    }
+
+    for (final variant in variants) {
+      final libDirectory = _findOutLib(variant);
+      if (libDirectory != null) return libDirectory;
+    }
+    return null;
+  }
+
+  /// Finds the `out/lib` directory anywhere beneath [variant].
+  static Directory? _findOutLib(Directory variant) {
+    for (final entity in variant.listSync(recursive: true)) {
+      if (entity is! Directory) continue;
+      if (path.basename(entity.path) != 'lib') continue;
+      if (path.basename(entity.parent.path) != 'out') continue;
+      return entity;
+    }
+    return null;
+  }
+
   /// Generates and copies debug symbols for Android release builds.
   ///
   /// Creates a compressed ZIP file containing native library debug symbols
@@ -321,23 +447,22 @@ abstract class BuildArguments extends JobArguments {
   Future<int> _generateAndCopyZipSymbols() async {
     logger.logDebug.call("Generating zip symbols");
 
-    // Locate the native libraries directory containing debug symbols
-    final outputDir = Directory(
-      path.join(
-        "build",
-        "app",
-        "intermediates",
-        "merged_native_libs",
-        "release",
-        "mergeReleaseNativeLibs",
-        "out",
-        "lib",
-      ),
+    final outputDir = findNativeSymbolsDirectory(
+      mode: buildMode ?? "release",
+      flavor: flavor,
     );
 
-    if (!outputDir.existsSync()) {
-      logger.logDebug.call("Failed to generate zip symbols");
-      return 1;
+    if (outputDir == null) {
+      // Symbols are an aid for crash symbolication, not part of the artifact.
+      // A release that built and copied successfully must not be reported as
+      // failed just because Gradle laid its intermediates out differently.
+      logger.logWarning(
+        "no native debug symbols found; skipping the symbols archive",
+      );
+      logger.logDetail(
+        "set `generate-debug-symbols: false` on the job to silence this",
+      );
+      return 0;
     }
 
     // Clean up any existing files in the directory
@@ -355,21 +480,29 @@ abstract class BuildArguments extends JobArguments {
     final zipExitCode = zipExitProcess;
 
     if (zipExitCode != 0) {
-      logger.logDebug.call(
-        "Failed to generate zip symbols with exit code: $zipExitCode",
+      // Same reasoning as a missing symbols directory: the binary is already
+      // built and copied, so a failed archive is a warning, not a build failure.
+      logger.logWarning(
+        "could not archive the debug symbols (exit $zipExitCode); skipping",
       );
-      return zipExitCode;
+      return 0;
     } else {
       final zipFile = File(path.join(outputDir.path, "debug_symbols.zip"));
       logger.logDebug.call("Debug symbols generated successfully");
 
       try {
-        // Copy debug symbols to Android distribution directory
-        final androidOutputPath = Files.androidDistributionOutputDir.path;
+        // Follow the job's configured output, not the default directory: the
+        // fastlane publisher looks for `debug_symbols.zip` next to the binary,
+        // so a custom `output:` would otherwise leave them in different places.
+        final androidOutputPath =
+            output ?? Files.androidDistributionOutputDir.path;
         final debugSymbolsPath = path.join(
           androidOutputPath,
           "debug_symbols.zip",
         );
+
+        // Make sure the destination directory exists before copying into it.
+        await Directory(androidOutputPath).create(recursive: true);
 
         // Remove existing debug symbols if present
         if (File(debugSymbolsPath).existsSync()) {
@@ -382,11 +515,12 @@ abstract class BuildArguments extends JobArguments {
           "Debug symbols generated and copied to $debugSymbolsPath",
         );
       } catch (e) {
-        logger.logDebug.call("Failed to copy debug symbols: $e");
-        return 1;
+        logger.logWarning("could not copy the debug symbols: $e");
+        return 0;
       } finally {
-        // Clean up temporary zip file
-        zipFile.delete();
+        // Clean up the temporary zip file. Awaited so the delete cannot race
+        // with the copy above or with process exit.
+        if (zipFile.existsSync()) await zipFile.delete();
       }
     }
     return 0;

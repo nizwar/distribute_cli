@@ -36,8 +36,7 @@ class Command extends Commander {
 
   /// Description of the command.
   @override
-  String get description =>
-      "Publish an Android application using Fastlane, a tool that automates the deployment process.";
+  String get description => "Publish to the Play Store using Fastlane supply.";
 
   /// Name of the command.
   @override
@@ -52,6 +51,6 @@ class Command extends Commander {
   /// Parses the arguments and publishes the Android application using the [Arguments] class.
   /// Returns a [Future] that completes with the exit code of the publish process.
   @override
-  Future? run() async =>
+  Future<int> run() async =>
       Arguments.fromArgResults(argResults!, globalResults).publish();
 }

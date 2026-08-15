@@ -2,6 +2,7 @@ import 'package:args/args.dart';
 import 'package:distribute_cli/parsers/build_info.dart';
 
 import '../../files.dart';
+import '../../parsers/job_arguments.dart';
 import '../../parsers/variables.dart';
 import '../publisher_arguments.dart';
 
@@ -232,6 +233,57 @@ class Arguments extends PublisherArguments {
   /// Default: "normal"
   final String? outputFormat;
 
+  /// Credentials that must never be printed or written to the log file.
+  @override
+  Set<String> get secretKeys => const {"password", "api-key", "api-issuer"};
+
+  /// Validates the archive before uploading it, when `validate-app` is set.
+  ///
+  /// `altool` exposes validation as its own command (`--validate-app`), not as a
+  /// flag on `--upload-app`, so a separate pass is required. Catching a signing
+  /// or entitlements problem here avoids burning an App Store Connect build
+  /// number on an archive that would be rejected anyway.
+  @override
+  Future<int> publish() async {
+    if (!validateApp) return super.publish();
+
+    await registerSecrets();
+    await processFilesArgs();
+
+    if (filePath.isEmpty) {
+      final message = "No ipa artifact found to validate with xcrun. "
+          "Run the matching build job first or point `file-path` at an existing binary.";
+      if (JobArguments.dryRun) {
+        logger.logWarning("[dry-run] $message");
+        return 0;
+      }
+      logger.logError(message);
+      return 1;
+    }
+
+    final validationArguments = <String>[];
+    for (final argument in argumentsForCommand('--validate-app')) {
+      validationArguments.add(await variables.process(argument));
+    }
+
+    if (JobArguments.dryRun) {
+      logger.logInfo("[dry-run] xcrun ${validationArguments.join(" ")}");
+      return super.publish();
+    }
+
+    logger.logInfo("Validating the archive with altool before uploading");
+    final exitCode = await runProcess(validationArguments);
+    if (exitCode != 0) {
+      logger.logError(
+        "App validation failed with exit code $exitCode; skipping the upload.",
+      );
+      return exitCode;
+    }
+
+    logger.logSuccess("Archive validated");
+    return super.publish();
+  }
+
   /// Creates Arguments instance from command-line arguments.
   ///
   /// Parses command-line arguments and optional global results to create
@@ -251,8 +303,12 @@ class Arguments extends PublisherArguments {
   ) =>
       Arguments(
         Variables.fromSystem(globalResults),
-        filePath:
-            results.rest.firstOrNull ?? Files.iosDistributionOutputDir.path,
+        // `--file-path` was declared and even marked mandatory, but never read:
+        // the publisher uploaded whatever happened to be in the default output
+        // directory, which is how a stale IPA reaches App Store Connect.
+        filePath: (results['file-path'] as String?) ??
+            results.rest.firstOrNull ??
+            Files.iosDistributionOutputDir.path,
         username: results['username'] as String?,
         password: results['password'] as String?,
         apiKey: results['api-key'] as String?,
@@ -343,12 +399,25 @@ class Arguments extends PublisherArguments {
   ///  "--apiKey", "ABC123DEF4", "--apiIssuer", "12345678..."]
   /// ```
   @override
-  List<String> get argumentBuilder {
+  List<String> get argumentBuilder => argumentsForCommand('--upload-app');
+
+  /// Builds the altool argument list for [command].
+  ///
+  /// [command] is either `--validate-app` or `--upload-app`. Both accept the
+  /// same authentication and metadata flags, which is why they share a builder.
+  List<String> argumentsForCommand(String command) {
     return [
       "altool",
-      '--upload-app',
-      '-f',
-      filePath,
+      command,
+      // `--upload-package` replaces `-f` when uploading a package that was
+      // already prepared by a previous altool run.
+      if (uploadPackage != null && uploadPackage!.isNotEmpty) ...[
+        '--upload-package',
+        uploadPackage!,
+      ] else ...[
+        '-f',
+        filePath,
+      ],
       if (username != null) ...['-u', username!],
       if (password != null) ...['-p', password!],
       if (apiKey != null) ...['--apiKey', apiKey!],
@@ -361,7 +430,6 @@ class Arguments extends PublisherArguments {
       ],
       if (ascPublicId != null) ...['--asc-public-id', ascPublicId!],
       if (type != null) ...['-t', type!] else ...['--type', "iphoneos"],
-      if (validateApp) '-v',
       if (bundleId != null) ...['--bundle-id', bundleId!],
       if (productId != null) ...['--product-id', productId!],
       if (sku != null) ...['--sku', sku!],

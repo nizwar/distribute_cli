@@ -1,146 +1,610 @@
 import 'dart:io';
 
-/// A utility class for logging messages with ANSI color codes.
+import 'version.dart';
+
+/// Raw ANSI escape sequences used to style terminal output.
 ///
-/// The `ColorizeLogger` class provides methods to log messages with different
-/// log levels, such as error, warning, success, info, and debug. Each log level
-/// is associated with a specific color for better visibility in the terminal.
+/// Kept private to the logger: everything user facing goes through the
+/// semantic helpers below so the palette can change in one place.
+class _Ansi {
+  static const String reset = '\x1B[0m';
+  static const String bold = '\x1B[1m';
+  static const String red = '\x1B[31m';
+  static const String green = '\x1B[32m';
+  static const String yellow = '\x1B[33m';
+  static const String cyan = '\x1B[36m';
+  static const String gray = '\x1B[90m';
+}
+
+/// Glyphs that prefix a line, with an ASCII fallback.
 ///
-/// Example usage:
-/// ```dart
-/// final logger = ColorizeLogger(true);
-/// logger.logInfo("This is an informational message.");
-/// logger.logError("This is an error message.");
+/// Legacy Windows consoles render box drawing and check marks as garbage, so
+/// the ASCII set is used whenever colors are unavailable or `DISTRIBUTE_ASCII`
+/// is set.
+class LogSymbols {
+  const LogSymbols._();
+
+  /// Successful outcome.
+  static String get success => ColorizeLogger.useUnicode ? '✓' : '+';
+
+  /// Failed outcome.
+  static String get failure => ColorizeLogger.useUnicode ? '✗' : 'x';
+
+  /// Something worth attention that is not fatal.
+  static String get warning => '!';
+
+  /// A step that is starting.
+  static String get step => ColorizeLogger.useUnicode ? '›' : '>';
+
+  /// A top level group, such as a task.
+  static String get group => ColorizeLogger.useUnicode ? '▸' : '>';
+
+  /// Separates inline segments, e.g. `2 jobs · 1m 12s`.
+  static String get separator => ColorizeLogger.useUnicode ? '·' : '|';
+}
+
+/// Renders progress to the terminal and a diagnostic trail to a log file.
+///
+/// The two outputs are deliberately different. The terminal gets a compact,
+/// symbol based view meant to be read while it scrolls:
+///
+/// ```text
+/// ▸ Android Build and deploy
+///   › Build Android
+///     $ flutter build aab --release --pub
+///     ✓ 1m 24s
+///       app-release.aab  42.7 MB  9f2a1c0b3d4e
 /// ```
 ///
-/// The logger writes messages to both the terminal and a log file named `distribution.log`.
-/// Verbose logging can be controlled via the provided `isVerbose` flag.
+/// The log file gets a timestamped, level prefixed line per message, which is
+/// what you actually want when grepping a failed CI run:
+///
+/// ```text
+/// 12:13:51.140  INFO   Build Android
+/// 12:13:51.141  DEBUG  flutter build aab --release --pub
+/// ```
+///
+/// Every message passes through [redact] first, so credentials registered with
+/// [registerSecret] never reach either destination - not even when a child
+/// process echoes them back.
 class ColorizeLogger {
-  /// Whether verbose logging is enabled
-  /// - When `true` - Shows all messages including debug messages
-  /// - When `false` - Hides debug and verbose error messages
-  final bool isVerbose;
+  /// Per-instance request for verbose output.
+  ///
+  /// Present so a caller can force debug output without touching the global
+  /// [verbosity]; the effective value is the more permissive of the two.
+  final bool _verboseOverride;
 
   /// Creates a new ColorizeLogger instance.
   ///
   /// Parameters:
-  /// - `isVerbose` - Controls whether verbose logging is enabled
-  ColorizeLogger(this.isVerbose);
+  /// - `isVerbose` - Forces verbose output for this instance
+  ColorizeLogger([bool isVerbose = false]) : _verboseOverride = isVerbose;
 
-  /// ANSI reset code to reset terminal colors back to default
-  final String _reset = '\x1B[0m';
+  /// How much reaches the terminal. The log file always receives everything.
+  ///
+  /// Set once from the global flags in `main`; every logger instance reads it,
+  /// which is what keeps `--quiet` consistent across sub-commands.
+  static LogVerbosity verbosity = LogVerbosity.normal;
 
-  /// Logs a message with the specified level and color.
+  /// The verbosity this instance actually logs at.
   ///
-  /// This method handles the core logging logic, determining whether to display
-  /// the message based on the verbose setting and log level.
-  ///
-  /// Parameters:
-  /// - `message` - The message to log
-  /// - `level` - The log level (defaults to info)
-  ///
-  /// Behavior:
-  /// - Always writes to `distribution.log` file
-  /// - Shows in terminal based on verbose setting and log level
-  void log(String message, {LogLevel level = LogLevel.info}) async {
-    if (isVerbose) {
-      stdout.writeln('${level.color}$message$_reset');
-    } else {
-      if (level != LogLevel.debug && level != LogLevel.errorVerbose) {
-        stdout.writeln('${level.color}$message$_reset');
-      }
-    }
-    File(
-      "distribution.log",
-    ).writeAsStringSync("$message\n", mode: FileMode.append);
+  /// A per-instance override can raise the level, but never past `--silent`:
+  /// asking for no output has to mean no output.
+  LogVerbosity get _effective {
+    if (verbosity == LogVerbosity.silent) return LogVerbosity.silent;
+    return _verboseOverride ? LogVerbosity.verbose : verbosity;
   }
 
-  /// Logs an error message in red color with `[ERROR]` prefix.
-  ///
-  /// Parameters:
-  /// - `message` - The error message to display
-  void logError(String message) =>
-      log("[ERROR] $message", level: LogLevel.error);
+  /// Whether debug messages are shown.
+  bool get isVerbose => _effective.rank >= LogVerbosity.verbose.rank;
 
-  /// Logs a verbose error message in red color with `[ERROR]` prefix.
-  /// Only shown when verbose logging is enabled.
-  ///
-  /// Parameters:
-  /// - `message` - The error message to display
-  void logErrorVerbose(String message) =>
-      log("[ERROR] $message", level: LogLevel.errorVerbose);
+  /// Whether [level] reaches the terminal at the current verbosity.
+  bool _isVisible(LogLevel level) => _effective.rank >= level.minVerbosity.rank;
 
-  /// Logs a warning message in yellow color with `[WARNING]` prefix.
+  /// The path of the file every log line is appended to.
   ///
-  /// Parameters:
-  /// - `message` - The warning message to display
-  void logWarning(String message) =>
-      log("[WARNING] $message", level: LogLevel.warning);
+  /// Defaults to `distribution.log` in the current working directory and can be
+  /// overridden through the global `--log-file` option. Set it to an empty
+  /// string to disable file logging entirely.
+  static String logFilePath = "distribution.log";
 
-  /// Logs a success message in green color with `[SUCCESS]` prefix.
-  ///
-  /// Parameters:
-  /// - `message` - The success message to display
-  void logSuccess(String message) =>
-      log("[SUCCESS] $message", level: LogLevel.success);
+  /// Whether messages are persisted to disk.
+  static bool get fileLoggingEnabled => logFilePath.trim().isNotEmpty;
 
-  /// Logs an informational message in orange color with `[INFO]` prefix.
+  /// Whether ANSI colors are emitted to the terminal.
   ///
-  /// Parameters:
-  /// - `message` - The informational message to display
-  void logInfo(String message) => log("[INFO] $message", level: LogLevel.info);
+  /// Automatically disabled when stdout is not a terminal (piped output, CI log
+  /// capture) or when `NO_COLOR` is set.
+  static bool useColors = stdout.supportsAnsiEscapes &&
+      !Platform.environment.containsKey('NO_COLOR');
 
-  /// Logs a debug message with `[VERBOSE]` prefix.
-  /// Only shown when verbose logging is enabled.
+  /// Re-evaluates [useColors] for the stream the human output will use.
   ///
-  /// Parameters:
-  /// - `message` - The debug message to display
+  /// `--json` moves that output to stderr, so a run whose stdout is piped to a
+  /// parser while stderr is still a terminal should keep its colours — and the
+  /// reverse, a piped stderr should lose them.
+  static void retargetColors() {
+    if (Platform.environment.containsKey('NO_COLOR')) return;
+    useColors =
+        reserveStdout ? stderr.supportsAnsiEscapes : stdout.supportsAnsiEscapes;
+  }
+
+  /// Whether the unicode glyph set is used instead of the ASCII fallback.
+  static bool useUnicode =
+      !Platform.environment.containsKey('DISTRIBUTE_ASCII');
+
+  /// Whether stdout is reserved for machine readable output.
+  ///
+  /// `distribute run --json` writes its report to stdout, so the human readable
+  /// log has to move aside for `distribute run --json > report.json` to produce
+  /// a parseable file while the operator still sees progress on the terminal.
+  /// Errors already go to stderr, so this only relocates the rest.
+  static bool reserveStdout = false;
+
+  /// Current indentation depth. Each level is two spaces.
+  ///
+  /// Static because a fresh logger is constructed per call site; the depth
+  /// belongs to the run, not to any single instance.
+  static int indentLevel = 0;
+
+  /// Runs [body] with the output indented one extra level.
+  static Future<T> group<T>(Future<T> Function() body) async {
+    indentLevel++;
+    try {
+      return await body();
+    } finally {
+      indentLevel--;
+    }
+  }
+
+  /// Secret values that must never appear in the terminal or the log file.
+  static final Set<String> _secrets = <String>{};
+
+  /// Registers a value that must be masked in every future log line.
+  ///
+  /// Short values (fewer than 6 characters) and unresolved placeholders such as
+  /// `${{TOKEN}}` are ignored: masking them would either redact harmless text or
+  /// hide the very placeholder the user needs to see while debugging.
+  static void registerSecret(String? value) {
+    if (value == null) return;
+    final trimmed = value.trim();
+    if (trimmed.length < 6) return;
+    if (trimmed.contains(r'${') || trimmed.contains('%{')) return;
+    _secrets.add(trimmed);
+  }
+
+  /// Replaces every registered secret in [message] with `***`.
+  static String redact(String message) {
+    if (_secrets.isEmpty) return message;
+    var output = message;
+    for (final secret in _secrets) {
+      output = output.replaceAll(secret, '***');
+    }
+    return output;
+  }
+
+  /// Clears all registered secrets. Intended for tests.
+  static void clearSecrets() => _secrets.clear();
+
+  /// Option names whose value is a credential and must never be logged.
+  ///
+  /// The run header is written before any job has had a chance to register its
+  /// secrets, so [redact] cannot help there - the command line has to be masked
+  /// on its own.
+  static final RegExp _secretOptionPattern = RegExp(
+    r'(token|password|passwd|secret|credential|api-key|api-issuer|key-data|ai-key)',
+    caseSensitive: false,
+  );
+
+  /// Short forms of credential options, by the sub-command that declares them.
+  ///
+  /// Matching on the letter alone would be wrong: `-p` is the App Store
+  /// app-specific password under `publish xcrun`, but the package name under
+  /// `create job`. The command has to be part of the decision.
+  ///
+  /// `test/logger_test.dart` walks the real argument parsers and fails if a
+  /// credential option grows an abbreviation that is not listed here.
+  static const Map<String, Set<String>> secretAbbreviations = {
+    'xcrun': {'p'},
+    'fastlane': {'J'},
+  };
+
+  /// Renders [arguments] with the value of every credential option masked.
+  ///
+  /// Handles `--token=value`, `--token value`, `-J value`, `-Jvalue` and
+  /// `-J=value`.
+  static String maskSecretArguments(List<String> arguments) {
+    // The header is written before anything is parsed, so the sub-command is
+    // recovered from the raw list.
+    final abbreviations = <String>{};
+    for (final argument in arguments) {
+      final forCommand = secretAbbreviations[argument];
+      if (forCommand != null) abbreviations.addAll(forCommand);
+    }
+
+    final masked = <String>[];
+    var maskNext = false;
+
+    for (final argument in arguments) {
+      if (maskNext) {
+        masked.add('***');
+        maskNext = false;
+        continue;
+      }
+
+      if (!argument.startsWith('-')) {
+        masked.add(argument);
+        continue;
+      }
+
+      if (!argument.startsWith('--') && abbreviations.isNotEmpty) {
+        // A short option, possibly bundled (`-vp secret`) or with the value
+        // attached (`-psecret`). Everything after the credential letter is the
+        // value, so mask from there on.
+        final letters = argument.substring(1);
+        final at = letters.split('').indexWhere(abbreviations.contains);
+        if (at != -1) {
+          final head = '-${letters.substring(0, at + 1)}';
+          final tail = letters.substring(at + 1);
+          if (tail.isEmpty) {
+            masked.add(head);
+            maskNext = true;
+          } else {
+            masked.add('$head***');
+          }
+          continue;
+        }
+      }
+
+      final separator = argument.indexOf('=');
+      final name =
+          separator == -1 ? argument : argument.substring(0, separator);
+
+      if (!_secretOptionPattern.hasMatch(name)) {
+        masked.add(argument);
+        continue;
+      }
+
+      if (separator == -1) {
+        masked.add(argument);
+        maskNext = true;
+      } else {
+        masked.add('$name=***');
+      }
+    }
+
+    return masked.join(' ');
+  }
+
+  /// Starts a fresh log file and writes the run header.
+  ///
+  /// The header carries the full date, the CLI version, the working directory
+  /// and the exact invocation, which is what turns a pasted log into a
+  /// reproducible bug report. Timestamps on the following lines are time-only,
+  /// so the date has to live here.
+  ///
+  /// Refuses to touch anything that is not a regular file: `--log-file` pointing
+  /// at a directory must never delete it.
+  static void startLogFile(List<String> arguments) {
+    if (!fileLoggingEnabled) return;
+    final file = File(logFilePath);
+
+    if (FileSystemEntity.isDirectorySync(logFilePath)) {
+      stderr.writeln(
+        'Refusing to use "$logFilePath" as a log file: it is a directory.',
+      );
+      return;
+    }
+
+    try {
+      if (file.existsSync()) file.deleteSync();
+      file.parent.createSync(recursive: true);
+      file.writeAsStringSync(
+        '# distribute_cli $packageVersion\n'
+        '# ${DateTime.now().toIso8601String()}\n'
+        '# cwd: ${Directory.current.path}\n'
+        '# args: ${maskSecretArguments(arguments)}\n',
+      );
+    } on FileSystemException {
+      // Logging to a file is best-effort; never abort the run over it.
+    }
+  }
+
+  /// Applies [style] to [text], or returns it unchanged when colors are off.
+  static String _paint(String text, String style) =>
+      useColors ? '$style$text${_Ansi.reset}' : text;
+
+  /// Styles [text] as de-emphasised secondary information.
+  static String dim(String text) => _paint(text, _Ansi.gray);
+
+  /// Styles [text] as a heading.
+  static String bold(String text) => _paint(text, _Ansi.bold);
+
+  /// Leading whitespace for the current depth.
+  ///
+  /// Flattened below [LogVerbosity.normal]: once the surrounding context lines
+  /// are hidden, indenting the survivors only makes them look truncated.
+  String get _indent =>
+      verbosity.rank < LogVerbosity.normal.rank ? '' : '  ' * indentLevel;
+
+  /// Matches ANSI escape sequences, including the colors child processes emit.
+  static final RegExp _ansiPattern = RegExp(
+    r'\x1B(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1B]*(?:\x07|\x1B\\)|[@-Z\\-_])',
+  );
+
+  /// Removes every ANSI escape sequence from [text].
+  static String stripAnsi(String text) => text.replaceAll(_ansiPattern, '');
+
+  /// Core write path: renders to the terminal and appends to the log file.
+  ///
+  /// [symbol] and [style] shape the terminal line only; the file always
+  /// receives the plain message so it stays greppable.
+  ///
+  /// [message] is split on newlines because the output of a child process
+  /// arrives as arbitrary chunks, not lines: emitting a chunk verbatim would
+  /// leave every line after the first without an indent or a log prefix.
+  void _emit(
+    String message, {
+    required LogLevel level,
+    String? symbol,
+    String? style,
+    int extraIndent = 0,
+  }) {
+    final safe = redact(message);
+    // Trailing newlines would otherwise become spurious blank entries; a child
+    // process almost always terminates its chunk with one.
+    final lines = _splitLines(safe);
+    if (lines.isEmpty) return;
+
+    if (_isVisible(level)) {
+      final flat = verbosity.rank < LogVerbosity.normal.rank;
+      final pad = _indent + (flat ? '' : '  ' * extraIndent);
+      final sink = (level.isError || reserveStdout) ? stderr : stdout;
+      // Continuation lines are aligned under the text, not under the symbol.
+      final continuation = symbol == null ? '' : ' ' * (symbol.length + 1);
+
+      for (var i = 0; i < lines.length; i++) {
+        final rendered = useColors ? lines[i] : stripAnsi(lines[i]);
+        final prefix = i > 0
+            ? continuation
+            : symbol == null
+                ? ''
+                : '${style == null ? symbol : _paint(symbol, style)} ';
+        final body = style == null ? rendered : _paint(rendered, style);
+        sink.writeln('$pad$prefix$body');
+      }
+    }
+
+    _append(lines, level);
+  }
+
+  /// Splits [message] into lines, dropping trailing blank ones.
+  static List<String> _splitLines(String message) {
+    final lines = message.split('\n');
+    while (lines.isNotEmpty && lines.last.trim().isEmpty) {
+      lines.removeLast();
+    }
+    return lines;
+  }
+
+  /// Appends one timestamped record per line to the log file, best effort.
+  ///
+  /// ANSI codes are stripped here unconditionally: a log file full of escape
+  /// sequences is neither greppable nor readable in an editor.
+  void _append(List<String> lines, LogLevel level) {
+    if (!fileLoggingEnabled) return;
+
+    final now = DateTime.now();
+    String two(int value) => value.toString().padLeft(2, '0');
+    final stamp = '${two(now.hour)}:${two(now.minute)}:${two(now.second)}'
+        '.${now.millisecond.toString().padLeft(3, '0')}';
+    final label = level.label.padRight(5);
+
+    final buffer = StringBuffer();
+    for (final line in lines) {
+      buffer.writeln('$stamp  $label  ${stripAnsi(line)}');
+    }
+
+    try {
+      File(logFilePath).writeAsStringSync(
+        buffer.toString(),
+        mode: FileMode.append,
+      );
+    } on FileSystemException {
+      // The log file is best-effort: a read-only working directory or a locked
+      // file must never abort the build.
+    }
+  }
+
+  /// Logs a message with the specified level.
+  ///
+  /// Retained for callers that select the level dynamically; prefer the
+  /// semantic helpers below.
+  void log(String message, {LogLevel level = LogLevel.info}) {
+    switch (level) {
+      case LogLevel.success:
+        logSuccess(message);
+      case LogLevel.warning:
+        logWarning(message);
+      case LogLevel.error:
+        logError(message);
+      case LogLevel.errorVerbose:
+        logErrorVerbose(message);
+      case LogLevel.debug:
+        logDebug(message);
+      case LogLevel.info:
+        logInfo(message);
+    }
+  }
+
+  /// Logs a failure, prefixed with `✗` in red.
+  void logError(String message) => _emit(
+        message,
+        level: LogLevel.error,
+        symbol: LogSymbols.failure,
+        style: _Ansi.red,
+      );
+
+  /// Logs a failure that is only shown with `--verbose`.
+  void logErrorVerbose(String message) => _emit(
+        message,
+        level: LogLevel.errorVerbose,
+        style: _Ansi.red,
+      );
+
+  /// Logs a warning, prefixed with `!` in yellow.
+  void logWarning(String message) => _emit(
+        message,
+        level: LogLevel.warning,
+        symbol: LogSymbols.warning,
+        style: _Ansi.yellow,
+      );
+
+  /// Logs a success, prefixed with `✓` in green.
+  void logSuccess(String message) => _emit(
+        message,
+        level: LogLevel.success,
+        symbol: LogSymbols.success,
+        style: _Ansi.green,
+      );
+
+  /// Logs a neutral message with no prefix and no color.
+  ///
+  /// Plain by design: when everything is highlighted, nothing is.
+  void logInfo(String message) => _emit(message, level: LogLevel.info);
+
+  /// Logs a debug message, shown only with `--verbose`.
   void logDebug(String message) =>
-      log("[VERBOSE] $message", level: LogLevel.debug);
+      _emit(message, level: LogLevel.debug, style: _Ansi.gray);
 
-  /// Logs an empty line to stdout for better message separation.
+  /// Announces a step that is starting, prefixed with `›` in bold cyan.
+  void logStep(String message) => _emit(
+        message,
+        level: LogLevel.info,
+        symbol: LogSymbols.step,
+        style: '${_Ansi.bold}${_Ansi.cyan}',
+      );
+
+  /// Announces a group such as a task, prefixed with `▸` in bold.
+  void logGroup(String message) => _emit(
+        message,
+        level: LogLevel.info,
+        symbol: LogSymbols.group,
+        style: _Ansi.bold,
+      );
+
+  /// Logs de-emphasised information that hangs off the line above it.
+  ///
+  /// Indented one extra level, so artifacts read as belonging to the result
+  /// they were produced by.
+  void logDetail(String message) => _emit(
+        message,
+        level: LogLevel.info,
+        style: _Ansi.gray,
+        extraIndent: 1,
+      );
+
+  /// Logs a de-emphasised aside at the current level.
+  ///
+  /// Use for remarks that stand on their own rather than qualifying the
+  /// previous line - those belong in [logDetail].
+  void logNote(String message) =>
+      _emit(message, level: LogLevel.info, style: _Ansi.gray);
+
+  /// Logs the command that is about to run, as a shell-style `$` line.
+  void logCommand(String command) => _emit(
+        '\$ $command',
+        level: LogLevel.info,
+        style: _Ansi.gray,
+      );
+
+  /// Logs a bold section heading.
+  void logHeading(String message) =>
+      _emit(message, level: LogLevel.info, style: _Ansi.bold);
+
+  /// Logs an empty line to separate blocks. Never written to the log file.
+  ///
+  /// Suppressed below [LogVerbosity.normal]: a `--quiet` run should be a dense
+  /// list of errors, not a page of blank lines.
   void logEmpty() {
-    stdout.writeln('');
+    if (!_isVisible(LogLevel.info)) return;
+    (ColorizeLogger.reserveStdout ? stderr : stdout).writeln('');
   }
 }
 
-/// Represents the log levels with associated ANSI color codes.
+/// How much of the log reaches the terminal.
 ///
-/// The `LogLevel` enum defines different log levels with specific
-/// ANSI color codes for better visibility in the terminal.
-///
-/// Available levels:
-/// - `info` - Orange color for informational messages
-/// - `warning` - Yellow color for warning messages
-/// - `success` - Green color for success messages
-/// - `debug` - Default color for debug messages
-/// - `error` - Red color for error messages
-/// - `errorVerbose` - Red color for verbose error messages
-enum LogLevel {
-  /// Informational log level with orange color
-  info('\x1B[33m'),
+/// Chosen once from the global flags. The log file is unaffected: it always
+/// records every message, which is what makes `--silent` safe to use in CI -
+/// nothing is printed, but the full trail is still on disk.
+enum LogVerbosity {
+  /// Print nothing at all; the exit code is the only signal.
+  silent(0),
 
-  /// Warning log level with yellow color
-  warning('\x1B[33m'),
+  /// Print failures only.
+  quiet(1),
 
-  /// Success log level with green color
-  success('\x1B[32m'),
+  /// Print failures, warnings and progress. The default.
+  normal(2),
 
-  /// Debug log level with default terminal color
-  debug('\x1B[0m'),
+  /// Also print diagnostic detail and the raw output of child processes.
+  verbose(3);
 
-  /// Error log level with red color
-  error('\x1B[31m'),
+  /// Ordering rank; higher means more output.
+  final int rank;
 
-  /// Error log level with red color for verbose output
-  errorVerbose('\x1B[31m');
+  /// Creates a verbosity with its [rank].
+  const LogVerbosity(this.rank);
 
-  /// The ANSI color code for this log level
-  final String color;
-
-  /// Creates a new LogLevel with the given ANSI color code.
+  /// Resolves the verbosity implied by the global flags.
   ///
-  /// Parameters:
-  /// - `color` - The ANSI escape sequence for the color
-  const LogLevel(this.color);
+  /// `--silent` wins over `--quiet`, which wins over `--verbose`, so the most
+  /// restrictive flag the user typed is always honoured.
+  static LogVerbosity fromFlags({
+    bool silent = false,
+    bool quiet = false,
+    bool verbose = false,
+  }) {
+    if (silent) return LogVerbosity.silent;
+    if (quiet) return LogVerbosity.quiet;
+    if (verbose) return LogVerbosity.verbose;
+    return LogVerbosity.normal;
+  }
+}
+
+/// Severity of a log message.
+///
+/// The level drives the log file prefix and the minimum verbosity at which the
+/// message reaches the terminal; the visual treatment is chosen by the helper
+/// that emits it.
+enum LogLevel {
+  /// Neutral progress information.
+  info('INFO', LogVerbosity.normal),
+
+  /// Something worth attention that is not fatal.
+  warning('WARN', LogVerbosity.normal),
+
+  /// A step completed successfully.
+  success('OK', LogVerbosity.normal),
+
+  /// Diagnostic detail, shown only with `--verbose`.
+  debug('DEBUG', LogVerbosity.verbose),
+
+  /// A failure. Survives `--quiet`; only `--silent` hides it.
+  error('ERROR', LogVerbosity.quiet),
+
+  /// A failure detail that is only surfaced with `--verbose`.
+  errorVerbose('ERROR', LogVerbosity.verbose);
+
+  /// Fixed width label written to the log file.
+  final String label;
+
+  /// Lowest verbosity at which this level is still printed.
+  final LogVerbosity minVerbosity;
+
+  /// Creates a level carrying its log file [label] and visibility threshold.
+  const LogLevel(this.label, this.minVerbosity);
+
+  /// Whether messages of this level belong on stderr instead of stdout.
+  bool get isError => this == LogLevel.error || this == LogLevel.errorVerbose;
 }

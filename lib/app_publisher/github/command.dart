@@ -63,7 +63,7 @@ class Command extends Commander {
   /// - CLI documentation
   /// - Error messages and usage instructions
   @override
-  String get description => "Publish app to GitHub.";
+  String get description => "Publish the artifacts as a GitHub release.";
 
   /// Command identifier for CLI invocation.
   ///
@@ -108,6 +108,6 @@ class Command extends Commander {
   ///
   /// Throws exception if required arguments are missing or invalid.
   @override
-  Future? run() =>
+  Future<int> run() =>
       github.Arguments.fromArgResults(argResults!, globalResults).publish();
 }

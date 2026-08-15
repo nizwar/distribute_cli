@@ -1,3 +1,382 @@
+## 2.7.0
+
+### Security
+* **Two credentials reached the log file in the clear.** The run header masks
+  credential options by name, but only matched their long spellings, so
+  `publish xcrun -p <app-specific-password>` and
+  `publish fastlane -J '<service-account-json>'` were written out verbatim.
+  Short forms are now masked too, per sub-command — `-p` is a password under
+  `xcrun` but the package name under `create job`, so the letter alone is not
+  enough to decide. A test walks the real argument parsers and fails if a
+  credential option grows an abbreviation that is not covered.
+* **`permission: auto` is no longer honoured from `distribution.yaml`.** That
+  file travels with the repository, so a cloned project could pre-authorise its
+  own builds and uploads with no confirmation. The project file may still
+  restrict to `manual` or `plan`; granting `auto` now requires `-p auto` or the
+  machine-wide store. The demotion is announced, with the two ways to enable it.
+* **The endpoint is printed, and a redirected key is flagged.** A project file
+  setting `base-url` while the API key came from the machine-wide store would
+  send that key wherever the repository pointed, and the URL was never shown.
+  It is now part of the header, and that combination warns.
+* **Project data is fenced in the model prompt.** Task and job names and
+  descriptions were interpolated raw, after the tool's own rules, so a task
+  description could append a section that read as new instructions and re-target
+  the operation the assistant chose. Values are now flattened, capped and
+  wrapped in a delimiter the prompt tells the model to treat as data.
+* **Model-supplied text can no longer repaint the terminal.** Escape sequences
+  were only stripped when colours were off, so a reply could erase and rewrite
+  the confirmation line the user was about to answer. Everything that comes back
+  over the network is stripped and truncated before it is printed.
+* **A reply truncated by the token limit is refused.** Both adapters accepted a
+  `tool_use` block cut short by `max_tokens` as if it were complete — a partial
+  `{"command":"run"}` becomes a full-configuration run.
+* Overriding `--ai-provider` no longer leaves the previous provider's key, model
+  and endpoint in place, which produced a configuration nobody asked for and a
+  404 blaming settings the user never touched.
+
+### Changed
+* **The `create` wizards were rebuilt.** They used to dump a list of tasks and
+  ask you to retype a key from it, reject a duplicate only after every question
+  had been answered, and write the file without showing you what it was about to
+  add. Now the task is picked from a numbered list that shows the jobs it
+  already has, the key is suggested from the name and validated at the question,
+  the detected package name is offered as a default instead of being forced, and
+  platforms and publishers are multi-select (`1,3`, `1-2` or `all`). The result
+  is shown as a review block and confirmed before anything is written; answering
+  no leaves the file untouched.
+* `distribute create` accepts `-c/--config` like every other command. It writes
+  to the configuration file, so needing the global `--config` for it was a trap.
+* **`distribute create` silently deleted every comment in `distribution.yaml`.**
+  The document is re-encoded from scratch, so adding one task threw away every
+  `#` line and all the blank-line grouping in a file that is hand-maintained and
+  committed. It now says so: the wizard shows the warning as part of the review,
+  before the single confirm, and the scripted form warns without blocking, since
+  automation asked for the change explicitly.
+
+### Fixed
+* **A failing `%{{command}}` substituted its own error text into the build.**
+  `build-name: "%{{git describe}}"` outside a git repository produced
+  `--build-name=fatal: not a git repository ...`, which split into extra
+  arguments on the flutter command line — and the run reported success. A
+  missing binary substituted an empty string just as quietly. Both now stop the
+  job and name the command that failed.
+* **A variable declared with no value blanked the real environment variable.**
+  `FIREBASE_TOKEN:` with nothing after it overwrote the exported credential with
+  an empty string, resolved the placeholder to nothing, and left `validate`
+  reporting no problems. A key with no value is now a declaration, not an
+  assignment.
+* **The publisher promoted whatever it found, including a debug APK.** With an
+  empty output directory the scoring made a lone `app-debug.apk` the best
+  candidate and uploaded it. An artifact labelled with a different build mode is
+  now refused outright rather than ranked lower.
+* **Copying an artifact onto itself deleted it.** Pointing `output:` at the
+  directory the build already writes to made source and target the same file;
+  the target was deleted and then copied "from", and the run only reported a
+  failed copy.
+* **`xcrun --file-path` was declared, marked mandatory, and never read.** The
+  publisher uploaded whatever sat in `distribution/ios/output`, so passing an
+  explicit path silently shipped a different, usually stale, IPA.
+* **The debug-symbol archive could come from the wrong build variant.** Matching
+  was by substring and ties were broken by name length, so flavor `dev` also
+  matched `devQaRelease`, and a leftover `debugRelease` beat an exact `release`.
+  Variants are matched exactly now, with the loose match kept as a fallback
+  ordered by modification time.
+* **An unset value reached publishers as the literal string `"null"`.** The
+  round trip through variable substitution stringified everything, so an omitted
+  `target-commitish` was sent to the GitHub API as a branch named `null`.
+* **`distribute build` printed nothing at all when it failed.** flutter's own
+  diagnostics go to the verbose channel, and the standalone build commands
+  return straight to the process exit code, so the console stayed empty.
+* **`distribute run --dry-run` failed for any configuration with a GitHub
+  publisher**, because it insisted on an artifact the rehearsal had not built.
+* **`run -o task.job` could exit 0 having run nothing.** A job present in `jobs`
+  but absent from the task's `workflows` was re-filtered out after being
+  selected. An explicit job key now overrides the workflow ordering, `--list`
+  marks jobs a whole-task run would skip, and a run that executed nothing is a
+  failure rather than a silent success.
+* **A malformed `pubspec.yaml` took the whole CLI down with exit 255.** Project
+  metadata is read before the error handling was installed; it is optional, so a
+  failure there now warns and continues.
+* Mistyped YAML no longer surfaces as a raw Dart type error with no location.
+  `workflows: j`, `key: 7`, `builder.android: apk`, a non-text `webhook-url` and
+  the fastlane `version-code` / `rollout` / `version-codes-to-retain` keys all
+  produce a message naming the file and the key. `continue-on-error: "true"` and
+  `version-code: "42"` — the quoted forms editors produce — are understood now
+  rather than rejected.
+* `distribute doctor` reported a tool that is not installed as "found but exited
+  with code 127".
+* `--json-file -` produced no report at all.
+* The failure hint no longer points at a log file when `--log-file ""` disabled
+  file logging.
+* Colours are decided from the stream the human output actually goes to, so
+  `--json` piped to a parser keeps its colours on the terminal.
+* `validate` warns when a job appears twice in `workflows`, and when the inert
+  `output:` key is set.
+* The `build` and `publish` sub-command descriptions were three lines of prose
+  each; they are one line now, and `example/example.md` reproduces the real help
+  output verbatim.
+* The publisher wizard's tool question read stdin directly, so it was the one
+  prompt that neither validated its answer nor stopped at end-of-input.
+* `distribute create job -w` against a configuration with no tasks asked every
+  question before failing; it now says to create a task first and stops.
+* The README documented `distribute create task builder -w`, which is not a
+  command.
+* **A wizard started without a terminal never stopped.** `stdin.readLineSync`
+  returns null once input ends and keeps returning null, so `distribute create
+  task -w` in CI recursed until the stack overflowed — 14,000 frames of trace
+  instead of an error — and the newer prompts spun on the same empty answer
+  forever. Every prompt now treats end-of-input as an abort and exits `64` with
+  a message saying to pass the values as options. `confirm` and `select` abort
+  too rather than silently taking their default, which would have answered
+  "yes" to questions like *write the API key into `distribution.yaml`?*
+* Asking for a secret no longer fails outright where terminal echo cannot be
+  switched off. Hiding the input is attempted first and, if the terminal refuses,
+  the prompt warns that what is typed will be visible instead of crashing.
+* **`distribute run --json` swallowed the next flag as its value.** `--json` took
+  a path, so `distribute run --json --silent` wrote the report to a file literally
+  named `--silent` and the run was never silenced. `--json` is now a flag that
+  prints the report to stdout, and `--json-file <path>` writes it to disk. When
+  the report goes to stdout the human readable log moves to stderr, so
+  `distribute run --json > report.json` produces a parseable file while progress
+  still shows on the terminal.
+* **A mistyped configuration key was silently ignored.** `binary-typ: aab` parses
+  fine and quietly builds an APK — a wrong artifact that only surfaces once it
+  reaches a store. `distribute validate` now reports unknown keys at every level
+  with a nearest-match suggestion. They stay warnings, not errors, so a
+  configuration written for a newer CLI still runs on an older one.
+* **A configuration with an `arguments:` key crashed.** The field was typed as a
+  map of parsed objects while being populated with raw YAML maps, so any config
+  declaring it died with a `TypeError` before anything ran. `validate` also
+  points out that nothing reads the key yet.
+* **`distribute` with no command exited `0`.** A script that reached this by
+  mistake read it as success; it is a usage error and now exits `64`.
+* A missing mandatory option exited `1`, indistinguishable from a failed build.
+  The `args` package reports it as an `ArgumentError` rather than a
+  `UsageException`, so it looked like a crash. It now exits `64` like every other
+  usage error.
+* The main example in the README declared a `workflows` entry that referenced no
+  job, so the very first configuration a reader copies failed to validate.
+* Pointing `--config` at a directory reported it as "not found", which sends the
+  reader looking for the wrong problem. It now says what is actually wrong.
+* Help text corrections: `create task` no longer describes itself as creating
+  "a task or job", and `run --operation` documents the `task.job` form it
+  actually accepts.
+* **The global `--config` option never worked.** Every sub-command declares its
+  own `--config` with a `distribution.yaml` default, and that default shadowed
+  the global option on every invocation — so `distribute --config custom.yaml run`
+  silently read `distribution.yaml`. A sub-command's flag now wins only when it
+  was actually typed.
+* A command chosen by the assistant is run with the configuration file the
+  assistant was pointed at, instead of falling back to `distribution.yaml`.
+* `distribute ai --setup` warns before rewriting a `distribution.yaml` that
+  contains comments — re-encoding the document drops them — and offers the YAML
+  to paste in by hand instead.
+* An invalid `provider:` or `permission:` in the `ai:` section now names every
+  place the value could have come from, rather than reporting a bare
+  `Invalid argument(s)`.
+* The Anthropic adapter no longer sends `output_config.effort`. It suits the
+  task, but older Claude models reject it outright and the model is the user's
+  choice.
+* Writing the machine-wide AI store no longer fails when `chmod` is unavailable.
+
+### Added
+* **`distribute ai "<request>"`** — ask a model to pick the right command:
+  `distribute ai "tolong build yang ios"` → `distribute run -o ios.build`.
+  The assistant never composes a shell string. It fills in a constrained schema
+  whose only commands are `run`, `validate` and `doctor`, and whose operation
+  keys come from a generated list of the keys that exist in *this* project — so
+  it cannot invent a task, and cannot reach anything a typed command could not.
+  Chosen commands run through the same `CommandRunner` as a hand-typed one.
+* **Two provider backends behind one interface.** `AiProvider` has an
+  OpenAI-compatible adapter (OpenAI, OpenRouter, Groq, Together, DeepSeek, a
+  local Ollama — anything serving `POST /chat/completions`) and an Anthropic
+  Messages API adapter. They differ in more than a URL — bearer token vs
+  `x-api-key`, nested `function` vs `input_schema`, a JSON-string argument blob
+  vs a parsed map, and Anthropic's refusals arriving as a *successful* HTTP 200
+  that has to be checked before reading any content.
+* **Three permission modes**, set by `permission:` or `-p`:
+  `manual` (show the command, confirm before running — the default),
+  `auto` (run it straight away), `plan` (print it, never run).
+* **`distribute ai --setup`** — an interactive wizard with numbered menus and
+  non-echoing secret entry. It asks whether to store the settings machine-wide
+  (`~/.distribute/ai.json`, written `chmod 600`) or in the project.
+* **`ai:` section in `distribution.yaml`**, which overrides the machine-wide
+  store. Layering, most specific first: CLI flags → `distribution.yaml` →
+  machine-wide store → environment (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`).
+  `api-key` accepts `${{VAR}}`, and the wizard defaults to writing a placeholder
+  rather than the literal key, since `distribution.yaml` is normally committed.
+  Whatever the source, the resolved key is registered with the logger and masked
+  everywhere.
+
+## 2.6.0
+
+### Changed
+* **Redesigned the terminal output.** The `[INFO]`/`[SUCCESS]` prefixes and
+  `=======` banners are gone, replaced by a symbol based, indented view
+  (`▸` task, `›` job, `✓`/`✗`/`!` outcomes) with de-emphasised secondary text.
+  Only what changes state is coloured, so failures actually stand out.
+* **The terminal and the log file no longer share a format.** The log file now
+  gets one timestamped, level prefixed line per message
+  (`12:13:51.140  ERROR  ...`) and records *every* level regardless of the
+  terminal verbosity - including under `--silent`.
+* A job now prints the command it is about to run instead of dumping its whole
+  configuration. The full config moved behind `--verbose`.
+* The run summary is keyed by the operation ref (`android.publish`), so a failed
+  row can be pasted straight into `distribute run -o <ref>`.
+* Failures are reported once, by the runner, instead of by both the runner and
+  the builder.
+
+### Fixed
+* **Every flavored Android release build failed.** Debug symbols were looked for
+  at the hardcoded `merged_native_libs/release/mergeReleaseNativeLibs/`, but
+  Gradle names that directory after the *variant* - `prodRelease` /
+  `mergeProdReleaseNativeLibs` - and older AGP versions omit the task
+  subdirectory entirely. The directory was therefore never found, and a missing
+  directory returned a non-zero exit code, so a build that had already produced
+  and copied its artifact was reported as failed. The layout is now discovered by
+  searching, and symbol problems are warnings: they can no longer fail a build
+  whose binary is already on disk. `generate-debug-symbols` defaults to `true`,
+  so this affected every flavored release.
+* **Debug symbols ignored the job's `output`** and were always written to
+  `distribution/android/output`, while the fastlane publisher looks for
+  `debug_symbols.zip` next to the binary - so a custom output silently lost them.
+* **A stale binary from a previous build was copied into the output directory.**
+  After a debug build followed by a release build, `app-debug.apk` was copied
+  next to `app-release.apk`; the GitHub publisher uploads *every* matching file
+  in that directory, so a debug binary could ship in a release. Only the
+  best-matching tier is copied now (a `--split-per-abi` set still copies in
+  full), and artifacts left by an earlier build are pruned.
+* **The iOS bundle identifier could resolve to the unit test target.** The first
+  `PRODUCT_BUNDLE_IDENTIFIER` in `project.pbxproj` was taken verbatim, so a
+  reordered project yielded `...RunnerTests`, quoted values kept their quotes,
+  and an unresolved `$(APP_ID)` was returned as-is - each of which becomes a
+  wrong `--bundle-id` at upload time.
+* `CompressFiles.compress` ignored its second parameter and always wrote
+  `debug_symbols.zip`; it also failed on Windows when the archive already
+  existed, and threw instead of reporting a missing archiver.
+* `create job builder` / `create job publisher` without `--platform` / `--tools`
+  reported a raw exception that never named the missing option.
+* The notifier only bounded its receive timeout, so an unroutable webhook host
+  could hold the run open for the OS-level TCP timeout after all work was done.
+* **Streamed tool output broke the log format.** A child process delivers its
+  output as arbitrary chunks, not lines, so every line after the first in a chunk
+  was written without a timestamp, a level or an indent. Each line is now emitted
+  as its own record.
+* **ANSI escape codes from child processes leaked into `distribution.log`**,
+  leaving it unreadable in an editor and awkward to grep. They are now stripped
+  from the file (and from the terminal when colors are disabled).
+* A chunk ending in a newline no longer appends a blank log record.
+* `--log-file <dir>` deleted the directory and everything in it. Anything that is
+  not a regular file is now refused.
+* An empty `--log-file` disables file logging, as the help text already claimed.
+* `--silent` is now absolute: it can no longer be overridden per logger instance.
+
+### Added
+* `-q, --quiet` - print failures only, flattened to one line each.
+* `--silent` - print nothing; the exit code is the only signal. The log file is
+  still written in full.
+* The log file opens with a run header carrying the version, the ISO timestamp,
+  the working directory and the invocation - with credential options masked,
+  since the header is written before any job registers its secrets.
+* `DISTRIBUTE_ASCII=1` swaps the unicode glyphs for an ASCII fallback on legacy
+  consoles.
+
+## 2.5.0
+
+### Fixed
+* **`distribute publish fastlane` crashed with `LateInitializationError`.** The
+  standalone command dereferenced the enclosing job, which only exists when the
+  publisher comes from `distribution.yaml`. The package name is now resolved from
+  `--package-name`, then the job, then the detected `applicationId`.
+* **`distribute publish firebase` crashed before doing anything**, because it read
+  an option named `cli-token` that the parser never declared. It now reads
+  `--token`, and also honours the mandatory `--file-path` it used to ignore.
+* **`xcrun`'s `validate-app` sent `-v` to altool**, which means *verbose*, not
+  *validate* — so the archive was never actually validated. Validation now runs as
+  its own `--validate-app` pass before the upload, and aborts the upload on failure.
+* **`fastlane`/`firebase` tool probes never drained stderr.** A tool writing more
+  than the OS pipe buffer (`fastlane actions` does) would block forever. Both
+  streams are now drained on every spawned process.
+* `xcrun`'s `upload-package` option was accepted but silently ignored.
+* `distribute create` crashed on a config without a `variables:` section, and on
+  an empty YAML file.
+* `distribute init` no longer calls `exit()` from inside a helper, so the exit
+  code and the log file stay consistent.
+
+### Added
+* **Built-in variables** — `${{GIT_SHA}}`, `${{GIT_SHORT_SHA}}`, `${{GIT_BRANCH}}`,
+  `${{GIT_TAG}}`, `${{GIT_COMMIT_COUNT}}`, `${{GIT_COMMIT_MESSAGE}}`,
+  `${{GIT_AUTHOR}}`, `${{PUBSPEC_VERSION}}`, `${{PUBSPEC_VERSION_NAME}}`,
+  `${{PUBSPEC_BUILD_NUMBER}}`, `${{PUBSPEC_NAME}}`, `${{ANDROID_APPLICATION_ID}}`,
+  `${{IOS_BUNDLE_ID}}`, `${{BUILD_DATE}}`, `${{BUILD_TIMESTAMP}}`, `${{HOST_OS}}`.
+  Auto-versioning no longer needs a wrapper script:
+  `build-number: "${{GIT_COMMIT_COUNT}}"`. Resolved lazily, and overridable.
+* **`distribute doctor`** — probes every external tool, the configuration and the
+  credentials, and prints what the built-in variables expand to.
+* **Run notifications** — a top level `notifications:` section posts the run
+  summary to Slack, Discord, Telegram or a generic webhook, with
+  `on: always|success|failure`. Modelled at run level so `on: failure` actually
+  fires. Delivery problems never change the exit code.
+* **Artifact report** — every built binary is listed with its size and SHA-256
+  in the run summary.
+* **`distribute run --json`** — machine readable run report on stdout, or
+  `--json-file <path>` to write it to disk.
+* `distribute run --no-notify` to suppress notifications for one invocation.
+
+## 2.4.0
+
+### Fixed
+* **`distribute run` now exits with a non-zero code when a job fails.** Previously
+  every run exited `0`, so CI pipelines silently reported broken builds as green.
+* **`dart-defines` produced an invalid `--dart-defines` flag.** Flutter only accepts
+  a repeated `--dart-define=KEY=VALUE`, so *any* configuration using dart defines
+  failed with exit code 64. Values are now expanded into one flag per pair.
+* **GitHub release assets were uploaded as `multipart/form-data`.** The GitHub API
+  expects the raw bytes, so every uploaded APK/AAB/IPA was corrupted. Assets are
+  now streamed as the raw request body with a correct content type.
+* **A publish job no longer runs after its build job failed**, which used to upload
+  a stale artifact from a previous build.
+* Credentials (Apple password, GitHub token, Firebase CI token, Google service
+  account JSON data) are no longer written to `distribution.log` or the terminal.
+* `--obfuscate` now auto-supplies the `--split-debug-info` directory that Flutter
+  requires, instead of failing the build with a usage error.
+* GitHub releases are matched by name *and* tag, and are no longer created as
+  drafts by default. The previous "fall back to the latest release" behaviour
+  could attach a build to an unrelated release and has been removed.
+* A missing `variables:` section no longer crashes with a `type 'Null' is not a
+  subtype of type 'Map'` error; the section is optional.
+* Fastlane no longer appends `debug_symbols.zip` to the caller's `mapping-paths`
+  list on repeated reads.
+* Debug symbols are copied into the output directory even when it does not exist yet.
+* Errors are written to stderr, and colors are disabled automatically when the
+  output is piped or `NO_COLOR` is set.
+
+### Added
+* `distribute validate` - parses the configuration, reports unresolved `${{VAR}}`
+  placeholders and missing credential files. Use `--strict` to fail on warnings.
+* `distribute run --dry-run` - prints every resolved command without executing it.
+* `distribute run --list` - lists the available task and job keys.
+* `distribute run --fail-fast` - stops at the first failing task.
+* Per-job `continue-on-error: true` and `retry: <n>` in `distribution.yaml`.
+* A run summary with per-job status, duration and attempt count.
+* Global `--version`, `--log-file` and `--no-color` flags.
+* `obfuscate` and `split-debug-info` are now supported for iOS builds too.
+* GitHub publisher: `binary-type`, `draft`, `prerelease` and `target-commitish`.
+* `distribute init` appends the generated artifacts to `.gitignore`.
+* Test suite covering config validation, argument building, variables and logging.
+
+### Changed
+* **The package no longer depends on the Flutter SDK.** It never used a Flutter
+  API, and the dependency made the documented `dart pub global activate
+  distribute_cli` fail. Installing is now a plain Dart install.
+* Configuration errors name the offending key and its position, for example
+  `tasks[0].jobs[1] ('Publish') in 'distribution.yaml' is invalid: ...`.
+* Duplicate task/job keys and workflow entries that reference a missing job are
+  rejected at parse time rather than mid-run.
+* When several artifacts match, the most recently modified one is published.
+* Removed the unusable `Job.fromJson` factory, which always threw because it
+  never constructed a builder or publisher.
+
 ## 2.3.5
 * Fix dart-define-from-file
 * Upgrade packages

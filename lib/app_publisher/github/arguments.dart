@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:dio/dio.dart';
+import 'package:distribute_cli/parsers/job_arguments.dart';
 import 'package:distribute_cli/parsers/variables.dart';
 import '../publisher_arguments.dart';
 
@@ -84,6 +85,25 @@ class Arguments extends PublisherArguments {
   /// Example: "## What's New\n- Fixed login bug\n- Added dark mode"
   late String releaseBody;
 
+  /// Whether a newly created release is kept as an unpublished draft.
+  ///
+  /// Draft releases are only visible to repository collaborators and their
+  /// assets have no public download URL, so this defaults to `false` to make
+  /// uploads immediately usable. Set it to `true` to review before publishing.
+  late bool draft;
+
+  /// Whether a newly created release is flagged as a pre-release.
+  ///
+  /// Useful for beta or release-candidate builds that should not be presented
+  /// as the latest stable version of the repository.
+  late bool prerelease;
+
+  /// Git commit-ish the release tag is created from.
+  ///
+  /// Defaults to the repository's default branch when omitted. Accepts a branch
+  /// name or a full commit SHA.
+  late String? targetCommitish;
+
   /// HTTP client for GitHub API communications.
   ///
   /// Dio instance configured for GitHub API base URL and request handling.
@@ -128,8 +148,36 @@ class Arguments extends PublisherArguments {
     required this.token,
     required this.releaseName,
     this.releaseBody = "",
+    this.draft = false,
+    this.prerelease = false,
+    this.targetCommitish,
   }) : super("github", variables) {
-    _dio = Dio(BaseOptions(baseUrl: "https://api.github.com"));
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: "https://api.github.com",
+        headers: {
+          "Accept": "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      ),
+    );
+  }
+
+  /// Credentials that must never be printed or written to the log file.
+  @override
+  Set<String> get secretKeys => const {"token"};
+
+  /// Parses a value that may already be a `bool` or its string form.
+  ///
+  /// Needed because `publish()` round-trips the configuration through
+  /// [Variables.processMap], which stringifies every value.
+  static bool _asBool(dynamic value, {bool defaultValue = false}) {
+    if (value is bool) return value;
+    if (value is String) {
+      if (value.toLowerCase() == 'true') return true;
+      if (value.toLowerCase() == 'false') return false;
+    }
+    return defaultValue;
   }
 
   /// Builds the command arguments list (not used for GitHub API).
@@ -165,11 +213,15 @@ class Arguments extends PublisherArguments {
   @override
   Map<String, dynamic> toJson() => {
         "file-path": filePath,
+        "binary-type": binaryType,
         "repo-name": repoName,
         "repo-owner": repoOwner,
         "token": token,
         "release-name": releaseName,
         "release-body": releaseBody,
+        "draft": draft,
+        "prerelease": prerelease,
+        "target-commitish": targetCommitish,
       };
 
   /// Executes the GitHub Releases publishing workflow.
@@ -197,61 +249,140 @@ class Arguments extends PublisherArguments {
   /// Throws exception for configuration or API errors.
   @override
   Future<int> publish() async {
+    await registerSecrets();
+
     final argumentBuilder = Arguments.fromJson(
       await variables.processMap(toJson()),
       variables: variables,
     );
     await argumentBuilder.printJob();
 
-    final arguments = await argumentBuilder.arguments;
+    final resolvedPath = argumentBuilder.filePath;
+    final isDirectory = await FileSystemEntity.isDirectory(resolvedPath);
+
+    // During a dry run the build step never produced anything, so a missing
+    // artifact is expected. Every other publisher already rehearses cleanly;
+    // this one failed the whole run, which made `--dry-run` unusable for any
+    // configuration containing a GitHub job.
+    if (JobArguments.dryRun &&
+        !isDirectory &&
+        !await File(resolvedPath).exists()) {
+      logger.logNote(
+        "no ${argumentBuilder.binaryType} artifact yet (dry run)",
+      );
+      return 0;
+    }
+
+    // Resolve the set of assets before touching the API, so a missing artifact
+    // never leaves an empty release behind.
+    final List<File> assets;
+    if (isDirectory) {
+      final suffix = argumentBuilder.binaryType.isEmpty
+          ? ""
+          : ".${argumentBuilder.binaryType}";
+      assets = Directory(resolvedPath)
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.endsWith(suffix))
+          .toList();
+      if (assets.isEmpty) {
+        if (JobArguments.dryRun) {
+          logger.logNote(
+            "no ${argumentBuilder.binaryType} artifact yet (dry run)",
+          );
+          return 0;
+        }
+        logger.logError(
+          "No ${suffix.isEmpty ? "files" : "$suffix files"} found in $resolvedPath",
+        );
+        return 1;
+      }
+      logger.logInfo(
+        "Directory detected on path: $resolvedPath (${assets.length} asset(s))",
+      );
+    } else {
+      final file = File(resolvedPath);
+      if (!await file.exists()) {
+        logger.logError("File does not exist: $resolvedPath");
+        return 1;
+      }
+      assets = [file];
+      logger.logInfo("File detected on path: $resolvedPath");
+    }
+
+    if (JobArguments.dryRun) {
+      logger.logInfo(
+        "[dry-run] would upload ${assets.length} asset(s) to "
+        "${argumentBuilder.repoOwner}/${argumentBuilder.repoName} "
+        "release '${argumentBuilder.releaseName}'",
+      );
+      for (final asset in assets) {
+        logger.logInfo("[dry-run]  - ${asset.path}");
+      }
+      return 0;
+    }
 
     argumentBuilder._dio.options.headers["Authorization"] =
-        "token ${await variables.process(token)}";
-    logger.logDebug.call(
-      "Starting upload with `$publisher ${arguments.join(" ")}`",
-    );
+        "Bearer ${argumentBuilder.token}";
     logger.logDebug.call("Initializing Github API client");
 
-    final uploadUrl =
-        (await argumentBuilder._getReleaseUploadUrl().catchError((e) => null) ??
-            await argumentBuilder._getLatestReleaseUploadUrl().catchError(
-                  (e) => null,
-                ) ??
-            await argumentBuilder._createRelease().catchError((e) => null));
+    final uploadUrl = await argumentBuilder._resolveUploadUrl();
     if (uploadUrl == null) {
-      logger.logErrorVerbose.call("Failed to get upload URL");
+      logger.logError(
+        "Failed to resolve a GitHub release upload URL for "
+        "${argumentBuilder.repoOwner}/${argumentBuilder.repoName}. "
+        "Check the token scopes and that the repository exists.",
+      );
       return 1;
     }
 
-    logger.logInfo(
-      "${await FileSystemEntity.isDirectory(filePath) ? "Directory" : "File"} detected on path: $filePath",
-    );
-    if (await FileSystemEntity.isDirectory(filePath)) {
-      logger.logInfo("Path is a directory");
-      logger.logInfo("NOTE : All files in the directory will be uploaded");
-      for (var file in Directory(filePath).listSync()) {
-        if (file is File && file.path.endsWith(binaryType)) {
-          final downloadUrl = await argumentBuilder.uploadFile(uploadUrl, file);
-          if (downloadUrl == null) continue;
-          logger.logDebug.call(
-            "${file.path} uploaded successfully: $downloadUrl",
-          );
-        }
+    var failures = 0;
+    for (final file in assets) {
+      final downloadUrl = await argumentBuilder.uploadFile(uploadUrl, file);
+      if (downloadUrl == null) {
+        failures++;
+        logger.logError("Failed to upload ${file.path}");
+        continue;
       }
-    } else {
-      if (!await File(filePath).exists()) {
-        logger.logErrorVerbose.call("File does not exist");
-        return 1;
-      }
-      final downloadUrl = await argumentBuilder.uploadFile(
-        uploadUrl,
-        File(filePath),
-      );
-      if (downloadUrl == null) return 1;
+      logger.logDebug.call("${file.path} uploaded successfully: $downloadUrl");
+    }
 
-      logger.logDebug.call("File uploaded successfully: $downloadUrl");
+    if (failures > 0) {
+      logger
+          .logError("$failures of ${assets.length} asset(s) failed to upload");
+      return 1;
     }
     return 0;
+  }
+
+  /// Finds the release to upload to, creating it when it does not exist yet.
+  ///
+  /// Looks the release up by name *and* by tag before falling back to creating
+  /// a new one. The previous "latest release" fallback is intentionally gone: it
+  /// could silently attach a build to an unrelated release.
+  Future<String?> _resolveUploadUrl() async {
+    try {
+      final existing = await _getReleaseUploadUrl();
+      if (existing != null) {
+        logger.logDebug.call("Reusing existing release '$releaseName'");
+        return existing;
+      }
+    } on DioException catch (e) {
+      logger.logErrorVerbose.call("Failed to list releases: ${e.message}");
+    }
+
+    try {
+      final created = await _createRelease();
+      if (created != null) {
+        logger.logInfo("Created GitHub release '$releaseName'");
+      }
+      return created;
+    } on DioException catch (e) {
+      logger.logErrorVerbose.call(
+        "Failed to create release: ${e.response?.data ?? e.message}",
+      );
+      return null;
+    }
   }
 
   /// Retrieves the upload URL for an existing release by name.
@@ -265,38 +396,34 @@ class Arguments extends PublisherArguments {
   /// Returns upload URL string if release found, null otherwise.
   /// Upload URL is cleaned of query parameter templates for direct use.
   Future<String?> _getReleaseUploadUrl() async {
-    final response = await _dio.get('/repos/$repoOwner/$repoName/releases');
+    // GitHub paginates releases 30 at a time; ask for the maximum page size so
+    // an older release still matches on repositories that publish frequently.
+    final response = await _dio.get(
+      '/repos/$repoOwner/$repoName/releases',
+      queryParameters: {"per_page": 100},
+    );
     if (response.statusCode == 200) {
       final releases = response.data;
-      for (var release in releases) {
-        if (release['name'] == releaseName) {
-          return release["upload_url"].replaceAll("{?name,label}", "");
+      if (releases is! List) return null;
+      for (final release in releases) {
+        // Match on either the display name or the git tag: both identify the
+        // release the user meant, and `_createRelease` sets them to the same value.
+        if (release['name'] == releaseName ||
+            release['tag_name'] == releaseName) {
+          return _normalizeUploadUrl(release["upload_url"]);
         }
       }
     }
     return null;
   }
 
-  /// Retrieves the upload URL for the latest repository release.
-  ///
-  /// Gets the most recent release from the repository and checks if its
-  /// name matches the configured `repoName`. If matched, returns the
-  /// upload URL for adding assets to the latest release.
-  ///
-  /// API endpoint: GET /repos/{owner}/{repo}/releases/latest
-  ///
-  /// Returns upload URL string if latest release matches, null otherwise.
-  /// Used as fallback when specific release name is not found.
-  Future<String?> _getLatestReleaseUploadUrl() async {
-    final response = await _dio.get(
-      '/repos/$repoOwner/$repoName/releases/latest',
-    );
-    if (response.statusCode == 200) {
-      if (response.data["name"] == repoName) {
-        return response.data["upload_url"].replaceAll("{?name,label}", "");
-      }
-    }
-    return null;
+  /// Strips the RFC 6570 template suffix GitHub appends to `upload_url`.
+  static String? _normalizeUploadUrl(dynamic uploadUrl) {
+    if (uploadUrl is! String) return null;
+    final templateStart = uploadUrl.indexOf('{');
+    return templateStart == -1
+        ? uploadUrl
+        : uploadUrl.substring(0, templateStart);
   }
 
   /// Creates a new GitHub release with the configured parameters.
@@ -321,12 +448,15 @@ class Arguments extends PublisherArguments {
       data: {
         "tag_name": releaseName,
         "name": releaseName,
-        "body": "Release $releaseName\n$releaseBody",
-        "draft": true,
+        "body": releaseBody.isEmpty ? "Release $releaseName" : releaseBody,
+        "draft": draft,
+        "prerelease": prerelease,
+        if (targetCommitish != null && targetCommitish!.isNotEmpty)
+          "target_commitish": targetCommitish,
       },
     );
     if (response.statusCode == 201) {
-      return response.data["upload_url"].replaceAll("{?name,label}", "");
+      return _normalizeUploadUrl(response.data["upload_url"]);
     }
     return null;
   }
@@ -359,12 +489,20 @@ class Arguments extends PublisherArguments {
     final fileName = file.path.split(Platform.pathSeparator).last;
     logger.logDebug.call("Uploading file: $fileName to $uploadUrl");
     try {
+      final length = await file.length();
+      // GitHub expects the asset bytes as the raw request body. Sending
+      // multipart/form-data would embed the MIME envelope inside the released
+      // artifact and produce a corrupted download.
       final response = await _dio.post(
         uploadUrl,
-        data: FormData.fromMap({
-          "file": await MultipartFile.fromFile(file.path, filename: fileName),
-        }),
+        data: file.openRead(),
         queryParameters: {"name": fileName},
+        options: Options(
+          headers: {
+            Headers.contentLengthHeader: length,
+            Headers.contentTypeHeader: _contentTypeFor(fileName),
+          },
+        ),
       );
       if (response.statusCode == 201) {
         return response.data["browser_download_url"];
@@ -386,6 +524,20 @@ class Arguments extends PublisherArguments {
       logger.logErrorVerbose.call("$e");
     }
     return null;
+  }
+
+  /// Maps a file name to the MIME type GitHub should serve the asset with.
+  static String _contentTypeFor(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.apk')) {
+      return 'application/vnd.android.package-archive';
+    }
+    if (lower.endsWith('.aab')) return 'application/octet-stream';
+    if (lower.endsWith('.ipa')) return 'application/octet-stream';
+    if (lower.endsWith('.zip')) return 'application/zip';
+    if (lower.endsWith('.json')) return 'application/json';
+    if (lower.endsWith('.txt') || lower.endsWith('.log')) return 'text/plain';
+    return 'application/octet-stream';
   }
 
   /// Command-line argument parser for GitHub Releases publisher.
@@ -422,10 +574,39 @@ class Arguments extends PublisherArguments {
       help: 'The owner of the repository to upload the file to.',
       mandatory: true,
     )
-    ..addOption('release-name', help: 'The release name to upload the file to.')
+    ..addOption(
+      'release-name',
+      help:
+          'The release name (also used as the git tag) to upload the file to.',
+      mandatory: true,
+    )
     ..addOption(
       'release-body',
       help: 'The release body to upload the file to.',
+    )
+    ..addOption(
+      'binary-type',
+      abbr: 'b',
+      help:
+          'Only upload files with this extension when file-path is a directory. '
+          'Leave empty to upload every file.',
+      defaultsTo: '',
+    )
+    ..addFlag(
+      'draft',
+      negatable: false,
+      defaultsTo: false,
+      help: 'Create the release as an unpublished draft.',
+    )
+    ..addFlag(
+      'prerelease',
+      negatable: false,
+      defaultsTo: false,
+      help: 'Mark the release as a pre-release.',
+    )
+    ..addOption(
+      'target-commitish',
+      help: 'Branch or commit SHA the release tag is created from.',
     );
 
   /// Creates Arguments instance from command-line arguments.
@@ -450,12 +631,15 @@ class Arguments extends PublisherArguments {
     return Arguments(
       Variables.fromSystem(globalResults),
       filePath: argResults['file-path'] as String,
-      binaryType: '', // Provide a default or derive this value as needed
+      binaryType: argResults['binary-type'] as String? ?? '',
       repoName: argResults['repo-name'] as String,
       repoOwner: argResults['repo-owner'] as String,
       token: argResults['token'] as String,
       releaseName: argResults['release-name'] as String,
       releaseBody: argResults['release-body'] ?? "",
+      draft: argResults['draft'] as bool? ?? false,
+      prerelease: argResults['prerelease'] as bool? ?? false,
+      targetCommitish: argResults['target-commitish'] as String?,
     );
   }
 
@@ -496,16 +680,22 @@ class Arguments extends PublisherArguments {
     if (json["repo-name"] == null) throw Exception("repo-name is required");
     if (json["repo-owner"] == null) throw Exception("repo-owner is required");
     if (json["token"] == null) throw Exception("token is required");
+    if (json["release-name"] == null) {
+      throw Exception("release-name is required");
+    }
 
     return Arguments(
       variables,
       filePath: json['file-path'] as String,
-      binaryType: '', // Provide a default or derive this value as needed
+      binaryType: json['binary-type'] as String? ?? '',
       repoName: json['repo-name'] as String,
       repoOwner: json['repo-owner'] as String,
       token: json['token'] as String,
       releaseName: json['release-name'] as String,
       releaseBody: json['release-body'] ?? "",
+      draft: _asBool(json['draft']),
+      prerelease: _asBool(json['prerelease']),
+      targetCommitish: json['target-commitish'] as String?,
     );
   }
 
@@ -527,12 +717,12 @@ class Arguments extends PublisherArguments {
   /// proper values for all repository and authentication parameters.
   factory Arguments.defaultConfigs(ArgResults? globalResults) => Arguments(
         Variables.fromSystem(globalResults),
-        filePath: Files.iosDistributionDir.parent.path,
-        binaryType: '',
-        repoName: '',
-        repoOwner: '',
-        token: '',
-        releaseName: '',
+        filePath: Files.androidDistributionOutputDir.path,
+        binaryType: 'apk',
+        repoName: "\${{GITHUB_REPO_NAME}}",
+        repoOwner: "\${{GITHUB_REPO_OWNER}}",
+        token: "\${{GITHUB_TOKEN}}",
+        releaseName: "\${{RELEASE_NAME}}",
         releaseBody: '',
       );
 }

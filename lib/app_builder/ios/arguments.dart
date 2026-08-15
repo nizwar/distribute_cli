@@ -1,5 +1,6 @@
 import 'package:args/args.dart';
 import 'package:distribute_cli/parsers/variables.dart';
+import 'package:path/path.dart' as path;
 
 import '../../files.dart';
 import '../build_arguments.dart';
@@ -51,6 +52,32 @@ class Arguments extends BuildArguments {
   /// Each method has different code signing and provisioning requirements.
   final String? exportMethod;
 
+  /// Enables Dart code obfuscation for release builds.
+  ///
+  /// When `true`, identifiers are replaced with randomized values to make
+  /// reverse engineering harder. Flutter requires this flag to be combined with
+  /// `splitDebugInfo`; a default directory is substituted when none is given.
+  final bool? obfuscate;
+
+  /// Directory where the Dart symbol map is stored.
+  ///
+  /// Required to symbolize crash reports of an obfuscated build using
+  /// `flutter symbolize`. Keep the directory alongside the released binary.
+  final String? splitDebugInfo;
+
+  /// Directory used for the Dart symbol map when obfuscation is enabled but no
+  /// `split-debug-info` path was configured.
+  static final String _defaultSplitDebugInfo =
+      path.join("build", "symbols", "ios");
+
+  /// The `split-debug-info` directory actually passed to `flutter build`.
+  String? get effectiveSplitDebugInfo {
+    if (splitDebugInfo != null && splitDebugInfo!.isNotEmpty) {
+      return splitDebugInfo;
+    }
+    return obfuscate == true ? _defaultSplitDebugInfo : null;
+  }
+
   /// Creates a new iOS build arguments instance.
   ///
   /// Parameters:
@@ -85,7 +112,17 @@ class Arguments extends BuildArguments {
     super.pub,
     this.exportOptionsPlist,
     this.exportMethod,
-  }) : super(buildSourceDir: Files.iosOutputIPA.path);
+    this.obfuscate,
+    this.splitDebugInfo,
+  }) : super(buildSourceDir: Files.iosOutputIPA.path) {
+    if (obfuscate == true &&
+        (splitDebugInfo == null || splitDebugInfo!.isEmpty)) {
+      logger.logWarning(
+        'obfuscate requires split-debug-info; defaulting to '
+        '"$_defaultSplitDebugInfo". Keep that directory to symbolize crashes.',
+      );
+    }
+  }
 
   /// Creates a copy of this iOS arguments instance with updated values.
   ///
@@ -122,6 +159,8 @@ class Arguments extends BuildArguments {
       pub: data?.pub ?? pub,
       exportOptionsPlist: data?.exportOptionsPlist ?? exportOptionsPlist,
       exportMethod: data?.exportMethod ?? exportMethod,
+      obfuscate: data?.obfuscate ?? obfuscate,
+      splitDebugInfo: data?.splitDebugInfo ?? splitDebugInfo,
       output: data?.output ?? output,
     );
   }
@@ -183,7 +222,12 @@ class Arguments extends BuildArguments {
       help: 'Output path for the build',
       defaultsTo: Files.iosDistributionOutputDir.path,
     )
-    ..addOption('dart-defines-file', help: 'Dart defines file');
+    ..addOption('dart-defines-file', help: 'Dart defines file')
+    ..addFlag('obfuscate', help: 'Obfuscate the Dart code', defaultsTo: false)
+    ..addOption(
+      'split-debug-info',
+      help: 'Directory to store the Dart symbol map (required by --obfuscate)',
+    );
 
   /// Creates an iOS arguments instance from parsed command-line arguments.
   ///
@@ -211,6 +255,8 @@ class Arguments extends BuildArguments {
       pub: results['pub'] as bool? ?? true,
       exportOptionsPlist: results['export-options-plist'] as String?,
       exportMethod: results['export-method'] as String?,
+      obfuscate: results['obfuscate'] as bool?,
+      splitDebugInfo: results['split-debug-info'] as String?,
       customArgs: results['arguments']?.split(' ') as List<String>?,
       output:
           results['output'] as String? ?? Files.iosDistributionOutputDir.path,
@@ -252,6 +298,8 @@ class Arguments extends BuildArguments {
       pub: json['pub'] as bool? ?? true,
       exportOptionsPlist: json['export-options-plist'] as String?,
       exportMethod: json['export-method'] as String?,
+      obfuscate: json['obfuscate'] as bool?,
+      splitDebugInfo: json['split-debug-info'] as String?,
       customArgs: (json['arguments'] as List<dynamic>?)?.cast<String>(),
     );
   }
@@ -308,6 +356,8 @@ class Arguments extends BuildArguments {
         'build-number': buildNumber,
         'export-options-plist': exportOptionsPlist,
         'export-method': exportMethod,
+        'obfuscate': obfuscate,
+        'split-debug-info': splitDebugInfo,
         'arguments': customArgs,
         'pub': pub,
         'output': output,
@@ -333,5 +383,13 @@ class Arguments extends BuildArguments {
 
       // Export method for distribution type
       if (exportMethod != null) '--export-method=$exportMethod',
+
+      // Code obfuscation control
+      if (obfuscate != null)
+        if (obfuscate == true) '--obfuscate' else '--no-obfuscate',
+
+      // Debug info storage path (auto-filled when obfuscation is enabled)
+      if (effectiveSplitDebugInfo != null)
+        '--split-debug-info=$effectiveSplitDebugInfo',
     ]);
 }

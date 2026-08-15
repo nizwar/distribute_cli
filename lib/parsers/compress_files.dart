@@ -48,16 +48,15 @@ class CompressFiles {
     }
   }
 
-  /// Compresses files from the source directory into a ZIP archive.
+  /// Compresses the contents of [source] into an archive named [archiveName].
   ///
-  /// - `source` - Source directory path containing files to compress
-  /// - `destination` - Destination path for the compressed archive
+  /// - `source` - Source directory whose contents are archived
+  /// - `archiveName` - File name of the archive, created inside [source]
   ///
-  /// Returns the process exit code (0 indicates success).
+  /// Returns the process exit code (0 indicates success), or `127` when the
+  /// archiver is not installed.
   ///
-  /// The compression includes all files in the source directory and creates
-  /// a file named "debug_symbols.zip" in the source directory. The method
-  /// uses platform-specific compression tools:
+  /// The method uses platform-specific compression tools:
   ///
   /// - Windows: PowerShell's `Compress-Archive` cmdlet
   /// - macOS/Linux: `zip` command with recursive option
@@ -68,42 +67,37 @@ class CompressFiles {
   /// ```dart
   /// final exitCode = await CompressFiles.compress(
   ///   '/path/to/source/directory',
-  ///   '/path/to/output.zip',
+  ///   'debug_symbols.zip',
   /// );
-  /// if (exitCode == 0) {
-  ///   print('Compression successful');
-  /// } else {
-  ///   print('Compression failed with exit code: $exitCode');
-  /// }
   /// ```
-  static Future<int> compress(String source, String destination) {
+  static Future<int> compress(String source, String archiveName) async {
+    final List<String> executable;
     if (Platform.isWindows) {
-      // Use PowerShell Compress-Archive to create ZIP file
-      return Process.run(
+      executable = [
         "powershell",
-        [
-          "Compress-Archive",
-          "-Path",
-          "*", // Compress all files in the working directory
-          "-DestinationPath",
-          "debug_symbols.zip",
-        ],
-        runInShell: true,
-        workingDirectory: source, // Set working directory to source path
-      ).then((value) => value.exitCode);
+        "Compress-Archive",
+        "-Path",
+        "*", // Compress all files in the working directory
+        "-DestinationPath",
+        archiveName,
+        "-Force",
+      ];
     } else if (Platform.isMacOS || Platform.isLinux) {
-      // Use zip command with recursive option
-      return Process.run(
-              "zip",
-              [
-                "-r",
-                "debug_symbols.zip",
-                ".",
-              ],
-              workingDirectory: source) // Set working directory to source path
-          .then((value) => value.exitCode);
+      executable = ["zip", "-r", archiveName, "."];
     } else {
       throw UnsupportedError("Unsupported platform for compression");
+    }
+
+    try {
+      final result = await Process.run(
+        executable.first,
+        executable.sublist(1),
+        runInShell: Platform.isWindows,
+        workingDirectory: source,
+      );
+      return result.exitCode;
+    } on ProcessException {
+      return 127;
     }
   }
 }

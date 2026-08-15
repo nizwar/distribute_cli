@@ -57,8 +57,7 @@ class Command extends Commander {
   /// - CLI documentation
   /// - Error messages and usage instructions
   @override
-  String get description =>
-      "Publish an Android application to Firebase App Distribution.";
+  String get description => "Publish to Firebase App Distribution.";
 
   /// Command identifier for CLI invocation.
   ///
@@ -102,6 +101,6 @@ class Command extends Commander {
   ///
   /// Throws exception if required arguments are missing or invalid.
   @override
-  Future? run() =>
+  Future<int> run() =>
       Arguments.fromArgResults(argResults!, globalResults).publish();
 }

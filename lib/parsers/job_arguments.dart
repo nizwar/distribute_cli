@@ -1,6 +1,5 @@
 import 'package:distribute_cli/app_builder/android/arguments.dart'
     as android_arguments;
-import 'package:distribute_cli/app_builder/build_arguments.dart';
 import 'package:distribute_cli/parsers/variables.dart';
 
 import '../app_builder/ios/arguments.dart' as ios_arguments;
@@ -67,11 +66,38 @@ abstract class JobArguments {
   /// Variable processor for substituting placeholders in arguments.
   final Variables variables;
 
+  /// When `true`, jobs resolve and print their command without executing it.
+  ///
+  /// Controlled by the `--dry-run` flag of `distribute run`. It is a process
+  /// wide switch because a single CLI invocation is always either a real run or
+  /// a rehearsal - never both.
+  static bool dryRun = false;
+
   /// Raw list of command-line arguments before variable processing.
   ///
   /// Subclasses should populate this list with the appropriate arguments
   /// for their specific job type.
   List<String> argumentBuilder = [];
+
+  /// Configuration keys whose values must never be printed or logged.
+  ///
+  /// Subclasses holding credentials override this so [printJob] masks them and
+  /// [registerSecrets] can teach the logger to redact them everywhere else,
+  /// including the output streamed back from child processes.
+  Set<String> get secretKeys => const <String>{};
+
+  /// Resolves every secret value and registers it with the logger.
+  ///
+  /// Called before a job prints its configuration or spawns a process, so that
+  /// a token echoed back by `fastlane` or `firebase` is masked as well.
+  Future<void> registerSecrets() async {
+    final rawArguments = toJson();
+    for (final key in secretKeys) {
+      final value = rawArguments[key];
+      if (value == null) continue;
+      ColorizeLogger.registerSecret(await variables.process(value.toString()));
+    }
+  }
 
   /// Processes variables in arguments and returns the final command-line arguments.
   ///
@@ -96,7 +122,7 @@ abstract class JobArguments {
   ///
   /// Initializes the logger with verbosity based on global variables.
   JobArguments(this.variables) {
-    logger = ColorizeLogger(variables.globalResults?['verbose'] ?? false);
+    logger = ColorizeLogger();
   }
 
   /// Converts the job arguments to a JSON representation.
@@ -105,27 +131,30 @@ abstract class JobArguments {
   /// Subclasses must implement this method to provide specific serialization.
   Map<String, dynamic> toJson();
 
-  /// Prints job configuration information to the console.
+  /// Prints the resolved configuration of a job.
   ///
-  /// Displays the job type (Build/Publish) and all non-empty configuration
-  /// values in a formatted, easy-to-read manner.
+  /// Only shown with `--verbose`: the default view prints the command line
+  /// instead, which conveys the same thing in one line. Values belonging to
+  /// [secretKeys] are replaced with `***`.
   Future printJob() async {
+    if (!logger.isVerbose) return;
+
     final rawArguments = toJson();
     // Remove null, empty lists, and empty string values for cleaner output
     rawArguments.removeWhere(
       (key, value) =>
           value == null || ((value is List) && value.isEmpty) || value == "",
     );
+    if (rawArguments.isEmpty) return;
 
-    // Determine job type based on instance type
-    String type = this is BuildArguments ? "Build" : "Publish";
-    logger.logInfo("Running $type with configurations:");
+    final width = rawArguments.keys
+        .map((key) => key.length)
+        .reduce((a, b) => a > b ? a : b);
 
-    // Display each configuration key-value pair
-    for (var value in rawArguments.keys) {
-      logger.logInfo(" - $value: ${rawArguments[value]}");
+    for (final key in rawArguments.keys) {
+      final printable = secretKeys.contains(key) ? "***" : rawArguments[key];
+      logger.logDebug("${key.padRight(width)}  $printable");
     }
-    logger.logEmpty();
   }
 }
 
@@ -360,6 +389,19 @@ class Job {
   /// The environment variables for the job (optional).
   final Map<String, dynamic>? environments;
 
+  /// Whether a failure of this job should stop the surrounding task.
+  ///
+  /// When `true` the task keeps going and the job is reported as `failed
+  /// (ignored)` in the summary, but the overall run still succeeds. Useful for
+  /// optional distribution channels such as an internal Firebase group.
+  final bool continueOnError;
+
+  /// How many additional attempts a failing job gets before it is given up on.
+  ///
+  /// Defaults to `0` (a single attempt). Mainly meant for publish jobs, where a
+  /// flaky network or a throttled store API is a common transient failure.
+  final int retry;
+
   /// The parent task of the job.
   late Task parent;
 
@@ -381,35 +423,27 @@ class Job {
     this.environments,
     this.builder,
     this.publisher,
-  }) : assert(
-          (builder != null && publisher == null) ||
-              (builder == null && publisher != null),
-          "Either builder or publisher must be provided, not both.",
-        ) {
+    this.continueOnError = false,
+    this.retry = 0,
+  }) {
+    if (builder != null && publisher != null) {
+      throw Exception(
+        "Job '$name' defines both a builder and a publisher; provide only one.",
+      );
+    }
     if (builder != null) {
-      builder?.parent = this;
+      builder!.parent = this;
     } else if (publisher != null) {
-      publisher?.parent = this;
+      publisher!.parent = this;
     } else {
-      throw Exception("Either builder or publisher must be provided.");
+      throw Exception(
+        "Job '$name' must provide either a builder or a publisher.",
+      );
     }
   }
 
-  factory Job.fromJson(Map<String, dynamic> json) {
-    final packageName = json["package_name"];
-    final key = json["key"];
-    if (packageName == null) {
-      throw Exception("package_name is required for each job");
-    }
-
-    return Job(
-      name: json["name"],
-      key: key,
-      description: json["description"],
-      environments: json["variables"],
-      packageName: packageName,
-    );
-  }
+  /// A human readable label used in logs and in the run summary.
+  String get label => key == null ? name : "$name ($key)";
 
   /// Converts the `Job` instance to a JSON object.
   Map<String, dynamic> toJson() => {
@@ -417,6 +451,8 @@ class Job {
         "key": key,
         "description": description,
         "package_name": packageName,
+        if (continueOnError) "continue-on-error": continueOnError,
+        if (retry > 0) "retry": retry,
         if (builder != null) "builder": builder?.toJson(),
         if (publisher != null) "publisher": publisher?.toJson(),
       };

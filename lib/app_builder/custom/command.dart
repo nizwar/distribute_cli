@@ -36,9 +36,7 @@ class Command extends Commander {
   /// beyond standard platform builds with user-defined configurations.
   @override
   String get description =>
-      "Build a custom application by selecting specific configurations and options tailored to your requirements. "
-      "Supports flexible binary type specification, user-defined arguments, multi-platform targets, and integration "
-      "with existing build systems for specialized workflows and deployment scenarios.";
+      "Build with a binary type and arguments you supply yourself.";
 
   /// Returns the command identifier used in CLI invocation.
   ///
@@ -127,5 +125,6 @@ class Command extends Commander {
   /// - Flexible artifact management and post-build processing
   /// - Extensible foundation for future build system enhancements
   @override
-  Future? run() => Arguments.fromArgResults(argResults!, globalResults).build();
+  Future<int> run() =>
+      Arguments.fromArgResults(argResults!, globalResults).build();
 }

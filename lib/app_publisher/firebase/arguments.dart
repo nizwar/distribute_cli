@@ -148,6 +148,10 @@ class Arguments extends PublisherArguments {
     this.cliToken,
   }) : super('firebase', variables);
 
+  /// Credentials that must never be printed or written to the log file.
+  @override
+  Set<String> get secretKeys => const {"token"};
+
   /// Creates Arguments instance from command-line arguments.
   ///
   /// Parses command-line arguments and optional global results to create
@@ -168,8 +172,11 @@ class Arguments extends PublisherArguments {
   ) =>
       Arguments(
         Variables.fromSystem(globalResults),
-        filePath:
-            results.rest.firstOrNull ?? Files.androidDistributionOutputDir.path,
+        // `--file-path` is the documented option; the trailing positional
+        // argument is kept as a fallback for older invocations.
+        filePath: (results['file-path'] as String?) ??
+            results.rest.firstOrNull ??
+            Files.androidDistributionOutputDir.path,
         binaryType: results['binary-type'] as String,
         appId: results['app-id'] as String,
         releaseNotes: results['release-notes'] as String?,
@@ -178,7 +185,7 @@ class Arguments extends PublisherArguments {
         testersFile: results['testers-file'] as String?,
         groups: results['groups'] as String?,
         groupsFile: results['groups-file'] as String?,
-        cliToken: results["cli-token"] as String?,
+        cliToken: results['token'] as String?,
       );
 
   /// Creates Arguments instance from JSON configuration.

@@ -61,8 +61,7 @@ class Command extends Commander {
   /// - CLI documentation
   /// - Error messages and usage instructions
   @override
-  String get description =>
-      "Publish an iOS application using the XCrun tool, which provides a command-line interface for interacting with Xcode and managing app distribution tasks.";
+  String get description => "Publish to App Store Connect using xcrun altool.";
 
   /// Command identifier for CLI invocation.
   ///
@@ -107,6 +106,6 @@ class Command extends Commander {
   ///
   /// Throws exception if required arguments are missing or invalid.
   @override
-  Future? run() =>
+  Future<int> run() =>
       xcrun.Arguments.fromArgParser(argResults!, globalResults).publish();
 }

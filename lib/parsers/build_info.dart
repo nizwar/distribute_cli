@@ -82,13 +82,7 @@ class BuildInfo {
         path.join("ios", "Runner.xcodeproj", "project.pbxproj"),
       );
       if (iosFile.existsSync()) {
-        final content = await iosFile.readAsString();
-        final bundleIdMatch = RegExp(
-          r'PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;]+);',
-        ).firstMatch(content);
-        if (bundleIdMatch != null) {
-          iosBundleId = bundleIdMatch.group(1);
-        }
+        iosBundleId = extractBundleId(await iosFile.readAsString());
       }
     }
     if ((Directory("web").existsSync())) {
@@ -109,13 +103,7 @@ class BuildInfo {
         path.join("macos", "Runner.xcodeproj", "project.pbxproj"),
       );
       if (macOSFile.existsSync()) {
-        final content = await macOSFile.readAsString();
-        final bundleIdMatch = RegExp(
-          r'PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;]+);',
-        ).firstMatch(content);
-        if (bundleIdMatch != null) {
-          macOSBundleId = bundleIdMatch.group(1);
-        }
+        macOSBundleId = extractBundleId(await macOSFile.readAsString());
       }
     }
     if ((Directory("windows").existsSync())) {
@@ -151,6 +139,55 @@ class BuildInfo {
       "windowsPackageName": windowsPackageName,
       "linuxPackageName": linuxPackageName,
     };
+  }
+
+  /// Extracts the application bundle identifier from a `project.pbxproj`.
+  ///
+  /// An Xcode project lists `PRODUCT_BUNDLE_IDENTIFIER` once per build
+  /// configuration *per target*, so a naive first match can easily return the
+  /// unit test target - which would then be used as `--bundle-id` and upload
+  /// under the wrong identity. Candidates are therefore filtered:
+  ///
+  /// - surrounding quotes are stripped,
+  /// - unresolved Xcode build settings such as `$(APP_ID)` are skipped, because
+  ///   only Xcode can expand them,
+  /// - test targets (`...RunnerTests`, `...UITests`) are skipped.
+  ///
+  /// Returns `null` when no usable identifier remains.
+  static String? extractBundleId(String pbxprojContents) {
+    final matches = RegExp(
+      r'PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;]+);',
+    ).allMatches(pbxprojContents);
+
+    for (final match in matches) {
+      final raw = match.group(1)?.trim();
+      if (raw == null || raw.isEmpty) continue;
+
+      final value = _unquote(raw);
+      if (value.isEmpty) continue;
+      if (value.contains(r'$(') || value.contains(r'${')) continue;
+      if (_isTestTarget(value)) continue;
+
+      return value;
+    }
+    return null;
+  }
+
+  /// Removes a single layer of surrounding single or double quotes.
+  static String _unquote(String value) {
+    if (value.length < 2) return value;
+    final first = value[0];
+    final last = value[value.length - 1];
+    if ((first == '"' && last == '"') || (first == "'" && last == "'")) {
+      return value.substring(1, value.length - 1);
+    }
+    return value;
+  }
+
+  /// Whether [bundleId] belongs to a test target rather than the app.
+  static bool _isTestTarget(String bundleId) {
+    final lower = bundleId.toLowerCase();
+    return lower.endsWith('tests') || lower.endsWith('uitests');
   }
 
   /// Gets the current build information as a map.

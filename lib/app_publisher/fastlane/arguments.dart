@@ -393,7 +393,14 @@ class Arguments extends PublisherArguments {
     this.obbPatchFileSize,
     this.ackBundleInstallationWarning = false,
     this.uploadDebugSymbols = true,
-  }) : super("fastlane", variables);
+    String? packageName,
+  }) : super("fastlane", variables) {
+    packageNameOverride = packageName;
+  }
+
+  /// Credentials that must never be printed or written to the log file.
+  @override
+  Set<String> get secretKeys => const {"json-key-data"};
 
   /// Creates Arguments instance from command-line arguments.
   ///
@@ -415,6 +422,7 @@ class Arguments extends PublisherArguments {
       Arguments(
         Variables.fromSystem(globalResults),
         filePath: argResults['file-path'],
+        packageName: argResults['package-name'] as String?,
         binaryType: argResults['binary-type'],
         versionName: argResults['version-name'],
         versionCode: int.tryParse(argResults['version-code'].toString()),
@@ -503,15 +511,16 @@ class Arguments extends PublisherArguments {
       variables,
       filePath:
           json['file-path'] ?? path.join(Files.androidOutputApks.path, "*.apk"),
+      packageName: json['package-name'] as String?,
       binaryType: json['binary-type'],
       versionName: json['version-name'],
-      versionCode: json['version-code'],
+      versionCode: _asInt(json['version-code']),
       releaseStatus: json['release-status'],
       jsonKeyData: json['json-key-data'],
       apk: json['apk'],
       aab: json['aab'],
       track: json['track'] ?? "production",
-      rollout: double.tryParse(json['rollout'] ?? ''),
+      rollout: _asDouble(json['rollout']),
       metadataPath:
           json['metadata-path'] ?? Files.androidDistributionMetadataDir.path,
       jsonKey: json['json-key'] ?? path.join("distribution", "google-key.json"),
@@ -531,7 +540,7 @@ class Arguments extends PublisherArguments {
       mappingPaths: (json['mapping-paths'])?.toString().split(","),
       rootUrl: json['root-url'],
       timeout: int.tryParse(json['timeout'].toString()) ?? 300,
-      versionCodesToRetain: (json['version-codes-to-retain'])?.cast<int>(),
+      versionCodesToRetain: _asIntList(json['version-codes-to-retain']),
       changesNotSentForReview:
           (json['changes-not-sent-for-review'] as bool?) ?? false,
       rescueChangesNotSentForReview:
@@ -571,47 +580,82 @@ class Arguments extends PublisherArguments {
   /// ["run", "upload_to_play_store", "aab:/path/to/app.aab",
   ///  "metadata_path:/path/to/metadata", "track:production"]
   /// ```
+  /// Reads a whole number written either as a YAML number or as a string.
+  ///
+  /// `version-code: 42` and `version-code: "42"` are both natural to write,
+  /// and the round trip through [Variables.processMap] turns the first into
+  /// the second anyway. A bare cast crashed on whichever form it did not get.
+  static int? _asInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString().trim());
+  }
+
+  /// Reads a fraction written either as a YAML number or as a string.
+  static double? _asDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString().trim());
+  }
+
+  /// Reads a list of whole numbers, tolerating string entries.
+  ///
+  /// `cast<int>()` is lazy, so a list holding a string used to throw later,
+  /// somewhere unrelated to the key that caused it.
+  static List<int>? _asIntList(dynamic value) {
+    if (value == null) return null;
+    if (value is! List) return null;
+    final parsed = value.map(_asInt).whereType<int>().toList();
+    return parsed.isEmpty ? null : parsed;
+  }
+
   @override
   List<String> get argumentBuilder {
-    final mappingPathParser = (mappingPaths ?? []);
+    // Copy instead of aliasing: this getter can be evaluated more than once and
+    // must not keep appending the debug symbols archive to the caller's list.
+    final mappingPathParser = List<String>.from(mappingPaths ?? const []);
 
     String filePath = this.filePath;
+    // The directory holding the artifact, used to locate `debug_symbols.zip`.
+    String symbolsDir;
+
     if (FileSystemEntity.isDirectorySync(filePath)) {
-      final file = (Directory(filePath).listSync()).firstWhere(
-        (item) => item.path.endsWith(binaryType == "apk" ? ".apk" : ".aab"),
-        orElse: () => throw Exception("No file found"),
-      );
-      filePath = file.path;
-      if (uploadDebugSymbols) {
-        final debugSymbol = File(path.join(this.filePath, "debug_symbols.zip"));
-        if (debugSymbol.existsSync()) {
-          mappingPathParser.add(debugSymbol.path);
-        } else {
-          logger.logWarning(
-            "Debug symbols file not found at ${path.join(this.filePath, "debug_symbols.zip")}, skipping upload.",
-          );
-        }
-      }
-    } else {
-      if (uploadDebugSymbols) {
-        final debugSymbol = File(
-          path.join(File(filePath).parent.path, "debug_symbols.zip"),
+      symbolsDir = filePath;
+      final extension = binaryType == "apk" ? ".apk" : ".aab";
+      final file = Directory(filePath)
+          .listSync()
+          .whereType<File>()
+          .where((item) => item.path.endsWith(extension))
+          .firstOrNull;
+      if (file == null) {
+        throw Exception(
+          "No $extension file found in $filePath. "
+          "Run the build job first or point `file-path` at an existing binary.",
         );
-        if (debugSymbol.existsSync()) {
-          mappingPathParser.add(debugSymbol.path);
-        } else {
-          logger.logWarning(
-            "Debug symbols file not found at ${path.join(File(filePath).parent.path, "debug_symbols.zip")}, skipping upload.",
-          );
-        }
+      }
+      filePath = file.path;
+    } else {
+      symbolsDir = File(filePath).parent.path;
+    }
+
+    if (uploadDebugSymbols) {
+      final debugSymbol = File(path.join(symbolsDir, "debug_symbols.zip"));
+      if (debugSymbol.existsSync()) {
+        mappingPathParser.add(debugSymbol.path);
+      } else {
+        logger.logWarning(
+          "Debug symbols file not found at ${debugSymbol.path}, skipping upload.",
+        );
       }
     }
+
     return [
       "run",
       "upload_to_play_store",
       "metadata_path:$metadataPath",
       binaryType == "apk" ? "apk:$filePath" : "aab:$filePath",
-      "package_name:${parent.parent.packageName}",
+      "package_name:${resolvePackageName()}",
       "json_key:$jsonKey",
       "timeout:$timeout",
       "track:$track",
@@ -918,7 +962,8 @@ class Arguments extends PublisherArguments {
   ) =>
       Arguments(
         Variables.fromSystem(globalResults),
-        filePath: "${Files.androidDistributionOutputDir.path}/*.apk",
+        filePath: Files.androidDistributionOutputDir.path,
+        packageName: packageName,
         metadataPath: Files.androidDistributionMetadataDir.path,
         jsonKey: Files.fastlaneJson.path,
         uploadDebugSymbols: true,
@@ -947,6 +992,7 @@ class Arguments extends PublisherArguments {
   @override
   Map<String, dynamic> toJson() => {
         'file-path': filePath,
+        'package-name': packageNameOverride,
         'binary-type': binaryType,
         'version-name': versionName,
         'version-code': versionCode,

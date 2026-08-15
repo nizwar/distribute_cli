@@ -36,9 +36,7 @@ class Command extends Commander {
   /// generation, code signing, and distribution preparation workflows.
   @override
   String get description =>
-      "Build an iOS application using the specified configuration and parameters provided in the command-line arguments. "
-      "Generates IPA files with proper code signing and provisioning for distribution through App Store, "
-      "ad-hoc, enterprise, or development channels. Requires macOS with Xcode development environment.";
+      "Build a signed iOS IPA. Requires macOS with Xcode.";
 
   /// Returns the command identifier used in CLI invocation.
   ///
@@ -128,7 +126,7 @@ class Command extends Commander {
   /// - Code signing and provisioning capabilities
   /// - Simulator and device deployment support
   @override
-  Future? run() async {
+  Future<int> run() async {
     // Enforce macOS platform requirement for iOS development
     if (!Platform.isMacOS) {
       logger.logError("This command is only supported on macOS.");

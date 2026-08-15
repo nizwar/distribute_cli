@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
 
+import 'logger.dart';
+
 /// A utility class for managing file and directory paths used in the distribution process.
 ///
 /// The `Files` class provides static references to commonly used files and directories,
@@ -177,18 +179,144 @@ class Files {
       return b.modifiedAt.compareTo(a.modifiedAt);
     });
 
+    final logger = ColorizeLogger();
+
+    // Scoring is relative, so a directory holding nothing but `app-debug.apk`
+    // makes that file the best candidate and ships it as the release. A build
+    // mode that is named in the path but is not the one asked for is a
+    // different artifact, not a lower-ranked one.
+    if (mode.isNotEmpty) {
+      final wrongMode = candidates
+          .where((candidate) => _namesAnotherMode(candidate.path, mode))
+          .toList();
+      if (wrongMode.length == candidates.length) {
+        throw Exception(
+          "No $mode artifact found in ${sourceDir.path}. "
+          "The closest match is ${path.basename(candidates.first.path)}, which "
+          "is not a $mode build — run the build for this mode first.",
+        );
+      }
+      for (final dropped in wrongMode) {
+        logger.logDebug(
+          "Ignoring ${path.basename(dropped.path)}: it is not a $mode build",
+        );
+      }
+      candidates.removeWhere(wrongMode.contains);
+    }
+
+    // Keep only the best matching tier. A `--split-per-abi` build legitimately
+    // produces several artifacts, and those all score identically - but a stale
+    // `app-debug.apk` from an earlier run scores lower, and copying it into the
+    // release output directory is how a debug binary ends up in a release.
+    final bestScore = candidates.first.score;
+    final selected =
+        candidates.where((candidate) => candidate.score == bestScore).toList();
+
+    for (final dropped in candidates.where((c) => c.score != bestScore)) {
+      logger.logDebug(
+        "Ignoring ${path.basename(dropped.path)}: does not match "
+        "mode '$mode'${flavor == null ? '' : " / flavor '$flavor'"}",
+      );
+    }
+
     final output = <String>[];
-    for (final candidate in candidates) {
+    final keptNames = <String>{};
+    for (final candidate in selected) {
       final fileName = path.basename(candidate.path);
       final targetPath = path.join(target, fileName);
+      keptNames.add(fileName);
       output.add(targetPath);
+
+      // Pointing `output:` at the directory the build already writes to makes
+      // source and target the same file. Deleting the target first and then
+      // copying "from" it destroyed the artifact outright, and the caller only
+      // reported a failed copy.
+      if (_isSameFile(candidate.path, targetPath)) {
+        logger.logDebug("$fileName is already in place; leaving it alone");
+        continue;
+      }
+
       if (File(targetPath).existsSync()) {
         await File(targetPath).delete();
       }
       await File(candidate.path).copy(targetPath);
     }
 
+    await _pruneStaleArtifacts(targetDir, extensions, keptNames, logger);
+
     return output.first;
+  }
+
+  /// Removes artifacts left in [targetDir] by a previous, different build.
+  ///
+  /// Publishers scan the output directory rather than a single file, so a
+  /// leftover binary there is a binary that can still be uploaded. Only files
+  /// matching [extensions] are considered, which keeps the blast radius inside
+  /// the artifacts this tool put there in the first place.
+  /// Whether [artifactPath] is labelled with a build mode other than [mode].
+  ///
+  /// Flutter names its outputs `app-debug.apk`, `app-profile.apk`,
+  /// `app-release.apk` and puts them under `.../debug/`, `.../release/`. A path
+  /// carrying one of the other modes is a different build, not a worse match
+  /// for this one — shipping it would put a debug binary in a store listing.
+  static bool _namesAnotherMode(String artifactPath, String mode) {
+    const modes = {'debug', 'profile', 'release'};
+    final wanted = mode.toLowerCase();
+    if (!modes.contains(wanted)) return false;
+
+    final normalized = artifactPath.toLowerCase();
+    bool marks(String candidate) => [
+          '/$candidate/',
+          '-$candidate.',
+          '-$candidate-',
+          '_$candidate.',
+        ].any(normalized.contains);
+
+    if (marks(wanted)) return false;
+    return modes.where((m) => m != wanted).any(marks);
+  }
+
+  /// Whether two paths refer to the same file on disk.
+  ///
+  /// Compared after resolving symlinks and normalising, because `output:` is
+  /// written by hand: `distribution/../build/app/outputs` and an absolute path
+  /// to the same directory are the same place, and neither string matches.
+  static bool _isSameFile(String a, String b) {
+    if (path.equals(path.normalize(a), path.normalize(b))) return true;
+    try {
+      final left = File(a);
+      final right = File(b);
+      if (!left.existsSync() || !right.existsSync()) return false;
+      return path.equals(
+        left.resolveSymbolicLinksSync(),
+        right.resolveSymbolicLinksSync(),
+      );
+    } on FileSystemException {
+      return false;
+    }
+  }
+
+  static Future<void> _pruneStaleArtifacts(
+    Directory targetDir,
+    Set<String> extensions,
+    Set<String> keptNames,
+    ColorizeLogger logger,
+  ) async {
+    if (extensions.isEmpty) return;
+
+    for (final entity in targetDir.listSync()) {
+      if (entity is! File) continue;
+      final fileName = path.basename(entity.path);
+      if (keptNames.contains(fileName)) continue;
+
+      final extension =
+          path.extension(entity.path).replaceFirst('.', '').toLowerCase();
+      if (!extensions.contains(extension)) continue;
+
+      await entity.delete();
+      logger
+          .logDebug("Removed stale artifact $fileName from ${targetDir.path}");
+    }
   }
 
   static int _artifactScore(

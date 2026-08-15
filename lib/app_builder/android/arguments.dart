@@ -1,5 +1,6 @@
 import 'package:args/args.dart';
 import 'package:distribute_cli/parsers/variables.dart';
+import 'package:path/path.dart' as path;
 
 import '../../files.dart';
 import '../build_arguments.dart';
@@ -198,10 +199,43 @@ class Arguments extends BuildArguments {
               ? Files.androidOutputApks.path
               : Files.androidOutputAppbundles.path,
         ) {
+    // Validate the requested output format up front: an unknown value would
+    // otherwise surface as an opaque `flutter build` usage error.
+    if (binaryType != 'apk' && binaryType != 'aab') {
+      throw ArgumentError(
+        'Invalid Android binary-type "$binaryType". Expected "apk" or "aab".',
+      );
+    }
+
     // Validate that splitPerAbi is only used with APK binary type
     if (binaryType != 'apk' && splitPerAbi) {
       throw ArgumentError('binaryType must be "apk" to use splitPerAbi');
     }
+
+    if (obfuscate == true &&
+        (splitDebugInfo == null || splitDebugInfo!.isEmpty)) {
+      logger.logWarning(
+        'obfuscate requires split-debug-info; defaulting to '
+        '"$_defaultSplitDebugInfo". Keep that directory to symbolize crashes.',
+      );
+    }
+  }
+
+  /// Directory used for the Dart symbol map when obfuscation is enabled but no
+  /// `split-debug-info` path was configured.
+  static final String _defaultSplitDebugInfo =
+      path.join("build", "symbols", "android");
+
+  /// The `split-debug-info` directory actually passed to `flutter build`.
+  ///
+  /// Flutter rejects `--obfuscate` unless it is combined with
+  /// `--split-debug-info`, so a default is substituted rather than letting the
+  /// build fail with a usage error.
+  String? get effectiveSplitDebugInfo {
+    if (splitDebugInfo != null && splitDebugInfo!.isNotEmpty) {
+      return splitDebugInfo;
+    }
+    return obfuscate == true ? _defaultSplitDebugInfo : null;
   }
 
   /// Builds the command-line arguments list for the Android build process.
@@ -266,8 +300,9 @@ class Arguments extends BuildArguments {
       // Code size analysis output directory
       if (codeSizeDirectory != null) '--code-size-directory=$codeSizeDirectory',
 
-      // Debug info storage path
-      if (splitDebugInfo != null) '--split-debug-info=$splitDebugInfo',
+      // Debug info storage path (auto-filled when obfuscation is enabled)
+      if (effectiveSplitDebugInfo != null)
+        '--split-debug-info=$effectiveSplitDebugInfo',
     ]);
 
   /// Creates a copy of this Android arguments instance with updated values.

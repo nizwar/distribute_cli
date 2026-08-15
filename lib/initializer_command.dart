@@ -10,6 +10,7 @@ import 'package:distribute_cli/app_publisher/fastlane/arguments.dart'
 import 'package:distribute_cli/app_publisher/xcrun/arguments.dart'
     as xcrun_publisher;
 import 'package:distribute_cli/files.dart';
+import 'package:distribute_cli/logger.dart';
 import 'package:distribute_cli/parsers/build_info.dart';
 import 'package:distribute_cli/parsers/compress_files.dart';
 import 'package:distribute_cli/parsers/job_arguments.dart';
@@ -20,6 +21,7 @@ import 'package:yaml_codec/yaml_codec.dart';
 
 import 'app_builder/ios/arguments.dart' as ios_arguments;
 import 'command.dart';
+import 'version.dart';
 
 /// Command to initialize the project with configuration files and directories.
 ///
@@ -86,12 +88,11 @@ class InitializerCommand extends Commander {
   /// - Fastlane configuration setup
   /// - Google Play Console metadata download
   @override
-  Future? run() async {
+  Future<int> run() async {
     final initialized = <String, bool>{};
-    String configFilePath =
-        globalResults?['config'] as String? ?? 'distribution.yaml';
+    final configFilePath = configPath;
     _logWelcome();
-    _checkPubspecFile();
+    if (!_checkPubspecFile()) return 1;
     await _createDirectory(
       path.join("distribution", "android", "output"),
       initialized,
@@ -126,11 +127,9 @@ class InitializerCommand extends Commander {
 
       await CompressFiles.checkTools().then((value) {
         if (!value) {
-          logger.logWarning(
-            "Compress tool is not installed, some features may not work as expected.",
-          );
+          logger.logWarning("archiver  ${ColorizeLogger.dim("not found")}");
         } else {
-          logger.logSuccess('Compress tool is installed.');
+          logger.logSuccess("archiver  ${ColorizeLogger.dim("available")}");
           initialized["compress_tool"] = true;
         }
       });
@@ -146,19 +145,10 @@ class InitializerCommand extends Commander {
             if (value == 0) return await _downloadAndroidMetaData();
           });
         } else {
-          if (Platform.isWindows) {
-            logger.logWarning(
-              'Tips : In Windows, you can install fastlane using "gem install fastlane", make sure you have Ruby installed.',
-            );
-          } else if (Platform.isLinux) {
-            logger.logWarning(
-              'Tips : In Linux, you can install fastlane using "sudo gem install fastlane", make sure you have Ruby installed.',
-            );
-          } else if (Platform.isMacOS) {
-            logger.logWarning(
-              'Tips : In MacOS, you can install fastlane using "sudo gem install fastlane", make sure you have Ruby installed.',
-            );
-          }
+          final install = Platform.isWindows
+              ? 'gem install fastlane'
+              : 'sudo gem install fastlane';
+          logger.logDetail('install with `$install` (requires Ruby)');
           initialized["fastlane_json"] = false;
         }
       });
@@ -173,30 +163,71 @@ class InitializerCommand extends Commander {
     }
 
     final yaml = File(configFilePath);
-    if (!yaml.existsSync()) {
-      yaml.writeAsString(yamlEncode(structures), flush: true);
+    if (yaml.existsSync()) {
+      logger.logWarning(
+          "kept     ${ColorizeLogger.dim("$configFilePath already exists")}");
+    } else {
+      await yaml.writeAsString(yamlEncode(structures), flush: true);
+      logger.logSuccess("created  ${ColorizeLogger.dim(configFilePath)}");
     }
 
-    return;
+    await _ensureLogIsIgnored();
+    return 0;
   }
 
-  /// Logs the operating system information.
+  /// Adds the generated artifacts to `.gitignore` when the project uses git.
+  ///
+  /// `distribution.log` can contain command output from Fastlane and Firebase,
+  /// so it must never be committed. The `distribution/output` folders hold
+  /// signed binaries, which do not belong in version control either.
+  Future<void> _ensureLogIsIgnored() async {
+    final gitignore = File('.gitignore');
+    if (!gitignore.existsSync()) return;
+
+    const entries = [
+      'distribution.log',
+      'distribution/android/output/',
+      'distribution/ios/output/',
+      'distribution/google-key.json',
+    ];
+
+    final content = await gitignore.readAsString();
+    final existing = content.split('\n').map((line) => line.trim()).toSet();
+    final missing =
+        entries.where((entry) => !existing.contains(entry)).toList();
+    if (missing.isEmpty) return;
+
+    final prefix = content.endsWith('\n') || content.isEmpty ? '' : '\n';
+    await gitignore.writeAsString(
+      "$prefix\n# Added by distribute_cli\n${missing.join('\n')}\n",
+      mode: FileMode.append,
+    );
+    logger.logSuccess(
+      "gitignore  ${ColorizeLogger.dim("added ${missing.length} entr(ies)")}",
+    );
+  }
+
+  /// Prints the one line init header.
   void _logWelcome() {
-    final os = Platform.operatingSystem;
-    logger.logInfo("Welcome to the Distribute CLI!");
-    logger.logInfo("This tool helps you build and publish your application.");
-    logger.logInfo("You are using ${os[0].toUpperCase()}${os.substring(1)}.");
-    logger.logInfo("Make sure you have the necessary tools installed.");
+    final sep = LogSymbols.separator;
+    logger.logInfo(
+      ColorizeLogger.dim(
+        "distribute $packageVersion  $sep  init  $sep  ${Platform.operatingSystem}",
+      ),
+    );
+    logger.logEmpty();
   }
 
   /// Checks if the `pubspec.yaml` file exists.
-  void _checkPubspecFile() {
-    if (!File('pubspec.yaml').existsSync()) {
-      logger.logError(
-        'The "pubspec.yaml" file was not found. Please ensure this command is executed in the root directory of your Flutter project.',
-      );
-      exit(1);
-    }
+  ///
+  /// Returns `false` instead of terminating the process, so the caller decides
+  /// the exit code and the log file is flushed normally.
+  bool _checkPubspecFile() {
+    if (File('pubspec.yaml').existsSync()) return true;
+    logger.logError(
+      'The "pubspec.yaml" file was not found. Please ensure this command is executed in the root directory of your Flutter project.',
+    );
+    return false;
   }
 
   /// Creates a directory if it does not exist.
@@ -213,7 +244,7 @@ class InitializerCommand extends Commander {
     if (!await directory.exists()) {
       await directory.create(recursive: true);
       initialized[key] = true;
-      logger.logSuccess('Created directory: $path');
+      logger.logSuccess("created  ${ColorizeLogger.dim(path)}");
     }
   }
 
@@ -231,26 +262,48 @@ class InitializerCommand extends Commander {
   }) async {
     logger.logDebug("Checking if $toolName is installed...");
     logger.logDebug("Command: $command ${args.join(" ")}");
-    final process = await Process.start(
-      command,
-      args,
-      includeParentEnvironment: true,
-      runInShell: true,
-    ).then((value) async {
-      value.stdout.transform(utf8.decoder).listen(logger.logDebug);
-      if (await value.exitCode != 0) {
-        initialized[toolName.toLowerCase()] = false;
-        logger.logWarning(
-          '$toolName is not installed. Some features may not work as expected.',
-        );
-        if (toolName == "Git") exit(1);
-      } else {
-        initialized[toolName.toLowerCase()] = true;
-        logger.logSuccess('$toolName is installed.');
-      }
-      return value;
-    });
-    return process.exitCode;
+
+    final exitCode = await _runTool(command, args);
+    if (exitCode != 0) {
+      initialized[toolName.toLowerCase()] = false;
+      logger.logWarning(
+        "${toolName.padRight(9)}  ${ColorizeLogger.dim("not installed")}",
+      );
+    } else {
+      initialized[toolName.toLowerCase()] = true;
+      logger.logSuccess(
+        "${toolName.padRight(9)}  ${ColorizeLogger.dim("installed")}",
+      );
+    }
+    return exitCode;
+  }
+
+  /// Runs [command] and streams both of its output streams to the logger.
+  ///
+  /// Draining `stderr` is not optional: a tool such as `fastlane actions` writes
+  /// enough to it to fill the OS pipe buffer, and an undrained pipe blocks the
+  /// child process forever. Returns `127` when the executable does not exist.
+  Future<int> _runTool(String command, List<String> args) async {
+    final Process process;
+    try {
+      process = await Process.start(
+        command,
+        args,
+        includeParentEnvironment: true,
+        runInShell: true,
+      );
+    } on ProcessException {
+      return 127;
+    }
+
+    final drained = Future.wait([
+      process.stdout.transform(utf8.decoder).forEach(logger.logDebug),
+      process.stderr.transform(utf8.decoder).forEach(logger.logDebug),
+    ]);
+
+    final exitCode = await process.exitCode;
+    await drained;
+    return exitCode;
   }
 
   /// Validates the Fastlane JSON key.
@@ -266,44 +319,40 @@ class InitializerCommand extends Commander {
 
     if (!jsonKeyFile.existsSync()) {
       logger.logWarning(
-        "The Fastlane JSON key file does not exist at the specified path: ${jsonKeyFile.path}",
+        "play key   ${ColorizeLogger.dim("missing at ${jsonKeyFile.path}")}",
       );
       initialized["fastlane_json"] = false;
       return -1;
     }
-    return await Process.start(
-      "fastlane",
-      [
-        'run',
-        'validate_play_store_json_key',
-        'json_key:${jsonKeyPath ?? Files.fastlaneJson.path}',
-      ],
-      runInShell: true,
-      includeParentEnvironment: true,
-    ).then((value) async {
-      value.stdout.transform(utf8.decoder).listen(logger.logDebug);
-      if (await value.exitCode != 0) {
-        initialized["fastlane_json"] = false;
-        logger.logError("The Fastlane JSON key is invalid.");
-        return -1;
-      } else {
-        initialized["fastlane_json"] = true;
-        logger.logSuccess('The Fastlane JSON key is valid.');
-        if (jsonKeyPath != null) {
-          if (await Files.fastlaneJson.exists()) {
-            await Files.fastlaneJson.delete();
-          }
-          await File(jsonKeyPath).copy(Files.fastlaneJson.path).then((_) {
-            logger.logDebug(
-              "Fastlane JSON key copied to ${Files.fastlaneJson.path}",
-            );
-          }).catchError((error) {
-            logger.logDebug("Failed to copy the Fastlane JSON key: $error");
-          });
+    final exitCode = await _runTool("fastlane", [
+      'run',
+      'validate_play_store_json_key',
+      'json_key:${jsonKeyPath ?? Files.fastlaneJson.path}',
+    ]);
+
+    if (exitCode != 0) {
+      initialized["fastlane_json"] = false;
+      logger.logError("play key   ${ColorizeLogger.dim("invalid")}");
+      return -1;
+    }
+
+    initialized["fastlane_json"] = true;
+    logger.logSuccess("play key   ${ColorizeLogger.dim("valid")}");
+    if (jsonKeyPath != null) {
+      try {
+        await Files.fastlaneJson.parent.create(recursive: true);
+        if (await Files.fastlaneJson.exists()) {
+          await Files.fastlaneJson.delete();
         }
-        return 0;
+        await File(jsonKeyPath).copy(Files.fastlaneJson.path);
+        logger.logDebug(
+          "Fastlane JSON key copied to ${Files.fastlaneJson.path}",
+        );
+      } catch (error) {
+        logger.logWarning("Failed to copy the Fastlane JSON key: $error");
       }
-    });
+    }
+    return 0;
   }
 
   /// Downloads Android metadata from the Play Store.
@@ -321,27 +370,21 @@ class InitializerCommand extends Commander {
       return;
     }
     logger.logDebug("Downloading Android metadata from Play Store...");
-    await Process.start(
-      "fastlane",
-      [
-        "run",
-        "download_from_play_store",
-        "package_name:${argResults!['android-package-name'] as String}",
-        "json_key:${Files.fastlaneJson.path}",
-        "metadata_path:${Files.androidDistributionMetadataDir.path}",
-      ],
-      runInShell: true,
-      includeParentEnvironment: true,
-    ).then((value) async {
-      value.stdout.transform(utf8.decoder).listen(logger.logDebug);
-      if (await value.exitCode != 0) {
-        logger.logError(
-          "Failed to download Android metadata. ${await value.stderr.transform(utf8.decoder).join("\n")}",
-        );
-      } else {
-        logger.logSuccess("Android metadata downloaded successfully.");
-      }
-    });
+    final exitCode = await _runTool("fastlane", [
+      "run",
+      "download_from_play_store",
+      "package_name:${argResults!['android-package-name'] as String}",
+      "json_key:${Files.fastlaneJson.path}",
+      "metadata_path:${Files.androidDistributionMetadataDir.path}",
+    ]);
+
+    if (exitCode != 0) {
+      logger.logWarning(
+        "metadata   ${ColorizeLogger.dim("download failed (exit $exitCode)")}",
+      );
+    } else {
+      logger.logSuccess("metadata   ${ColorizeLogger.dim("downloaded")}");
+    }
   }
 
   Map<String, dynamic> get structures => {

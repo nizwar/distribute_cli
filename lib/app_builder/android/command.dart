@@ -33,9 +33,7 @@ class Command extends Commander {
   /// behavior for Android application builds.
   @override
   String get description =>
-      "Build an Android application using the specified configuration and options provided in the arguments. "
-      "Supports APK and AAB generation with customizable build modes, flavors, signing configurations, "
-      "and output specifications for creating production-ready Android applications.";
+      "Build an Android APK or AAB, with build modes, flavors and signing.";
 
   /// Returns the command identifier used in CLI invocation.
   ///
@@ -112,5 +110,6 @@ class Command extends Commander {
   /// }
   /// ```
   @override
-  Future? run() => Arguments.fromArgResults(argResults!, globalResults).build();
+  Future<int> run() =>
+      Arguments.fromArgResults(argResults!, globalResults).build();
 }

@@ -2,6 +2,23 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 
+import 'builtin_variables.dart';
+
+/// Raised when a `%{{command}}` substitution cannot produce a value.
+///
+/// Substituting an empty string or the command's stderr looks like success and
+/// silently changes what gets built, so a failed substitution stops the run.
+class VariableException implements Exception {
+  /// What failed, and why.
+  final String message;
+
+  /// Creates a substitution failure carrying [message].
+  VariableException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 /// A utility class for managing and processing variables with support for
 /// environment variables, CLI arguments, and command execution.
 ///
@@ -51,9 +68,23 @@ class Variables {
     input = await substituteCLIArguments(input);
 
     final pattern = RegExp(r'\$\{\{(\w+)\}\}|\$\{(\w+)\}');
+
+    // Two passes: collect the names first so the built-ins - which may have to
+    // spawn `git` - can be awaited before the synchronous replacement runs.
+    final builtins = <String, String>{};
+    for (final match in pattern.allMatches(input)) {
+      final name = (match.group(1) ?? match.group(2))?.trim();
+      if (name == null) continue;
+      if (variables.containsKey(name)) continue;
+      if (builtins.containsKey(name)) continue;
+      final value = await BuiltinVariables.resolve(name);
+      if (value != null) builtins[name] = value;
+    }
+
     input = input.replaceAllMapped(pattern, (match) {
-      final varName = match.group(1) ?? match.group(2); // capture either style
-      final value = variables[varName?.trim()];
+      final varName = (match.group(1) ?? match.group(2))?.trim();
+      // Explicit variables win over the built-ins so any of them can be pinned.
+      final value = variables[varName] ?? builtins[varName];
 
       if (value != null) {
         return value.toString();
@@ -72,8 +103,10 @@ class Variables {
   /// Parameters:
   /// - `input` - The input string containing command placeholders (can be null)
   ///
-  /// Returns the string with command placeholders replaced by their execution results.
-  /// If a command fails, it returns stderr output or empty string on error.
+  /// Returns the string with command placeholders replaced by their standard
+  /// output. Throws [VariableException] when a command cannot be run or exits
+  /// non-zero: substituting the empty string or the command's stderr silently
+  /// changes what gets built and still reports success.
   Future<String> substituteCLIArguments(String? input) async {
     if (input == null) return "";
     // Pattern matches %{{COMMAND}} OR %{COMMAND}
@@ -88,24 +121,41 @@ class Variables {
     for (final match in matches.reversed) {
       final value = match.group(1) ?? match.group(2) ?? "";
       String processResults;
-      try {
-        if (value.trim().isEmpty) {
-          processResults = "";
-        } else if (value.contains(" ")) {
-          final args = _parseCommandArguments(value);
-          final process = await Process.run(args.first, args.sublist(1));
-          processResults = process.exitCode == 0
-              ? process.stdout.toString().trim()
-              : process.stderr.toString().trim();
-        } else {
-          final process = await Process.run(value, []);
-          processResults = process.exitCode == 0
-              ? process.stdout.toString().trim()
-              : process.stderr.toString().trim();
-        }
-      } catch (e) {
+
+      if (value.trim().isEmpty) {
         processResults = "";
+      } else {
+        final args = value.contains(" ")
+            ? _parseCommandArguments(value)
+            : <String>[value];
+
+        final ProcessResult process;
+        try {
+          process = await Process.run(args.first, args.sublist(1));
+        } on ProcessException catch (e) {
+          // A missing binary used to substitute an empty string, so
+          // `build-name: "%{{git describe}}"` on a machine without git
+          // produced `--build-name=` and a green run.
+          throw VariableException(
+            "`%{{$value}}` could not be run: ${e.message}",
+          );
+        }
+
+        if (process.exitCode != 0) {
+          // The old behaviour substituted stderr into the value. Since stderr
+          // contains spaces it split into extra arguments on the flutter
+          // command line, producing a build nobody asked for that still
+          // reported success.
+          final detail = process.stderr.toString().trim();
+          throw VariableException(
+            "`%{{$value}}` exited with ${process.exitCode}"
+            "${detail.isEmpty ? '' : ': $detail'}",
+          );
+        }
+
+        processResults = process.stdout.toString().trim();
       }
+
       // Replace only the current match
       result = result.replaceRange(match.start, match.end, processResults);
     }
@@ -140,7 +190,12 @@ class Variables {
   Future<Map<String, dynamic>> processMap(Map<String, dynamic> json) async {
     Map<String, dynamic> processedMap = {};
     for (var key in json.keys) {
-      processedMap[key] = await process(json[key].toString());
+      final value = json[key];
+      // `null.toString()` is the four-character string "null", which then
+      // passes every `isNotEmpty` check downstream. That is how an unset
+      // `target-commitish` reached the GitHub API as a literal "null" branch.
+      processedMap[key] =
+          value == null ? null : await process(value.toString());
     }
     return processedMap;
   }
