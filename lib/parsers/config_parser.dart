@@ -4,6 +4,9 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:yaml/yaml.dart';
 
+import '../changelog_command.dart';
+import 'builtin_variables.dart';
+import 'changelog.dart';
 import 'job_arguments.dart';
 import 'notification_config.dart';
 import 'task_arguments.dart';
@@ -62,6 +65,12 @@ class ConfigParser {
   /// Notifications delivered once the whole run has finished.
   final List<NotificationConfig> notifications;
 
+  /// Raw `changelog:` mapping, or an empty map when the section is absent.
+  ///
+  /// Left unparsed here so `ChangelogSettings` owns its own validation, the
+  /// same way `AiConfig` owns the `ai:` section.
+  final Map<String, dynamic> changelog;
+
   /// Raw `ai:` mapping, or an empty map when the section is absent.
   ///
   /// Left unparsed here so `AiConfig` owns the layering between this section,
@@ -89,6 +98,7 @@ class ConfigParser {
     required this.variables,
     this.notifications = const [],
     this.ai = const {},
+    this.changelog = const {},
     this.output = "distribution",
   });
 
@@ -172,6 +182,26 @@ class ConfigParser {
       );
     }
     environments.addAll(yamlVariables);
+
+    // `${{CHANGELOG}}` reads the history lazily, but it has to know the range
+    // and formatting the project asked for before anything resolves it.
+    final changelogSection =
+        _parseSection(configJson["changelog"], "changelog", path);
+    BuiltinVariables.changelogOptions = _changelogOptions(
+      changelogSection,
+      path,
+    );
+    // `changelog: ai: true` means the variable is polished on every publish.
+    // Installed through a callback so this file keeps no dependency on the AI
+    // adapters, and a project that never asks for it never loads them.
+    try {
+      installChangelogPolisher(
+        changelogSection: changelogSection,
+        aiSection: _parseAi(configJson["ai"], path),
+      );
+    } on ArgumentError catch (e) {
+      throw ConfigException("${e.message} (in '$path')");
+    }
 
     final variables = Variables(environments, globalResults);
 
@@ -297,6 +327,7 @@ class ConfigParser {
       variables: variables,
       notifications: _parseNotifications(configJson["notifications"], path),
       ai: _parseAi(configJson["ai"], path),
+      changelog: changelogSection,
     );
   }
 
@@ -311,10 +342,74 @@ class ConfigParser {
   }
 
   /// Validates the optional top level `ai:` section.
-  static Map<String, dynamic> _parseAi(dynamic raw, String path) {
+  static Map<String, dynamic> _parseAi(dynamic raw, String path) =>
+      _parseSection(raw, "ai", path);
+
+  /// Reads the subset of `changelog:` that `${{CHANGELOG}}` needs.
+  ///
+  /// The rest of the section belongs to the `changelog` command; only the
+  /// options that change what the variable expands to are read here.
+  static ChangelogOptions _changelogOptions(
+    Map<String, dynamic> section,
+    String path,
+  ) {
+    bool flag(String key, {bool defaultValue = false}) {
+      final raw = section[key];
+      if (raw == null) return defaultValue;
+      if (raw is bool) return raw;
+      switch (raw.toString().toLowerCase().trim()) {
+        case 'true':
+        case 'yes':
+          return true;
+        case 'false':
+        case 'no':
+          return false;
+      }
+      throw ConfigException(
+        "changelog.$key in '$path' must be true or false, got '$raw'.",
+      );
+    }
+
+    int? limit() {
+      final raw = section['limit'];
+      if (raw == null) return null;
+      final parsed = raw is int ? raw : int.tryParse(raw.toString().trim());
+      if (parsed == null || parsed <= 0) {
+        throw ConfigException(
+          "changelog.limit in '$path' must be a positive whole number, "
+          "got '$raw'.",
+        );
+      }
+      return parsed;
+    }
+
+    final from = section['from']?.toString().trim();
+    final ChangelogFormat format;
+    try {
+      format = ChangelogFormat.parse(section['format']?.toString());
+    } on ArgumentError catch (e) {
+      throw ConfigException("${e.message} (in '$path')");
+    }
+
+    return ChangelogOptions(
+      from: from == null || from.isEmpty ? null : from,
+      group: flag('group', defaultValue: true),
+      includeShas: flag('shas'),
+      includeMerges: flag('merges'),
+      limit: limit(),
+      format: format,
+    );
+  }
+
+  /// Validates an optional top level mapping, leaving its keys unparsed.
+  static Map<String, dynamic> _parseSection(
+    dynamic raw,
+    String name,
+    String path,
+  ) {
     if (raw == null) return const {};
     if (raw is! Map) {
-      throw ConfigException("'ai' in '$path' must be a mapping.");
+      throw ConfigException("'$name' in '$path' must be a mapping.");
     }
     return Map<String, dynamic>.from(raw);
   }

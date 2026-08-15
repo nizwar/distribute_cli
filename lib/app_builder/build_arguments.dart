@@ -224,8 +224,13 @@ abstract class BuildArguments extends JobArguments {
     process.stdout.transform(utf8.decoder).listen(logger.logDebug);
     process.stderr.transform(utf8.decoder).listen(logger.logErrorVerbose);
 
-    // Wait for build completion
-    final exitCode = await process.exitCode;
+    // A flutter build produces nothing on screen below --verbose and can run
+    // for minutes, so without this the CLI looks hung.
+    final exitCode = await Spinner.run(
+      'building $binaryType'
+      '${flavor == null || flavor!.isEmpty ? '' : " ($flavor)"}',
+      () => process.exitCode,
+    );
     if (exitCode != 0) {
       // `distribute build android` returns straight to the process exit code,
       // so without this line a failed standalone build printed nothing at all:

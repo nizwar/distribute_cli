@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'version.dart';
@@ -360,6 +361,10 @@ class ColorizeLogger {
       final flat = verbosity.rank < LogVerbosity.normal.rank;
       final pad = _indent + (flat ? '' : '  ' * extraIndent);
       final sink = (level.isError || reserveStdout) ? stderr : stdout;
+      // The spinner owns a line that is being overwritten in place. Anything
+      // printed while it is running has to erase it first, or the two end up
+      // spliced together on the same row.
+      Spinner.active?.erase();
       // Continuation lines are aligned under the text, not under the symbol.
       final continuation = symbol == null ? '' : ' ' * (symbol.length + 1);
 
@@ -373,6 +378,7 @@ class ColorizeLogger {
         final body = style == null ? rendered : _paint(rendered, style);
         sink.writeln('$pad$prefix$body');
       }
+      Spinner.active?.paint();
     }
 
     _append(lines, level);
@@ -528,7 +534,9 @@ class ColorizeLogger {
   /// list of errors, not a page of blank lines.
   void logEmpty() {
     if (!_isVisible(LogLevel.info)) return;
+    Spinner.active?.erase();
     (ColorizeLogger.reserveStdout ? stderr : stdout).writeln('');
+    Spinner.active?.paint();
   }
 }
 
@@ -607,4 +615,165 @@ enum LogLevel {
 
   /// Whether messages of this level belong on stderr instead of stdout.
   bool get isError => this == LogLevel.error || this == LogLevel.errorVerbose;
+}
+
+/// A single line that animates in place while a long step is running.
+///
+/// Builds and uploads spend minutes producing nothing on screen — flutter's own
+/// output only appears under `--verbose` — so without this the CLI looks hung.
+/// The spinner replaces that silence with a frame, the step's name and a live
+/// elapsed time, rewritten on one row.
+///
+/// It deliberately refuses to run in the places where an animation is wrong:
+///
+/// - no terminal (piped output, CI logs) — the escape codes would be captured
+///   verbatim and every tick would become another line in the log
+/// - `--quiet` and `--silent`, which asked for less output, not more
+/// - `--verbose`, where the tool's own output is streaming and would be
+///   interleaved with the animation
+///
+/// Nothing it draws reaches the log file: the file is the record, and a record
+/// of an animation is noise.
+class Spinner {
+  /// The spinner currently drawing, if any.
+  ///
+  /// Only one runs at a time — steps are sequential — and [ColorizeLogger]
+  /// consults it before printing so the two never share a row.
+  static Spinner? active;
+
+  /// Frames of the animation, unicode with an ASCII fallback.
+  static List<String> get _frames => ColorizeLogger.useUnicode
+      ? const ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+      : const ['-', '\\', '|', '/'];
+
+  /// How often the frame advances.
+  static const Duration interval = Duration(milliseconds: 90);
+
+  /// Label shown next to the frame.
+  final String label;
+
+  /// Indentation captured when the spinner started.
+  final String _pad;
+
+  Timer? _timer;
+  final Stopwatch _elapsed = Stopwatch();
+  int _frame = 0;
+  int _painted = 0;
+  bool _running = false;
+
+  Spinner._(this.label, this._pad);
+
+  /// Where the animation is drawn. Replaced in tests.
+  static StringSink Function() sink =
+      () => ColorizeLogger.reserveStdout ? stderr : stdout;
+
+  /// Whether that destination can show an animation. Replaced in tests.
+  static bool Function() isTerminal =
+      () => (ColorizeLogger.reserveStdout ? stderr : stdout).hasTerminal;
+
+  /// Restores the production destination. Intended for tests.
+  static void resetOutput() {
+    sink = () => ColorizeLogger.reserveStdout ? stderr : stdout;
+    isTerminal =
+        () => (ColorizeLogger.reserveStdout ? stderr : stdout).hasTerminal;
+  }
+
+  /// Whether an animation is appropriate for the current output.
+  static bool get supported {
+    if (ColorizeLogger.verbosity != LogVerbosity.normal) return false;
+    return isTerminal();
+  }
+
+  /// Runs [body] with a spinner labelled [label].
+  ///
+  /// The spinner is always stopped, including when [body] throws, so a failure
+  /// never leaves a half-drawn line on the terminal.
+  static Future<T> run<T>(String label, Future<T> Function() body) async {
+    if (!supported || active != null) return body();
+
+    final spinner = Spinner._(label, '  ' * ColorizeLogger.indentLevel);
+    active = spinner;
+    spinner._start();
+    try {
+      return await body();
+    } finally {
+      spinner._stop();
+      active = null;
+    }
+  }
+
+  void _start() {
+    _running = true;
+    _elapsed.start();
+    paint();
+    _timer = Timer.periodic(interval, (_) {
+      _frame = (_frame + 1) % _frames.length;
+      paint();
+    });
+  }
+
+  void _stop() {
+    _timer?.cancel();
+    _timer = null;
+    _elapsed.stop();
+    erase();
+    _running = false;
+  }
+
+  /// Draws the current frame, replacing whatever the spinner drew last.
+  void paint() {
+    if (!_running) return;
+
+    final plain = '$_pad${_frames[_frame]} $label  '
+        '${_format(_elapsed.elapsed)}';
+    // A line wider than the pane wraps, and `\r` only returns to the start of
+    // the *last* row — so the erase would miss everything above it and every
+    // repaint would scroll another row. Truncating keeps the animation on one
+    // line, which is the only shape it can clean up after.
+    final trimmed = plain.length <= _columns
+        ? plain
+        : '${plain.substring(0, _columns - 1)}…';
+
+    sink().write('\r${_styled(trimmed)}');
+    // Remembered so the next erase clears exactly this many columns; a shorter
+    // following line would otherwise leave the tail of this one behind.
+    _painted = trimmed.length;
+  }
+
+  /// Re-applies the dim styling to the elapsed time inside [line].
+  String _styled(String line) {
+    if (!ColorizeLogger.useColors) return line;
+    final split = line.lastIndexOf('  ');
+    if (split == -1) return line;
+    return line.substring(0, split + 2) +
+        ColorizeLogger.dim(line.substring(split + 2));
+  }
+
+  /// Usable width, with a floor so a nonsensical value cannot break the maths.
+  static int get _columns {
+    try {
+      final width = stdout.terminalColumns;
+      return width < 20 ? 20 : width - 1;
+    } on StdoutException {
+      // No terminal to ask; the spinner is not drawn there anyway.
+      return 80;
+    }
+  }
+
+  /// Removes the spinner's line, leaving the cursor at the start of the row.
+  void erase() {
+    if (_painted == 0) return;
+    sink().write('\r${' ' * _painted}\r');
+    _painted = 0;
+  }
+
+  /// `1.4s`, `12s`, `2m 05s` — short enough not to jitter the line width.
+  static String _format(Duration duration) {
+    if (duration.inSeconds < 10) {
+      return '${(duration.inMilliseconds / 1000).toStringAsFixed(1)}s';
+    }
+    if (duration.inMinutes < 1) return '${duration.inSeconds}s';
+    final seconds = duration.inSeconds % 60;
+    return '${duration.inMinutes}m ${seconds.toString().padLeft(2, '0')}s';
+  }
 }

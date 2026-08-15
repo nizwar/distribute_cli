@@ -220,6 +220,63 @@ A wizard reads its answers from stdin. When the input runs out — a CI job, an
 empty stdin, Ctrl-D — it exits `64` rather than hanging. It also refuses to run
 under `--quiet` or `--silent`.
 
+## `distribute changelog`
+
+```
+Generate release notes from the git history.
+
+Usage: distribute changelog [arguments]
+-c, --config            Path to the configuration file.
+                        (defaults to "distribution.yaml")
+    --from              Start of the range, exclusive. Defaults to the previous tag.
+    --to                End of the range, inclusive.
+                        (defaults to "HEAD")
+-f, --format            How to render the notes.
+
+          [markdown]    Headed sections and bullets, for a GitHub release.
+          [plain]       A flat bullet list, for stores that show plain text.
+
+    --[no-]group        Group markdown output by conventional commit type.
+                        (defaults to on)
+    --shas              Append the short commit hash to every line.
+    --limit             Stop after this many commits.
+    --merges            Include merge commits.
+    --ai                Rewrite the notes with the configured model before printing.
+-o, --output            Write to this file instead of stdout.
+
+Run "distribute help" to see global options.
+```
+
+```zsh
+distribute changelog                      # since the previous tag
+distribute changelog --from v1.2.0        # explicit range
+distribute changelog -f plain             # flat list, for a store listing
+distribute changelog -o RELEASE_NOTES.md  # write to a file
+distribute changelog --ai                 # let the model tidy the wording
+```
+
+Reference the result from a publisher instead of copying it by hand:
+
+```yaml
+changelog:
+  format: markdown
+
+tasks:
+  - name: Ship
+    key: ship
+    jobs:
+      - name: Firebase
+        key: fb
+        description: Upload the build
+        package_name: com.example.app
+        publisher:
+          firebase:
+            file-path: distribution/android/output
+            app-id: "1:2:android:3"
+            binary-type: aab
+            release-notes: "${{CHANGELOG_PLAIN}}"
+```
+
 ## `distribute ai`
 
 ```

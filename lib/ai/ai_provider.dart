@@ -115,6 +115,18 @@ abstract class AiProvider {
   /// failure.
   Future<AiReply> complete({required String context, required String prompt});
 
+  /// Asks the model to rewrite [text] according to [instruction].
+  ///
+  /// Plain text in, plain text out — no tool call, and nothing is executed as a
+  /// result. Used to polish a generated changelog, where the model's job is
+  /// editorial rather than deciding what the CLI does.
+  ///
+  /// Throws [AiException] on transport or protocol failure.
+  Future<String> rewrite({
+    required String instruction,
+    required String text,
+  });
+
   /// The tool the model is asked to call, as a JSON Schema.
   ///
   /// Shared verbatim by both providers — only the envelope around it differs.

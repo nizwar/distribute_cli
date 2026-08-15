@@ -1,38 +1,88 @@
+## 2.7.1
+
+### Added
+* **`distribute changelog`** — release notes from the git history. The default
+  range is everything since the previous tag, which is what one release actually
+  contains; `git describe` alone would return HEAD's own tag and produce an
+  empty range for exactly the release being cut. Conventional commit prefixes
+  are used for grouping when they are there, and ignored when they are not.
+  `--ai` hands the result to the configured model for an editorial pass, with an
+  instruction that forbids inventing or dropping a change.
+* **`${{CHANGELOG}}`, `${{CHANGELOG_PLAIN}}` and `${{CHANGELOG_RANGE}}`** — the
+  same notes as variables, so a publisher can fill `release-notes` or
+  `release-body` without a wrapper script. The history is read once per run and
+  shared by every job that references it.
+* **A `changelog:` section** in `distribution.yaml` configuring the range, the
+  format, grouping, hashes, merges and the optional AI pass.
+* **A spinner while a build or upload runs.** Those stages produce nothing on
+  screen below `--verbose` and can last minutes, so the CLI looked hung. One
+  line, rewritten in place, carrying the step and its elapsed time. It is drawn
+  only on a real terminal and never under `--quiet`, `--silent` or `--verbose`,
+  so piped output, CI logs and the log file are untouched — and any log line
+  printed while it runs erases it first, so the two never share a row. The line is
+  truncated to the pane width: a wrapped spinner cannot be erased, because a
+  carriage return only returns to the start of the last row.
+
+### Fixed
+* `distribute changelog` ran `git log <rev>` without a `--` separator, so a
+  revision that is also a path — a `release` branch beside a `release/`
+  directory, or a tracked file named `HEAD` — made git refuse with "ambiguous
+  argument". That failure was swallowed and reported as "no commits" with exit
+  `0`. Every git failure is now surfaced with git's own message.
+* The previous tag was chosen by creation date rather than by ancestry, so a tag
+  cut on a side branch, a retroactively added tag, or two tags created in the
+  same second could make a release re-list commits that had already shipped
+  while dropping ones that had not. The boundary is now the nearest tagged
+  ancestor of the range's end.
+* `${{CHANGELOG}}` ignored `changelog: format:` and always rendered markdown,
+  and `changelog: ai:` and `prompt:` never reached it at all — both documented
+  as working. `${{CHANGELOG_PLAIN}}` remains flat whatever the format says.
+* `distribute changelog --ai` sent the API key as the literal `${{VAR}}`
+  placeholder instead of resolving it, and printed its progress line onto stdout
+  where it landed in the middle of the redirected notes.
+* An empty range or a shallow clone now says so, and an empty range points out
+  that whatever `-o` names still holds the previous run's notes.
+* An explicitly typed `--config` that does not exist is an error rather than
+  being silently ignored.
+
 ## 2.7.0
 
-### Security
-* **Two credentials reached the log file in the clear.** The run header masks
-  credential options by name, but only matched their long spellings, so
-  `publish xcrun -p <app-specific-password>` and
-  `publish fastlane -J '<service-account-json>'` were written out verbatim.
-  Short forms are now masked too, per sub-command — `-p` is a password under
-  `xcrun` but the package name under `create job`, so the letter alone is not
-  enough to decide. A test walks the real argument parsers and fails if a
-  credential option grows an abbreviation that is not covered.
-* **`permission: auto` is no longer honoured from `distribution.yaml`.** That
-  file travels with the repository, so a cloned project could pre-authorise its
-  own builds and uploads with no confirmation. The project file may still
-  restrict to `manual` or `plan`; granting `auto` now requires `-p auto` or the
-  machine-wide store. The demotion is announced, with the two ways to enable it.
-* **The endpoint is printed, and a redirected key is flagged.** A project file
-  setting `base-url` while the API key came from the machine-wide store would
-  send that key wherever the repository pointed, and the URL was never shown.
-  It is now part of the header, and that combination warns.
-* **Project data is fenced in the model prompt.** Task and job names and
-  descriptions were interpolated raw, after the tool's own rules, so a task
-  description could append a section that read as new instructions and re-target
-  the operation the assistant chose. Values are now flattened, capped and
-  wrapped in a delimiter the prompt tells the model to treat as data.
-* **Model-supplied text can no longer repaint the terminal.** Escape sequences
-  were only stripped when colours were off, so a reply could erase and rewrite
-  the confirmation line the user was about to answer. Everything that comes back
-  over the network is stripped and truncated before it is printed.
-* **A reply truncated by the token limit is refused.** Both adapters accepted a
-  `tool_use` block cut short by `max_tokens` as if it were complete — a partial
-  `{"command":"run"}` becomes a full-configuration run.
-* Overriding `--ai-provider` no longer leaves the previous provider's key, model
-  and endpoint in place, which produced a configuration nobody asked for and a
-  404 blaming settings the user never touched.
+> Everything from 2.4.0 onwards is one upgrade for anyone coming from 2.3.5.
+> The behaviour changes worth knowing about before you update:
+> `distribute run --json` is a flag rather than an option (use `--json-file` for
+> a path); `permission: auto` is no longer honoured from `distribution.yaml`;
+> a `%{{command}}` substitution that fails now stops the job instead of
+> silently substituting its error text; and a publisher refuses an artifact
+> whose build mode does not match, rather than promoting whatever it finds.
+
+### Added
+* **`distribute ai "<request>"`** — ask a model to pick the right command:
+  `distribute ai "tolong build yang ios"` → `distribute run -o ios.build`.
+  The assistant never composes a shell string. It fills in a constrained schema
+  whose only commands are `run`, `validate` and `doctor`, and whose operation
+  keys come from a generated list of the keys that exist in *this* project — so
+  it cannot invent a task, and cannot reach anything a typed command could not.
+  Chosen commands run through the same `CommandRunner` as a hand-typed one.
+* **Two provider backends behind one interface.** `AiProvider` has an
+  OpenAI-compatible adapter (OpenAI, OpenRouter, Groq, Together, DeepSeek, a
+  local Ollama — anything serving `POST /chat/completions`) and an Anthropic
+  Messages API adapter. They differ in more than a URL — bearer token vs
+  `x-api-key`, nested `function` vs `input_schema`, a JSON-string argument blob
+  vs a parsed map, and Anthropic's refusals arriving as a *successful* HTTP 200
+  that has to be checked before reading any content.
+* **Three permission modes**, set by `permission:` or `-p`:
+  `manual` (show the command, confirm before running — the default),
+  `auto` (run it straight away), `plan` (print it, never run).
+* **`distribute ai --setup`** — an interactive wizard with numbered menus and
+  non-echoing secret entry. It asks whether to store the settings machine-wide
+  (`~/.distribute/ai.json`, written `chmod 600`) or in the project.
+* **`ai:` section in `distribution.yaml`**, which overrides the machine-wide
+  store. Layering, most specific first: CLI flags → `distribution.yaml` →
+  machine-wide store → environment (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`).
+  `api-key` accepts `${{VAR}}`, and the wizard defaults to writing a placeholder
+  rather than the literal key, since `distribution.yaml` is normally committed.
+  Whatever the source, the resolved key is registered with the logger and masked
+  everywhere.
 
 ### Changed
 * **The `create` wizards were rebuilt.** They used to dump a list of tasks and
@@ -179,34 +229,39 @@
   choice.
 * Writing the machine-wide AI store no longer fails when `chmod` is unavailable.
 
-### Added
-* **`distribute ai "<request>"`** — ask a model to pick the right command:
-  `distribute ai "tolong build yang ios"` → `distribute run -o ios.build`.
-  The assistant never composes a shell string. It fills in a constrained schema
-  whose only commands are `run`, `validate` and `doctor`, and whose operation
-  keys come from a generated list of the keys that exist in *this* project — so
-  it cannot invent a task, and cannot reach anything a typed command could not.
-  Chosen commands run through the same `CommandRunner` as a hand-typed one.
-* **Two provider backends behind one interface.** `AiProvider` has an
-  OpenAI-compatible adapter (OpenAI, OpenRouter, Groq, Together, DeepSeek, a
-  local Ollama — anything serving `POST /chat/completions`) and an Anthropic
-  Messages API adapter. They differ in more than a URL — bearer token vs
-  `x-api-key`, nested `function` vs `input_schema`, a JSON-string argument blob
-  vs a parsed map, and Anthropic's refusals arriving as a *successful* HTTP 200
-  that has to be checked before reading any content.
-* **Three permission modes**, set by `permission:` or `-p`:
-  `manual` (show the command, confirm before running — the default),
-  `auto` (run it straight away), `plan` (print it, never run).
-* **`distribute ai --setup`** — an interactive wizard with numbered menus and
-  non-echoing secret entry. It asks whether to store the settings machine-wide
-  (`~/.distribute/ai.json`, written `chmod 600`) or in the project.
-* **`ai:` section in `distribution.yaml`**, which overrides the machine-wide
-  store. Layering, most specific first: CLI flags → `distribution.yaml` →
-  machine-wide store → environment (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`).
-  `api-key` accepts `${{VAR}}`, and the wizard defaults to writing a placeholder
-  rather than the literal key, since `distribution.yaml` is normally committed.
-  Whatever the source, the resolved key is registered with the logger and masked
-  everywhere.
+### Security
+* **Two credentials reached the log file in the clear.** The run header masks
+  credential options by name, but only matched their long spellings, so
+  `publish xcrun -p <app-specific-password>` and
+  `publish fastlane -J '<service-account-json>'` were written out verbatim.
+  Short forms are now masked too, per sub-command — `-p` is a password under
+  `xcrun` but the package name under `create job`, so the letter alone is not
+  enough to decide. A test walks the real argument parsers and fails if a
+  credential option grows an abbreviation that is not covered.
+* **`permission: auto` is no longer honoured from `distribution.yaml`.** That
+  file travels with the repository, so a cloned project could pre-authorise its
+  own builds and uploads with no confirmation. The project file may still
+  restrict to `manual` or `plan`; granting `auto` now requires `-p auto` or the
+  machine-wide store. The demotion is announced, with the two ways to enable it.
+* **The endpoint is printed, and a redirected key is flagged.** A project file
+  setting `base-url` while the API key came from the machine-wide store would
+  send that key wherever the repository pointed, and the URL was never shown.
+  It is now part of the header, and that combination warns.
+* **Project data is fenced in the model prompt.** Task and job names and
+  descriptions were interpolated raw, after the tool's own rules, so a task
+  description could append a section that read as new instructions and re-target
+  the operation the assistant chose. Values are now flattened, capped and
+  wrapped in a delimiter the prompt tells the model to treat as data.
+* **Model-supplied text can no longer repaint the terminal.** Escape sequences
+  were only stripped when colours were off, so a reply could erase and rewrite
+  the confirmation line the user was about to answer. Everything that comes back
+  over the network is stripped and truncated before it is printed.
+* **A reply truncated by the token limit is refused.** Both adapters accepted a
+  `tool_use` block cut short by `max_tokens` as if it were complete — a partial
+  `{"command":"run"}` becomes a full-configuration run.
+* Overriding `--ai-provider` no longer leaves the previous provider's key, model
+  and endpoint in place, which produced a configuration nobody asked for and a
+  404 blaming settings the user never touched.
 
 ## 2.6.0
 

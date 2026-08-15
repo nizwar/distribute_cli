@@ -18,6 +18,7 @@ Distribute CLI is a command-line tool to automate building and distributing Flut
   - [`distribute build <platform>`](#distribute-build-platform)
   - [`distribute publish <publisher>`](#distribute-publish-publisher)
   - [`distribute run`](#distribute-run)
+  - [`distribute changelog`](#distribute-changelog)
   - [`distribute create`](#distribute-create)
 - [AI Assistant](#ai-assistant)
 - [Job Reliability Options](#job-reliability-options)
@@ -39,6 +40,7 @@ Distribute CLI is a command-line tool to automate building and distributing Flut
 - Plain-language commands via `distribute ai` — any OpenAI-compatible endpoint or Claude
 - Dry runs, per-job retries and `continue-on-error`
 - CI-friendly exit codes, a per-job run summary and a `--json` report
+- Release notes generated from the git history, optionally polished by a model
 - Artifact report with size and SHA-256 for every built binary
 - Slack / Discord / Telegram / webhook notifications, including on failure
 - Credentials are automatically masked in the terminal and in `distribution.log`
@@ -175,6 +177,7 @@ The Distribute CLI provides several commands to manage your app distribution pro
 - [distribute build](#distribute-build-platform)
 - [distribute publish](#distribute-publish-publisher)
 - [distribute run](#distribute-run)
+- [distribute changelog](#distribute-changelog)
 - [distribute create](#distribute-create)
 - [distribute ai](#ai-assistant)
 
@@ -267,6 +270,109 @@ has no reason to install Fastlane. The command only fails on required problems.
 
 ---
 
+### `distribute changelog`
+Turns the git history into release notes. The default range is everything since
+the previous tag, which is what one release actually contains — running it on a
+tagged commit describes *that* release rather than an empty range.
+
+```zsh
+distribute changelog                       # notes since the previous tag
+distribute changelog --from v1.2.0         # an explicit starting point
+distribute changelog -f plain              # flat list, for a store listing
+distribute changelog -o RELEASE_NOTES.md   # write to a file
+distribute changelog --ai                  # let the model tidy the wording
+```
+
+#### Options
+| Option | Description |
+| --- | --- |
+| `--from <ref>` | Start of the range, exclusive. Defaults to the previous tag |
+| `--to <ref>` | End of the range, inclusive. Defaults to `HEAD` |
+| `-f, --format <f>` | `markdown` (grouped sections) or `plain` (flat list) |
+| `--no-group` | Do not group markdown output by commit type |
+| `--shas` | Append the short commit hash to every line |
+| `--limit <n>` | Stop after this many commits |
+| `--merges` | Include merge commits |
+| `--ai` | Rewrite the notes with the configured model |
+| `-o, --output <path>` | Write to a file instead of stdout |
+
+[Conventional commit](https://www.conventionalcommits.org) prefixes are used for
+grouping, but nothing requires them — a repository with ordinary commit messages
+gets a flat list rather than an error:
+
+```
+### Breaking changes
+- drop android 5 support
+
+### Features
+- auth: add google sign in
+
+### Bug fixes
+- crash on empty profile
+
+### Other changes
+- tidy up the build script
+```
+
+#### Using it in a publish
+
+The generated notes are available as variables, so a publisher can fill its
+release notes without a wrapper script:
+
+| Variable | Expands to |
+| --- | --- |
+| `${{CHANGELOG}}` | The notes, honouring `format:`, `group:` and `shas:` |
+| `${{CHANGELOG_PLAIN}}` | The notes as a flat list, whatever `format:` says |
+| `${{CHANGELOG_RANGE}}` | `v1.2.0 → HEAD`, for a heading or a message |
+
+```yaml
+changelog:
+  format: "markdown"     # markdown | plain
+  group: true            # group markdown output by commit type
+  shas: false            # append the short hash to each line
+  merges: false          # include merge commits
+  # from: "v1.0.0"       # pin the start; omit for "the previous tag"
+  # limit: 200           # stop after this many commits
+  # ai: true             # polish ${{CHANGELOG}} on every publish
+  # prompt: "…"          # override the editing instruction
+
+tasks:
+  - name: "Android release"
+    key: "android"
+    jobs:
+      - name: "Publish Android"
+        key: "publish"
+        description: "Upload to Firebase"
+        package_name: "${{ANDROID_PACKAGE}}"
+        publisher:
+          firebase:
+            file-path: "distribution/android/output"
+            app-id: "${{FIREBASE_APP_ID}}"
+            binary-type: "aab"
+            release-notes: "${{CHANGELOG_PLAIN}}"
+```
+
+The history is read once per run and reused, so several publishers referencing
+it cost one `git log`. When there is no git repository the placeholder is left
+unresolved and `validate` reports it, rather than quietly publishing empty notes.
+
+> `ai: true` sends your commit subjects to the configured model on **every**
+> publish, so it is off by default. The instruction forbids inventing or dropping
+> a change. If the request fails — no key, an unreachable endpoint, a reply cut
+> off by the token limit — the job **fails**: shipping raw commit subjects when
+> edited notes were asked for is the one outcome nobody wants at publish time.
+>
+> The endpoint is subject to the same rule as `distribute ai`: if the project
+> file names a `base-url` while the key comes from your machine, it warns before
+> sending anything.
+
+`distribute changelog` warns when it is run in a shallow clone (`--depth 1`,
+which is the default for most CI checkouts), because the notes would silently be
+missing everything before the cut. Fetch the full history first —
+`git fetch --unshallow`, or `fetch-depth: 0` on a GitHub Actions checkout.
+
+---
+
 ### `distribute validate`
 Parses `distribution.yaml` and reports problems without building or uploading
 anything. Ideal as the first step of a CI pipeline or as a pre-commit hook.
@@ -301,7 +407,7 @@ name, offers the package name detected from the project, and shows what it is
 about to write before touching the file:
 
 ```
-distribute 2.7.0  ·  create builder job  ·  distribution.yaml
+distribute 2.7.1  ·  create builder job  ·  distribution.yaml
 
 ? Which task does this job belong to?
   › 1) Android release  android  build, publish
@@ -590,7 +696,7 @@ The terminal and the log file are deliberately different. The terminal gets a
 compact, symbol based view meant to be read while it scrolls:
 
 ```
-distribute 2.7.0  ·  distribution.yaml  ·  2 task(s), 3 job(s)
+distribute 2.7.1  ·  distribution.yaml  ·  2 task(s), 3 job(s)
 
 ▸ Android release
   Build and ship to the Play Store internal track.
@@ -626,6 +732,17 @@ straight back: `distribute run -o android.publish`.
 12:13:51.141  INFO   $ flutter build aab --release --pub
 12:13:51.827  ERROR  Target file "lib/main.dart" not found.
 ```
+
+While a build or an upload is running the CLI animates a single line showing
+the step and how long it has been going, so a long silent stage does not look
+like a hang:
+
+```
+  ⠹ building aab  1m 12s
+```
+
+It is drawn only on a real terminal, and never under `--quiet`, `--silent` or
+`--verbose` — piped output, CI logs and the log file are unaffected.
 
 Use `--log-file <path>` to change its location, `--no-color` to disable ANSI
 colors (also disabled automatically when the output is not a terminal or when

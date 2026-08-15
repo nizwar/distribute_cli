@@ -165,6 +165,53 @@ class OpenAiCompatibleProvider extends _HttpProvider {
     }
     throw AiException('$name returned no tool arguments');
   }
+
+  @override
+  Future<String> rewrite({
+    required String instruction,
+    required String text,
+  }) async {
+    final body = await post(
+      '${config.baseUrl}/chat/completions',
+      {
+        'model': config.model,
+        'max_tokens': config.maxTokens,
+        'messages': [
+          {'role': 'system', 'content': instruction},
+          {'role': 'user', 'content': text},
+        ],
+      },
+      {
+        'Content-Type': 'application/json',
+        if (config.hasApiKey) 'Authorization': 'Bearer ${config.apiKey}',
+      },
+    );
+
+    final choices = body['choices'];
+    if (choices is! List || choices.isEmpty) {
+      throw AiException('$name returned no choices');
+    }
+    // Shape first: reading a field off a non-map choice would surface as a raw
+    // Dart type error rather than "this endpoint sent something unexpected".
+    final choice = choices.first;
+    if (choice is! Map) {
+      throw AiException('$name returned a malformed choice');
+    }
+    if (choice['finish_reason'] == 'length') {
+      throw AiException(
+        'the reply was cut off by the token limit — raise `max-tokens` '
+        '(currently ${config.maxTokens}) and try again',
+      );
+    }
+    final message = choice['message'];
+    if (message is! Map) {
+      throw AiException('$name returned a malformed choice');
+    }
+
+    final content = message['content']?.toString().trim() ?? '';
+    if (content.isEmpty) throw AiException('$name returned nothing to use');
+    return content;
+  }
 }
 
 /// Talks to Anthropic's Messages API.
@@ -262,5 +309,57 @@ class AnthropicProvider extends _HttpProvider {
 
     final text = buffer.toString().trim();
     return AiReply(text: text.isEmpty ? null : text);
+  }
+
+  @override
+  Future<String> rewrite({
+    required String instruction,
+    required String text,
+  }) async {
+    final body = await post(
+      '${config.baseUrl}/v1/messages',
+      {
+        'model': config.model,
+        'max_tokens': config.maxTokens,
+        'system': instruction,
+        'messages': [
+          {
+            'role': 'user',
+            'content': [
+              {'type': 'text', 'text': text},
+            ],
+          },
+        ],
+      },
+      {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        if (config.hasApiKey) 'x-api-key': config.apiKey,
+      },
+    );
+
+    if (body['stop_reason'] == 'refusal') {
+      throw AiException('the model declined to rewrite this text');
+    }
+    if (body['stop_reason'] == 'max_tokens') {
+      throw AiException(
+        'the reply was cut off by the token limit — raise `max-tokens` '
+        '(currently ${config.maxTokens}) and try again',
+      );
+    }
+
+    final content = body['content'];
+    if (content is! List) throw AiException('$name returned no content');
+
+    final buffer = StringBuffer();
+    for (final block in content) {
+      if (block is Map && block['type'] == 'text') {
+        buffer.write(block['text'] ?? '');
+      }
+    }
+
+    final result = buffer.toString().trim();
+    if (result.isEmpty) throw AiException('$name returned nothing to use');
+    return result;
   }
 }

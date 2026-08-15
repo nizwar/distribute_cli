@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 import '../files.dart';
+import '../logger.dart';
 import '../parsers/build_info.dart';
 import '../parsers/job_arguments.dart';
 
@@ -192,8 +193,16 @@ abstract class PublisherArguments extends JobArguments {
       process.stderr.transform(utf8.decoder).forEach(logger.logErrorVerbose),
     ]);
 
-    final exitCode = await process.exitCode;
-    await drained;
+    // Uploads are the longest silent stretch of a release: an IPA going to App
+    // Store Connect can take minutes with nothing at all on screen.
+    final exitCode = await Spinner.run(
+      'uploading with $publisher',
+      () async {
+        final code = await process.exitCode;
+        await drained;
+        return code;
+      },
+    );
     return exitCode;
   }
 

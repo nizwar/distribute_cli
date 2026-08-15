@@ -153,9 +153,24 @@ class ValidateCommand extends Commander {
       'tasks',
       'notifications',
       'ai',
+      'changelog',
       'arguments',
       'output',
     });
+
+    final rawChangelog = raw['changelog'];
+    if (rawChangelog is Map) {
+      check('changelog', Map<String, dynamic>.from(rawChangelog), const {
+        'from',
+        'format',
+        'group',
+        'shas',
+        'merges',
+        'limit',
+        'ai',
+        'prompt',
+      });
+    }
 
     // Keys the parser tolerates but nothing acts on. Silently accepting them
     // is worse than rejecting them: the user believes the setting is doing

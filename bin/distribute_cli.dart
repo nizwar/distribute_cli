@@ -4,6 +4,7 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:distribute_cli/ai_command.dart';
 import 'package:distribute_cli/builder_command.dart';
+import 'package:distribute_cli/changelog_command.dart';
 import 'package:distribute_cli/create_command.dart';
 import 'package:distribute_cli/doctor_command.dart';
 import 'package:distribute_cli/initializer_command.dart';
@@ -29,6 +30,8 @@ import 'package:distribute_cli/runner_command.dart';
 /// - `create` - Create new distribution templates
 /// - `validate` - Validate the configuration without running anything
 /// - `doctor` - Check the tools, configuration and credentials
+/// - `changelog` - Generate release notes from the git history
+/// - `ai` - Ask a model to pick the right command
 ///
 /// Global options:
 /// - `--verbose` or `-v` - Print diagnostic detail and raw tool output
@@ -114,6 +117,7 @@ Future<void> main(List<String> args) async {
   runner.addCommand(CreateCommand());
   runner.addCommand(ValidateCommand());
   runner.addCommand(DoctorCommand());
+  runner.addCommand(ChangelogCommand());
 
   // The assistant executes real commands through this same runner rather than
   // re-implementing them or shelling out, so `ai` can never reach a code path a
