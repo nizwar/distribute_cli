@@ -169,17 +169,10 @@ tasks:
 ---
 
 ## Commands Overview
-The Distribute CLI provides several commands to manage your app distribution process.
 
-- [distribute init](#distribute-init)
-- [distribute validate](#distribute-validate)
-- [distribute doctor](#distribute-doctor)
-- [distribute build](#distribute-build-platform)
-- [distribute publish](#distribute-publish-publisher)
-- [distribute run](#distribute-run)
-- [distribute changelog](#distribute-changelog)
-- [distribute create](#distribute-create)
-- [distribute ai](#ai-assistant)
+Every command reads `distribution.yaml` from the working directory unless
+`--config` says otherwise, and every one of them is listed in the table of
+contents above.
 
 ### `distribute init`
 Initializes the project and creates a starter configuration.
@@ -188,6 +181,43 @@ Initializes the project and creates a starter configuration.
 ```zsh
 distribute init
 ```
+
+---
+
+---
+
+### `distribute validate`
+Parses `distribution.yaml` and reports problems without building or uploading
+anything. Ideal as the first step of a CI pipeline or as a pre-commit hook.
+
+```zsh
+distribute validate
+distribute validate --strict   # treat warnings as errors
+```
+
+It reports:
+- **Errors** – missing keys, duplicate task/job keys, workflows pointing at a
+  job that does not exist, invalid `binary-type`. These fail the command.
+- **Warnings** – unresolved `${{VAR}}` placeholders and missing credential files
+  such as `json-key` or `export-options-plist`.
+
+---
+
+---
+
+### `distribute doctor`
+Checks that the machine can actually build and publish: probes Flutter, git,
+Fastlane, the Firebase CLI, Xcode and the archiver, verifies the configuration
+and credentials, and prints what the built-in variables expand to.
+
+```zsh
+distribute doctor
+```
+
+Missing *optional* tools are warnings — a project that only publishes to Firebase
+has no reason to install Fastlane. The command only fails on required problems.
+
+---
 
 ---
 
@@ -201,6 +231,8 @@ distribute build android
 
 ---
 
+---
+
 ### `distribute publish <publisher>`
 Publishes the built app using the specified publisher (e.g., `firebase`, `fastlane`).
 
@@ -208,6 +240,8 @@ Publishes the built app using the specified publisher (e.g., `firebase`, `fastla
 ```zsh
 distribute publish fastlane
 ```
+
+---
 
 ---
 
@@ -255,18 +289,6 @@ At the end of the run a summary is printed:
 ```
 
 ---
-
-### `distribute doctor`
-Checks that the machine can actually build and publish: probes Flutter, git,
-Fastlane, the Firebase CLI, Xcode and the archiver, verifies the configuration
-and credentials, and prints what the built-in variables expand to.
-
-```zsh
-distribute doctor
-```
-
-Missing *optional* tools are warnings — a project that only publishes to Firebase
-has no reason to install Fastlane. The command only fails on required problems.
 
 ---
 
@@ -373,21 +395,6 @@ missing everything before the cut. Fetch the full history first —
 
 ---
 
-### `distribute validate`
-Parses `distribution.yaml` and reports problems without building or uploading
-anything. Ideal as the first step of a CI pipeline or as a pre-commit hook.
-
-```zsh
-distribute validate
-distribute validate --strict   # treat warnings as errors
-```
-
-It reports:
-- **Errors** – missing keys, duplicate task/job keys, workflows pointing at a
-  job that does not exist, invalid `binary-type`. These fail the command.
-- **Warnings** – unresolved `${{VAR}}` placeholders and missing credential files
-  such as `json-key` or `export-options-plist`.
-
 ---
 
 ### `distribute create`
@@ -464,6 +471,8 @@ configuration file other than `distribution.yaml`.
 
 ---
 
+---
+
 ## Job Reliability Options
 
 Two optional keys can be set on any job:
@@ -529,6 +538,20 @@ builder:
 ```
 
 Run `distribute doctor` to see what they currently expand to.
+
+### Dart defines
+`dart-defines` takes a comma-separated list and is expanded into one
+`--dart-define` flag per pair:
+
+```yaml
+builder:
+  android:
+    binary-type: "aab"
+    dart-defines: "FLAVOR=prod,API_URL=https://api.example.com"
+```
+becomes `flutter build aab --dart-define=FLAVOR=prod --dart-define=API_URL=https://api.example.com`.
+
+---
 
 ---
 
@@ -645,20 +668,6 @@ Notifications are a run-level concept rather than a job, which is what makes
 Set `message:` to replace the generated summary with your own text (variables
 are substituted). A delivery failure is reported as a warning and never changes
 the exit code. Use `distribute run --no-notify` to skip them for one invocation.
-
-### Dart defines
-`dart-defines` takes a comma-separated list and is expanded into one
-`--dart-define` flag per pair:
-
-```yaml
-builder:
-  android:
-    binary-type: "aab"
-    dart-defines: "FLAVOR=prod,API_URL=https://api.example.com"
-```
-becomes `flutter build aab --dart-define=FLAVOR=prod --dart-define=API_URL=https://api.example.com`.
-
----
 
 ## Exit Codes and CI
 

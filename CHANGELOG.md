@@ -1,49 +1,48 @@
 ## 2.7.1
 
 ### Added
-* **`distribute changelog`** — release notes from the git history. The default
-  range is everything since the previous tag, which is what one release actually
-  contains; `git describe` alone would return HEAD's own tag and produce an
-  empty range for exactly the release being cut. Conventional commit prefixes
-  are used for grouping when they are there, and ignored when they are not.
-  `--ai` hands the result to the configured model for an editorial pass, with an
-  instruction that forbids inventing or dropping a change.
+* **`distribute changelog`** — release notes from the git history.
+
+  The range defaults to everything since the previous tag, which is what one
+  release actually contains. The boundary is the nearest tagged *ancestor* of
+  the range's end, not the newest tag by date: a tag cut on a side branch or
+  added retroactively would otherwise make a release re-list commits that had
+  already shipped while dropping ones that had not.
+
+  [Conventional commit](https://www.conventionalcommits.org) prefixes are used
+  for grouping when they are there and ignored when they are not, so a
+  repository with ordinary commit messages gets a flat list rather than an
+  error. `--format plain` drops the headings for stores that show plain text,
+  `-o` writes to a file, and `--ai` hands the result to the configured model for
+  an editorial pass under an instruction that forbids inventing or dropping a
+  change.
+
+  It warns when the range is empty, and when it is run in a shallow clone — the
+  default for most CI checkouts — where the notes would silently be missing
+  everything before the cut.
+
 * **`${{CHANGELOG}}`, `${{CHANGELOG_PLAIN}}` and `${{CHANGELOG_RANGE}}`** — the
   same notes as variables, so a publisher can fill `release-notes` or
   `release-body` without a wrapper script. The history is read once per run and
-  shared by every job that references it.
-* **A `changelog:` section** in `distribution.yaml` configuring the range, the
-  format, grouping, hashes, merges and the optional AI pass.
+  shared by every job that references it. Outside a git repository the
+  placeholder is left unresolved and `validate` reports it, rather than quietly
+  publishing empty notes.
+
+* **A `changelog:` section** in `distribution.yaml` setting the range, the
+  format, grouping, hashes, merges and the optional AI pass. `ai: true` is off
+  by default because it sends your commit subjects to the model on every
+  publish; when it is on and the request fails, the job fails rather than
+  shipping raw commit subjects nobody asked for.
+
 * **A spinner while a build or upload runs.** Those stages produce nothing on
   screen below `--verbose` and can last minutes, so the CLI looked hung. One
-  line, rewritten in place, carrying the step and its elapsed time. It is drawn
-  only on a real terminal and never under `--quiet`, `--silent` or `--verbose`,
-  so piped output, CI logs and the log file are untouched — and any log line
-  printed while it runs erases it first, so the two never share a row. The line is
-  truncated to the pane width: a wrapped spinner cannot be erased, because a
-  carriage return only returns to the start of the last row.
+  line, rewritten in place, carrying the step and its elapsed time.
 
-### Fixed
-* `distribute changelog` ran `git log <rev>` without a `--` separator, so a
-  revision that is also a path — a `release` branch beside a `release/`
-  directory, or a tracked file named `HEAD` — made git refuse with "ambiguous
-  argument". That failure was swallowed and reported as "no commits" with exit
-  `0`. Every git failure is now surfaced with git's own message.
-* The previous tag was chosen by creation date rather than by ancestry, so a tag
-  cut on a side branch, a retroactively added tag, or two tags created in the
-  same second could make a release re-list commits that had already shipped
-  while dropping ones that had not. The boundary is now the nearest tagged
-  ancestor of the range's end.
-* `${{CHANGELOG}}` ignored `changelog: format:` and always rendered markdown,
-  and `changelog: ai:` and `prompt:` never reached it at all — both documented
-  as working. `${{CHANGELOG_PLAIN}}` remains flat whatever the format says.
-* `distribute changelog --ai` sent the API key as the literal `${{VAR}}`
-  placeholder instead of resolving it, and printed its progress line onto stdout
-  where it landed in the middle of the redirected notes.
-* An empty range or a shallow clone now says so, and an empty range points out
-  that whatever `-o` names still holds the previous run's notes.
-* An explicitly typed `--config` that does not exist is an error rather than
-  being silently ignored.
+  It is drawn only on a real terminal and never under `--quiet`, `--silent` or
+  `--verbose`, so piped output, CI logs and the log file are untouched. Any log
+  line printed while it runs erases it first, so the two never share a row, and
+  the line is truncated to the pane width — a wrapped spinner cannot be erased,
+  because a carriage return only returns to the start of the last row.
 
 ## 2.7.0
 
