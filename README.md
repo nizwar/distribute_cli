@@ -1,4 +1,4 @@
-# Distribute CLI v2.7.x
+# Distribute CLI v2.8.x
 
 Distribute CLI is a command-line tool to automate building and distributing Flutter applications for Android and iOS. It provides a unified workflow for building, publishing, and managing app distribution with a single YAML configuration file.
 
@@ -18,11 +18,13 @@ Distribute CLI is a command-line tool to automate building and distributing Flut
   - [`distribute build <platform>`](#distribute-build-platform)
   - [`distribute publish <publisher>`](#distribute-publish-publisher)
   - [`distribute run`](#distribute-run)
+  - [`distribute clean`](#distribute-clean)
   - [`distribute changelog`](#distribute-changelog)
   - [`distribute create`](#distribute-create)
 - [AI Assistant](#ai-assistant)
 - [Job Reliability Options](#job-reliability-options)
 - [Variable Substitution](#variable-substitution)
+- [Wildcard paths](#wildcard-paths)
 - [Notifications](#notifications)
 - [Exit Codes and CI](#exit-codes-and-ci)
 - [Logging and Secrets](#logging-and-secrets)
@@ -34,11 +36,14 @@ Distribute CLI is a command-line tool to automate building and distributing Flut
 ## Features
 - Build and distribute Flutter apps for Android and iOS
 - Unified configuration with `distribution.yaml`
-- Supports Firebase App Distribution, Fastlane, GitHub Releases, and App Store Connect
+- Supports Firebase App Distribution, Fastlane, GitHub Releases, Huawei AppGallery, and App Store Connect
 - Built-in git and pubspec variables — auto-versioning without a wrapper script
 - Configuration validation and an environment check (`validate`, `doctor`)
 - Plain-language commands via `distribute ai` — any OpenAI-compatible endpoint or Claude
-- Dry runs, per-job retries and `continue-on-error`
+- Independent tasks can run in parallel with a configurable start gap; `flutter build` stays serialised
+- Wildcard artifact paths — `output/*.apk`, `build/**/*.ipa`
+- Dry runs, resumable state, pre/post hooks, timeouts, delayed retries, and stop-on-error control
+- Run-level auto-versioning and safe post-run cleanup
 - CI-friendly exit codes, a per-job run summary and a `--json` report
 - Release notes generated from the git history, optionally polished by a model
 - Artifact report with size and SHA-256 for every built binary
@@ -234,7 +239,7 @@ distribute build android
 ---
 
 ### `distribute publish <publisher>`
-Publishes the built app using the specified publisher (e.g., `firebase`, `fastlane`).
+Publishes the built app using the specified publisher (e.g., `firebase`, `fastlane`, `huawei`).
 
 #### Example
 ```zsh
@@ -260,6 +265,14 @@ distribute run
 | `-l, --list` | Print the available task and job keys, then exit |
 | `--dry-run` | Resolve and print every command without executing it |
 | `--fail-fast` | Stop the run as soon as a task fails |
+| `-j, --jobs <n>` | Run up to `n` tasks at once, or `auto` for the core count |
+| `--gap <duration>` | Minimum gap between task starts, e.g. `500ms`, `15s`, or `2m` |
+| `--on-error <policy>` | `continue` independent tasks or `stop` starting new ones |
+| `--resume` | Resume the last compatible run and skip verified successes |
+| `--retry-failed` | Resume, rerunning failed/interrupted jobs and skipping successes |
+| `--state-file <path>` | Override `.distribute/last-run.json` |
+| `--force-resume` | Allow resume after config, operation, or Git revision changed |
+| `--status` | Print saved job statuses without running anything |
 | `--json` | Print a machine readable run report to stdout; the log moves to stderr |
 | `--json-file <path>` | Write the same report to a file |
 | `--no-notify` | Skip the configured notifications for this invocation |
@@ -279,6 +292,61 @@ Jobs inside a task run in the order given by `workflows` (or in declaration orde
 when `workflows` is omitted). **If a job fails, the remaining jobs of that task
 are skipped** so a publish step never uploads the artifact of a failed build.
 
+#### Running tasks in parallel
+
+Tasks are independent of each other, so they can overlap. The jobs *inside* a
+task never do — that ordering is the point, since a publish must not start
+before the build it uploads.
+
+```zsh
+distribute run -j 2        # up to two tasks at once
+distribute run -j auto     # one per core
+```
+
+```yaml
+parallel:
+  tasks: auto      # or a positive number; true/false and scalar numbers still work
+  gap: 15s         # globally spaces task starts, including across workers
+on-error: stop     # or continue (the default)
+```
+
+Given the usual shape:
+
+```
+android.build  →  android.publish
+ios.build      →  ios.publish
+```
+
+the two chains run at the same time, so `android.publish` uploads while
+`ios.build` is still compiling.
+
+> **`flutter build` is serialised even when tasks overlap.** Two builds in the
+> same checkout share `.dart_tool/` and `build/`, and `--pub` has both running
+> `pub get` over the same directory. Flutter takes no lock, so overlapping them
+> corrupts one or both. The compile itself is held; everything around it —
+> uploads, archiving, notifications — still runs concurrently, which is where
+> the time actually goes.
+>
+> Two build-only tasks therefore gain nothing from `-j`. Build-and-publish
+> pipelines gain the whole upload time.
+
+Each task's output is collected and printed as one block when it finishes,
+rather than interleaved live: a half-written stack trace spliced into another
+task's is worse than waiting. `distribution.log` is timestamped and keeps
+everything in the order it really happened.
+
+`--fail-fast` and `on-error: stop` stop *starting* new tasks; ones already running are allowed to
+finish, because a build cannot be safely killed part way through.
+
+Every real run persists state in `.distribute/last-run.json`. `--resume`
+requires the same configuration, selected operation, and committed Git revision
+unless `--force-resume` is used.
+A successful build is skipped only when its saved artifacts still exist with
+the same size and SHA-256; a cleaned or modified artifact makes that build run
+again. Ctrl-C flushes the state before the command exits.
+
+---
+
 At the end of the run a summary is printed:
 
 ```
@@ -289,6 +357,20 @@ At the end of the run a summary is printed:
 ```
 
 ---
+
+---
+
+### `distribute clean`
+
+Safely cleans Flutter build products and configured distribution outputs. With
+no selector it cleans both; use `--dry-run` to inspect the targets first.
+
+```zsh
+distribute clean --dry-run
+distribute clean --flutter
+distribute clean --outputs
+distribute clean --all
+```
 
 ---
 
@@ -414,7 +496,7 @@ name, offers the package name detected from the project, and shows what it is
 about to write before touching the file:
 
 ```
-distribute 2.7.1  ·  create builder job  ·  distribution.yaml
+distribute 2.8.0  ·  create builder job  ·  distribution.yaml
 
 ? Which task does this job belong to?
   › 1) Android release  android  build, publish
@@ -483,6 +565,8 @@ jobs:
     key: "publish_firebase"
     package_name: "${{ANDROID_PACKAGE}}"
     retry: 2                 # 2 extra attempts on failure (3 total)
+    retry-delay: 15s         # wait before each retry
+    timeout: 20m             # terminate child processes when time expires
     continue-on-error: true  # a failure here does not fail the run
     publisher:
       firebase:
@@ -493,8 +577,97 @@ jobs:
 
 - `retry` – how many *additional* attempts a failing job gets. Useful for
   publishers, where a throttled store API or a flaky network is transient.
+- `retry-delay` – delay between attempts; accepts `ms`, `s`, `m`, and `h`.
+- `timeout` – maximum duration for one attempt. Child processes are terminated
+  when the limit expires.
 - `continue-on-error` – the task keeps going and the run can still succeed. The
   job is reported as `FAILED (ignored)` in the summary.
+
+### Pre/post hooks
+
+`pre` and `post` can be declared at the root, task, or job level. A string is a
+shell command; the mapping form adds arguments, environment, timeout, failure
+handling, and a post-hook condition.
+
+```yaml
+pre: echo "starting release"
+post:
+  - command: ./scripts/archive-report.sh
+    on: always                 # always | success | failure
+    timeout: 2m
+    continue-on-error: true
+
+tasks:
+  - name: Android
+    key: android
+    pre: ./scripts/prepare-android.sh
+    jobs:
+      - name: Build
+        key: build
+        package_name: com.example.app
+        post:
+          command: ./scripts/sign-checksum.sh
+          arguments: ["distribution/android/output"]
+          environment:
+            CHANNEL: production
+        builder:
+          android: {binary-type: aab}
+```
+
+Hooks receive `DISTRIBUTE_TASK`, `DISTRIBUTE_JOB`, `DISTRIBUTE_REF`,
+`DISTRIBUTE_STATUS`, `DISTRIBUTE_EXIT_CODE`, `DISTRIBUTE_DURATION_MS`, and a
+JSON array in `DISTRIBUTE_ARTIFACTS`. They use the same `${{VAR}}` expansion
+and secret masking as jobs. Post-hooks can use `${{ARTIFACT}}` for the first
+artifact in their scope and `${{ARTIFACT_DIR}}` for its parent directory. A
+failing pre-hook cancels its scope unless
+`continue-on-error` is true; post-hooks default to `on: always`.
+
+### Auto version and cleanup
+
+The version is resolved once before parallel work starts, exposed as
+`${{VERSION_NAME}}` and `${{VERSION_CODE}}`, injected into Android/iOS builders
+that do not explicitly set those values, and included in run reports/state.
+
+```yaml
+version:
+  name: "${{PUBSPEC_VERSION_NAME}}" # optional; defaults to pubspec
+  code: git-commits                 # pubspec | increment | timestamp | number
+  write-back: false                 # optionally update only pubspec's version line
+
+clean:
+  on: success                       # never | success | failure | always
+  flutter: true
+  outputs: true
+```
+
+Automatic cleanup runs only after all jobs and run-level post-hooks. It never
+runs under `--dry-run`. Use `distribute clean --dry-run`, `--flutter`,
+`--outputs`, or `--all` for standalone cleanup. Cleanup refuses paths outside
+the project, symlinks, and directories containing metadata, credentials, logs,
+or resume state.
+
+### Huawei AppGallery
+
+Huawei publishing supports Service Account credentials (recommended) or an API
+client. It resolves the app, uploads APK/AAB, waits for compilation, applies
+release notes, and optionally submits the release.
+
+```yaml
+publisher:
+  huawei:
+    file-path: distribution/android/output/*.aab
+    binary-type: aab
+    credential-file: distribution/huawei-service-account.json
+    release-notes: "${{CHANGELOG_PLAIN}}"
+    language: en-US
+    submit: true
+    poll-interval: 15s
+    poll-timeout: 10m
+```
+
+For legacy API client authentication, replace `credential-file` with
+`client-id` and `client-secret`. The standalone form is
+`distribute publish huawei --help`.
 
 ---
 
@@ -646,6 +819,37 @@ Settings are layered, most specific first:
 
 ---
 
+### Wildcard paths
+
+Any `file-path` may be a pattern instead of a literal path or a directory:
+
+```yaml
+publisher:
+  fastlane:
+    file-path: "distribution/android/output/*.aab"
+  github:
+    file-path: "distribution/android/output/*.apk"
+  xcrun:
+    file-path: "build/ios/ipa/*.ipa"
+```
+
+| Pattern | Matches |
+| --- | --- |
+| `*` | Anything except a directory separator |
+| `?` | Exactly one character |
+| `[abc]` | One character from the set |
+| `**` | Any number of directories |
+
+A publisher that uploads a single binary takes the newest match whose extension
+agrees with `binary-type` — so `out/*` next to both an APK and its mapping file
+still uploads the APK. The GitHub publisher attaches **every** match, which is
+how `out/*.apk` uploads each split-per-ABI build as its own asset.
+
+A pattern that matches nothing is an error during a real run, and a note during
+`--dry-run`, where the build has not produced anything yet.
+
+---
+
 ## Notifications
 
 An optional top level `notifications:` section posts the run summary once every
@@ -705,7 +909,7 @@ The terminal and the log file are deliberately different. The terminal gets a
 compact, symbol based view meant to be read while it scrolls:
 
 ```
-distribute 2.7.1  ·  distribution.yaml  ·  2 task(s), 3 job(s)
+distribute 2.8.0  ·  distribution.yaml  ·  2 task(s), 3 job(s)
 
 ▸ Android release
   Build and ship to the Play Store internal track.

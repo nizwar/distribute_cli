@@ -142,11 +142,34 @@ class ColorizeLogger {
   /// Errors already go to stderr, so this only relocates the rest.
   static bool reserveStdout = false;
 
+  /// Zone key holding a parallel task's own indentation counter.
+  static const Object _zoneIndent = #distributeIndent;
+
+  /// Zone key holding a parallel task's captured output.
+  static const Object _zoneSink = #distributeSink;
+
+  /// Indentation depth outside any captured task.
+  static int _indentLevel = 0;
+
   /// Current indentation depth. Each level is two spaces.
   ///
-  /// Static because a fresh logger is constructed per call site; the depth
-  /// belongs to the run, not to any single instance.
-  static int indentLevel = 0;
+  /// Per-zone when tasks run in parallel: a shared counter would be
+  /// incremented by one task while another was writing, and every line would
+  /// come out at the wrong depth.
+  static int get indentLevel =>
+      (Zone.current[_zoneIndent] as _Counter?)?.value ?? _indentLevel;
+
+  static set indentLevel(int value) {
+    final scoped = Zone.current[_zoneIndent] as _Counter?;
+    if (scoped != null) {
+      scoped.value = value;
+    } else {
+      _indentLevel = value;
+    }
+  }
+
+  /// Whether the current zone is collecting output instead of printing it.
+  static bool get isCapturing => Zone.current[_zoneSink] != null;
 
   /// Runs [body] with the output indented one extra level.
   static Future<T> group<T>(Future<T> Function() body) async {
@@ -157,6 +180,27 @@ class ColorizeLogger {
       indentLevel--;
     }
   }
+
+  /// Runs [body] with everything it logs collected into [sink].
+  ///
+  /// Parallel tasks each get their own buffer, printed as one block when the
+  /// task finishes. Interleaving them live would produce a transcript nobody
+  /// could read, and the alternative — prefixing every line with a task name —
+  /// still cannot keep a multi-line tool error together.
+  ///
+  /// The log file is unaffected: it is timestamped, so it can carry everything
+  /// in the order it actually happened.
+  static Future<T> capture<T>(
+    StringSink sink,
+    Future<T> Function() body,
+  ) =>
+      runZoned(
+        body,
+        zoneValues: {
+          _zoneSink: sink,
+          _zoneIndent: _Counter(indentLevel),
+        },
+      );
 
   /// Secret values that must never appear in the terminal or the log file.
   static final Set<String> _secrets = <String>{};
@@ -360,11 +404,13 @@ class ColorizeLogger {
     if (_isVisible(level)) {
       final flat = verbosity.rank < LogVerbosity.normal.rank;
       final pad = _indent + (flat ? '' : '  ' * extraIndent);
-      final sink = (level.isError || reserveStdout) ? stderr : stdout;
+      final captured = Zone.current[_zoneSink] as StringSink?;
+      final sink =
+          captured ?? ((level.isError || reserveStdout) ? stderr : stdout);
       // The spinner owns a line that is being overwritten in place. Anything
       // printed while it is running has to erase it first, or the two end up
       // spliced together on the same row.
-      Spinner.active?.erase();
+      if (captured == null) Spinner.active?.erase();
       // Continuation lines are aligned under the text, not under the symbol.
       final continuation = symbol == null ? '' : ' ' * (symbol.length + 1);
 
@@ -378,7 +424,7 @@ class ColorizeLogger {
         final body = style == null ? rendered : _paint(rendered, style);
         sink.writeln('$pad$prefix$body');
       }
-      Spinner.active?.paint();
+      if (captured == null) Spinner.active?.paint();
     }
 
     _append(lines, level);
@@ -534,6 +580,11 @@ class ColorizeLogger {
   /// list of errors, not a page of blank lines.
   void logEmpty() {
     if (!_isVisible(LogLevel.info)) return;
+    final captured = Zone.current[ColorizeLogger._zoneSink] as StringSink?;
+    if (captured != null) {
+      captured.writeln('');
+      return;
+    }
     Spinner.active?.erase();
     (ColorizeLogger.reserveStdout ? stderr : stdout).writeln('');
     Spinner.active?.paint();
@@ -652,6 +703,10 @@ class Spinner {
   /// Label shown next to the frame.
   final String label;
 
+  /// Recomputes the label on every frame, when the caller has something that
+  /// changes — the set of tasks currently running, for instance.
+  final String Function()? describe;
+
   /// Indentation captured when the spinner started.
   final String _pad;
 
@@ -661,7 +716,7 @@ class Spinner {
   int _painted = 0;
   bool _running = false;
 
-  Spinner._(this.label, this._pad);
+  Spinner._(this.label, this._pad, this.describe);
 
   /// Where the animation is drawn. Replaced in tests.
   static StringSink Function() sink =
@@ -681,6 +736,9 @@ class Spinner {
   /// Whether an animation is appropriate for the current output.
   static bool get supported {
     if (ColorizeLogger.verbosity != LogVerbosity.normal) return false;
+    // A captured task's output is a buffer printed later; an animation in it
+    // would arrive as a screenful of escape codes long after the fact.
+    if (ColorizeLogger.isCapturing) return false;
     return isTerminal();
   }
 
@@ -688,10 +746,15 @@ class Spinner {
   ///
   /// The spinner is always stopped, including when [body] throws, so a failure
   /// never leaves a half-drawn line on the terminal.
-  static Future<T> run<T>(String label, Future<T> Function() body) async {
+  static Future<T> run<T>(
+    String label,
+    Future<T> Function() body, {
+    String Function()? describe,
+  }) async {
     if (!supported || active != null) return body();
 
-    final spinner = Spinner._(label, '  ' * ColorizeLogger.indentLevel);
+    final spinner =
+        Spinner._(label, '  ' * ColorizeLogger.indentLevel, describe);
     active = spinner;
     spinner._start();
     try {
@@ -724,7 +787,7 @@ class Spinner {
   void paint() {
     if (!_running) return;
 
-    final plain = '$_pad${_frames[_frame]} $label  '
+    final plain = '$_pad${_frames[_frame]} ${describe?.call() ?? label}  '
         '${_format(_elapsed.elapsed)}';
     // A line wider than the pane wraps, and `\r` only returns to the start of
     // the *last* row — so the erase would miss everything above it and every
@@ -776,4 +839,10 @@ class Spinner {
     final seconds = duration.inSeconds % 60;
     return '${duration.inMinutes}m ${seconds.toString().padLeft(2, '0')}s';
   }
+}
+
+/// A mutable integer held in a zone, so each parallel task owns its own depth.
+class _Counter {
+  int value;
+  _Counter(this.value);
 }

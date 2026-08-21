@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:distribute_cli/app_builder/android/arguments.dart'
     as android_arguments;
 import 'package:distribute_cli/parsers/variables.dart';
@@ -6,9 +9,12 @@ import '../app_builder/ios/arguments.dart' as ios_arguments;
 import '../app_publisher/fastlane/arguments.dart' as fastlane_publisher;
 import '../app_publisher/firebase/arguments.dart' as firebase_publisher;
 import '../app_publisher/github/arguments.dart' as github_publisher;
+import '../app_publisher/huawei/arguments.dart' as huawei_publisher;
 import '../app_publisher/xcrun/arguments.dart' as xcrun_publisher;
 import '../logger.dart';
 import 'task_arguments.dart';
+import 'duration.dart';
+import 'hooks.dart';
 
 /// Enumeration representing the execution mode of a job.
 ///
@@ -72,6 +78,87 @@ abstract class JobArguments {
   /// wide switch because a single CLI invocation is always either a real run or
   /// a rehearsal - never both.
   static bool dryRun = false;
+
+  static final Object _processScopeKey = Object();
+  static final Set<Process> _activeProcesses = <Process>{};
+  static final Set<FutureOr<void> Function()> _activeCancellations =
+      <FutureOr<void> Function()>{};
+
+  /// Runs [body] with an isolated registry of child processes.
+  static Future<T> withProcessScope<T>(Future<T> Function() body) async {
+    final scope = _ExecutionScope();
+    try {
+      return await runZoned(body, zoneValues: {_processScopeKey: scope});
+    } finally {
+      _activeCancellations.removeAll(scope.cancellations);
+    }
+  }
+
+  /// Registers a child process in the current job scope.
+  static void trackProcess(Process process) {
+    final scope = Zone.current[_processScopeKey] as _ExecutionScope?;
+    scope?.processes.add(process);
+    _activeProcesses.add(process);
+    process.exitCode.whenComplete(() {
+      scope?.processes.remove(process);
+      _activeProcesses.remove(process);
+    });
+  }
+
+  /// Registers cancellation for in-process work such as HTTP requests.
+  static void trackCancellation(FutureOr<void> Function() cancel) {
+    final scope = Zone.current[_processScopeKey] as _ExecutionScope?;
+    scope?.cancellations.add(cancel);
+    _activeCancellations.add(cancel);
+  }
+
+  /// Terminates only the child processes created by the current job scope.
+  static Future<void> terminateScopedProcesses() async {
+    final scope = Zone.current[_processScopeKey] as _ExecutionScope?;
+    if (scope == null) return;
+    for (final cancel in scope.cancellations.toList()) {
+      try {
+        await cancel();
+      } on Object {
+        // Cancellation is best effort. Continue terminating every other
+        // in-process operation and child process if one callback fails.
+      }
+    }
+    if (scope.processes.isEmpty) return;
+    for (final process in scope.processes.toList()) {
+      process.kill(ProcessSignal.sigterm);
+    }
+    await Future.any<void>([
+      Future.wait(scope.processes.map((process) => process.exitCode)),
+      Future<void>.delayed(const Duration(seconds: 2)),
+    ]);
+    for (final process in scope.processes.toList()) {
+      process.kill(ProcessSignal.sigkill);
+    }
+  }
+
+  /// Terminates every tracked child after an external process interrupt.
+  static Future<void> terminateAllProcesses() async {
+    for (final cancel in _activeCancellations.toList()) {
+      try {
+        await cancel();
+      } on Object {
+        // One failing callback must not prevent the remaining work from being
+        // cancelled after an external interrupt.
+      }
+    }
+    if (_activeProcesses.isEmpty) return;
+    for (final process in _activeProcesses.toList()) {
+      process.kill(ProcessSignal.sigterm);
+    }
+    await Future.any<void>([
+      Future.wait(_activeProcesses.map((process) => process.exitCode)),
+      Future<void>.delayed(const Duration(seconds: 2)),
+    ]);
+    for (final process in _activeProcesses.toList()) {
+      process.kill(ProcessSignal.sigkill);
+    }
+  }
 
   /// Raw list of command-line arguments before variable processing.
   ///
@@ -156,6 +243,12 @@ abstract class JobArguments {
       logger.logDebug("${key.padRight(width)}  $printable");
     }
   }
+}
+
+class _ExecutionScope {
+  final Set<Process> processes = <Process>{};
+  final Set<FutureOr<void> Function()> cancellations =
+      <FutureOr<void> Function()>{};
 }
 
 /// Container for platform-specific build arguments.
@@ -282,6 +375,9 @@ class PublisherJob {
   /// Publishes app packages as GitHub release assets.
   final github_publisher.Arguments? github;
 
+  /// Huawei AppGallery Connect REST publisher arguments.
+  final huawei_publisher.Arguments? huawei;
+
   /// Reference to the parent job that contains this publisher.
   ///
   /// Used for accessing job-level configuration and establishing
@@ -299,13 +395,21 @@ class PublisherJob {
   /// relationships for proper configuration inheritance.
   ///
   /// Throws `Exception` if all publishers are null.
-  PublisherJob({this.fastlane, this.firebase, this.xcrun, this.github}) {
+  PublisherJob({
+    this.fastlane,
+    this.firebase,
+    this.xcrun,
+    this.github,
+    this.huawei,
+  }) {
     if (fastlane == null &&
         xcrun == null &&
         firebase == null &&
-        github == null) {
+        github == null &&
+        huawei == null) {
       throw Exception(
-        "Fastlane, Firebase, Github, or XCrun publisher argument must be provided.",
+        'Fastlane, Firebase, Github, Huawei, or XCrun publisher argument '
+        'must be provided.',
       );
     }
     // Establish parent-child relationships for configuration hierarchy
@@ -313,6 +417,7 @@ class PublisherJob {
     firebase?.parent = this;
     xcrun?.parent = this;
     github?.parent = this;
+    huawei?.parent = this;
   }
 
   /// Converts the publisher job to JSON representation.
@@ -324,6 +429,7 @@ class PublisherJob {
         if (firebase != null) "firebase": firebase?.toJson(),
         if (xcrun != null) "xcrun": xcrun?.toJson(),
         if (github != null) "github": github?.toJson(),
+        if (huawei != null) "huawei": huawei?.toJson(),
       };
 
   /// Creates a `PublisherJob` from JSON configuration.
@@ -359,6 +465,12 @@ class PublisherJob {
       github: json["github"] != null
           ? github_publisher.Arguments.fromJson(
               json["github"],
+              variables: variables,
+            )
+          : null,
+      huawei: json["huawei"] != null
+          ? huawei_publisher.Arguments.fromJson(
+              json["huawei"],
               variables: variables,
             )
           : null,
@@ -402,6 +514,15 @@ class Job {
   /// flaky network or a throttled store API is a common transient failure.
   final int retry;
 
+  /// Wait between attempts, separate from the global task-start gap.
+  final Duration retryDelay;
+
+  /// Maximum wall-clock time allowed for a single attempt.
+  final Duration? timeout;
+
+  /// Custom commands surrounding this job.
+  final HookSet hooks;
+
   /// The parent task of the job.
   late Task parent;
 
@@ -425,6 +546,9 @@ class Job {
     this.publisher,
     this.continueOnError = false,
     this.retry = 0,
+    this.retryDelay = Duration.zero,
+    this.timeout,
+    this.hooks = const HookSet(),
   }) {
     if (builder != null && publisher != null) {
       throw Exception(
@@ -453,6 +577,13 @@ class Job {
         "package_name": packageName,
         if (continueOnError) "continue-on-error": continueOnError,
         if (retry > 0) "retry": retry,
+        if (retryDelay != Duration.zero)
+          "retry-delay": formatDurationValue(retryDelay),
+        if (timeout != null) "timeout": formatDurationValue(timeout!),
+        if (hooks.pre.isNotEmpty)
+          "pre": hooks.pre.map((hook) => hook.toJson()).toList(),
+        if (hooks.post.isNotEmpty)
+          "post": hooks.post.map((hook) => hook.toJson()).toList(),
         if (builder != null) "builder": builder?.toJson(),
         if (publisher != null) "publisher": publisher?.toJson(),
       };

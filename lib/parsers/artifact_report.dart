@@ -26,6 +26,13 @@ class Artifact {
     required this.sha256Hash,
   });
 
+  /// Restores an artifact recorded in run state or a JSON report.
+  factory Artifact.fromJson(Map<String, dynamic> json) => Artifact(
+        filePath: json['path'].toString(),
+        sizeInBytes: (json['size-bytes'] as num).toInt(),
+        sha256Hash: json['sha256'].toString(),
+      );
+
   /// File name without its directory.
   String get name => path.basename(filePath);
 

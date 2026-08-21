@@ -154,9 +154,39 @@ class ValidateCommand extends Commander {
       'notifications',
       'ai',
       'changelog',
+      'parallel',
+      'on-error',
+      'pre',
+      'post',
+      'version',
+      'clean',
       'arguments',
       'output',
     });
+
+    final rawParallel = raw['parallel'];
+    if (rawParallel is Map) {
+      check('parallel', Map<String, dynamic>.from(rawParallel), const {
+        'tasks',
+        'gap',
+      });
+    }
+    final rawVersion = raw['version'];
+    if (rawVersion is Map) {
+      check('version', Map<String, dynamic>.from(rawVersion), const {
+        'name',
+        'code',
+        'write-back',
+      });
+    }
+    final rawClean = raw['clean'];
+    if (rawClean is Map) {
+      check('clean', Map<String, dynamic>.from(rawClean), const {
+        'on',
+        'flutter',
+        'outputs',
+      });
+    }
 
     final rawChangelog = raw['changelog'];
     if (rawChangelog is Map) {
@@ -175,7 +205,7 @@ class ValidateCommand extends Commander {
     // Keys the parser tolerates but nothing acts on. Silently accepting them
     // is worse than rejecting them: the user believes the setting is doing
     // something.
-    for (final inert in const ['arguments', 'output']) {
+    for (final inert in const ['arguments']) {
       if (raw.containsKey(inert)) {
         warnings.add(
           "$configPath declares '$inert', which nothing reads yet — "
@@ -239,6 +269,8 @@ class ValidateCommand extends Commander {
         'key',
         'description',
         'workflows',
+        'pre',
+        'post',
         'jobs',
       });
 
@@ -258,6 +290,10 @@ class ValidateCommand extends Commander {
           'package_name',
           'continue-on-error',
           'retry',
+          'retry-delay',
+          'timeout',
+          'pre',
+          'post',
           'builder',
           'publisher',
         });
@@ -274,6 +310,7 @@ class ValidateCommand extends Commander {
             'firebase': job.publisher?.firebase,
             'xcrun': job.publisher?.xcrun,
             'github': job.publisher?.github,
+            'huawei': job.publisher?.huawei,
           },
         };
 
@@ -398,6 +435,7 @@ class ValidateCommand extends Commander {
         'release-notes-file',
         'testers-file',
         'groups-file',
+        'credential-file',
       }.contains(key);
 
   /// Whether [value] resolves to an existing file or directory.

@@ -110,6 +110,7 @@ class Arguments extends PublisherArguments {
   /// Automatically configured with authentication headers and error handling.
   /// Used for all API operations including release management and uploads.
   late Dio _dio;
+  final CancelToken _cancelToken = CancelToken();
 
   /// Creates a new GitHub Releases publisher arguments instance.
   ///
@@ -258,7 +259,10 @@ class Arguments extends PublisherArguments {
     await argumentBuilder.printJob();
 
     final resolvedPath = argumentBuilder.filePath;
-    final isDirectory = await FileSystemEntity.isDirectory(resolvedPath);
+
+    final pattern = Glob.hasMagic(resolvedPath);
+    final isDirectory =
+        !pattern && await FileSystemEntity.isDirectory(resolvedPath);
 
     // During a dry run the build step never produced anything, so a missing
     // artifact is expected. Every other publisher already rehearses cleanly;
@@ -266,6 +270,7 @@ class Arguments extends PublisherArguments {
     // configuration containing a GitHub job.
     if (JobArguments.dryRun &&
         !isDirectory &&
+        !pattern &&
         !await File(resolvedPath).exists()) {
       logger.logNote(
         "no ${argumentBuilder.binaryType} artifact yet (dry run)",
@@ -276,7 +281,22 @@ class Arguments extends PublisherArguments {
     // Resolve the set of assets before touching the API, so a missing artifact
     // never leaves an empty release behind.
     final List<File> assets;
-    if (isDirectory) {
+    // GitHub attaches every asset it is given, so a pattern here means "all of
+    // them" rather than "the best one" — `out/*.apk` uploads each split APK.
+    if (pattern) {
+      assets = Glob.expand(resolvedPath);
+      if (assets.isEmpty) {
+        if (JobArguments.dryRun) {
+          logger.logNote('nothing matches $resolvedPath yet (dry run)');
+          return 0;
+        }
+        logger.logError('No file matches $resolvedPath');
+        return 1;
+      }
+      logger.logInfo(
+        'Pattern matched ${assets.length} asset(s): $resolvedPath',
+      );
+    } else if (isDirectory) {
       final suffix = argumentBuilder.binaryType.isEmpty
           ? ""
           : ".${argumentBuilder.binaryType}";
@@ -324,6 +344,9 @@ class Arguments extends PublisherArguments {
 
     argumentBuilder._dio.options.headers["Authorization"] =
         "Bearer ${argumentBuilder.token}";
+    JobArguments.trackCancellation(
+      () => argumentBuilder._cancelToken.cancel('job cancelled'),
+    );
     logger.logDebug.call("Initializing Github API client");
 
     final uploadUrl = await argumentBuilder._resolveUploadUrl();
@@ -401,6 +424,7 @@ class Arguments extends PublisherArguments {
     final response = await _dio.get(
       '/repos/$repoOwner/$repoName/releases',
       queryParameters: {"per_page": 100},
+      cancelToken: _cancelToken,
     );
     if (response.statusCode == 200) {
       final releases = response.data;
@@ -454,6 +478,7 @@ class Arguments extends PublisherArguments {
         if (targetCommitish != null && targetCommitish!.isNotEmpty)
           "target_commitish": targetCommitish,
       },
+      cancelToken: _cancelToken,
     );
     if (response.statusCode == 201) {
       return _normalizeUploadUrl(response.data["upload_url"]);
@@ -503,6 +528,7 @@ class Arguments extends PublisherArguments {
             Headers.contentTypeHeader: _contentTypeFor(fileName),
           },
         ),
+        cancelToken: _cancelToken,
       );
       if (response.statusCode == 201) {
         return response.data["browser_download_url"];

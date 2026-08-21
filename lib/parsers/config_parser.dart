@@ -7,10 +7,15 @@ import 'package:yaml/yaml.dart';
 import '../changelog_command.dart';
 import 'builtin_variables.dart';
 import 'changelog.dart';
+import 'clean_config.dart';
+import 'duration.dart';
+import 'hooks.dart';
 import 'job_arguments.dart';
 import 'notification_config.dart';
+import 'run_settings.dart';
 import 'task_arguments.dart';
 import 'variables.dart';
+import 'version_config.dart';
 
 /// Raised when `distribution.yaml` is structurally invalid.
 ///
@@ -65,6 +70,27 @@ class ConfigParser {
   /// Notifications delivered once the whole run has finished.
   final List<NotificationConfig> notifications;
 
+  /// How many tasks may run at once, or null when the file does not say.
+  ///
+  /// Tasks are the unit of parallelism because the jobs inside one are ordered
+  /// on purpose: a publish must not start before the build it uploads.
+  final ParallelSettings parallelSettings;
+
+  /// Backwards-compatible view of the configured worker count.
+  int get parallel => parallelSettings.tasks;
+
+  /// Global reaction to fatal task failures.
+  final ErrorPolicy errorPolicy;
+
+  /// Custom commands surrounding the complete run.
+  final HookSet hooks;
+
+  /// Optional automatic version resolution.
+  final VersionConfig? versionConfig;
+
+  /// Optional automatic cleanup.
+  final CleanConfig? clean;
+
   /// Raw `changelog:` mapping, or an empty map when the section is absent.
   ///
   /// Left unparsed here so `ChangelogSettings` owns its own validation, the
@@ -99,6 +125,11 @@ class ConfigParser {
     this.notifications = const [],
     this.ai = const {},
     this.changelog = const {},
+    this.parallelSettings = const ParallelSettings(),
+    this.errorPolicy = ErrorPolicy.continueRun,
+    this.hooks = const HookSet(),
+    this.versionConfig,
+    this.clean,
     this.output = "distribution",
   });
 
@@ -308,6 +339,7 @@ class ConfigParser {
           workflows: workflows,
           description:
               _asString(task["description"], "$taskLabel.description", path),
+          hooks: _parseHooks(task, taskLabel, path),
         ),
       );
     }
@@ -315,6 +347,39 @@ class ConfigParser {
     final rawArguments = configJson["arguments"];
     if (rawArguments != null && rawArguments is! Map) {
       throw ConfigException("'arguments' in '$path' must be a mapping.");
+    }
+
+    final ParallelSettings parallelSettings;
+    final ErrorPolicy errorPolicy;
+    final HookSet hooks;
+    final VersionConfig? versionConfig;
+    final CleanConfig? clean;
+    try {
+      parallelSettings = ParallelSettings.parse(configJson["parallel"], path);
+      errorPolicy = ErrorPolicy.parse(configJson["on-error"]);
+      hooks = HookSet.parse(configJson, 'run');
+      versionConfig = configJson["version"] == null
+          ? null
+          : VersionConfig.parse(configJson["version"]);
+      clean = configJson["clean"] == null
+          ? null
+          : CleanConfig.parse(configJson["clean"]);
+    } on ArgumentError catch (error) {
+      throw ConfigException(
+          "Invalid run settings in '$path': ${error.message}");
+    }
+
+    final outputRoot = configJson["output"]?.toString() ?? 'distribution';
+    for (final task in jobTasks) {
+      for (final job in task.jobs) {
+        final builder = job.builder;
+        if (builder?.android != null && builder!.android!.output == null) {
+          builder.android!.output = pathJoin(outputRoot, 'android', 'output');
+        }
+        if (builder?.ios != null && builder!.ios!.output == null) {
+          builder.ios!.output = pathJoin(outputRoot, 'ios', 'output');
+        }
+      }
     }
 
     return ConfigParser(
@@ -328,6 +393,12 @@ class ConfigParser {
       notifications: _parseNotifications(configJson["notifications"], path),
       ai: _parseAi(configJson["ai"], path),
       changelog: changelogSection,
+      parallelSettings: parallelSettings,
+      errorPolicy: errorPolicy,
+      hooks: hooks,
+      versionConfig: versionConfig,
+      clean: clean,
+      output: outputRoot,
     );
   }
 
@@ -341,6 +412,9 @@ class ConfigParser {
     return Map<String, dynamic>.from(jsonDecode(jsonEncode(decoded)) as Map);
   }
 
+  /// Validates the optional top level `parallel:` key.
+  ///
+  /// Accepts `true` (as many tasks as there are), `false`, or a count.
   /// Validates the optional top level `ai:` section.
   static Map<String, dynamic> _parseAi(dynamic raw, String path) =>
       _parseSection(raw, "ai", path);
@@ -513,6 +587,20 @@ class ConfigParser {
         continueOnError: _asBool(
             json["continue-on-error"], "$label.continue-on-error", path),
         retry: _parseRetry(json["retry"], path, label),
+        retryDelay: json["retry-delay"] == null
+            ? Duration.zero
+            : parseDuration(
+                json["retry-delay"],
+                label: '$label.retry-delay',
+              ),
+        timeout: json["timeout"] == null
+            ? null
+            : parseDuration(
+                json["timeout"],
+                label: '$label.timeout',
+                allowZero: false,
+              ),
+        hooks: _parseHooks(json, label, path),
         builder: builder == null
             ? null
             : BuilderJob.fromJson(
@@ -601,6 +689,62 @@ class ConfigParser {
     }
     return retry;
   }
+
+  static HookSet _parseHooks(
+    Map<String, dynamic> json,
+    String label,
+    String path,
+  ) {
+    try {
+      return HookSet.parse(json, label);
+    } on ArgumentError catch (error) {
+      throw ConfigException(
+          "Invalid hooks for $label in '$path': ${error.message}");
+    }
+  }
+
+  /// Output directories used by builder jobs, including platform defaults.
+  Set<String> builderOutputDirectories() {
+    final directories = <String>{};
+    for (final task in tasks) {
+      for (final job in task.jobs) {
+        final builder = job.builder;
+        if (builder?.android != null) {
+          directories.add(
+            builder!.android!.output ?? pathJoin(output, 'android', 'output'),
+          );
+        }
+        if (builder?.ios != null) {
+          directories.add(
+            builder!.ios!.output ?? pathJoin(output, 'ios', 'output'),
+          );
+        }
+      }
+    }
+    return directories;
+  }
+
+  /// Credential files that cleanup must never remove, including custom paths.
+  Set<String> protectedCredentialFiles() {
+    final files = <String>{};
+    for (final task in tasks) {
+      for (final job in task.jobs) {
+        final publisher = job.publisher;
+        final fastlaneKey = publisher?.fastlane?.jsonKey;
+        if (fastlaneKey != null && fastlaneKey.isNotEmpty) {
+          files.add(fastlaneKey);
+        }
+        final huaweiCredential = publisher?.huawei?.credentialFile;
+        if (huaweiCredential != null && huaweiCredential.isNotEmpty) {
+          files.add(huaweiCredential);
+        }
+      }
+    }
+    return files;
+  }
+
+  static String pathJoin(String first, String second, String third) =>
+      [first, second, third].join(Platform.pathSeparator);
 
   /// Reads a required string key, throwing a descriptive [ConfigException].
   static String _requireString(

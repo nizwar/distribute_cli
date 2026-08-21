@@ -1,4 +1,5 @@
 import 'job_arguments.dart';
+import 'hooks.dart';
 
 /// Represents a distribution task in the configuration.
 ///
@@ -32,6 +33,9 @@ class Task {
   /// Each job defines specific build and publish operations
   final List<Job> jobs;
 
+  /// Custom commands surrounding this task.
+  final HookSet hooks;
+
   /// Creates a new [Task] instance.
   ///
   /// [name] is the name of the task.
@@ -45,7 +49,12 @@ class Task {
     required this.jobs,
     this.workflows,
     this.description,
-  });
+    this.hooks = const HookSet(),
+  }) {
+    for (final job in jobs) {
+      job.parent = this;
+    }
+  }
 
   /// Converts the [Task] instance to a JSON object.
   Map<String, dynamic> toJson() => {
@@ -53,6 +62,10 @@ class Task {
         "key": key,
         if (workflows != null) "workflows": workflows,
         "description": description,
+        if (hooks.pre.isNotEmpty)
+          "pre": hooks.pre.map((hook) => hook.toJson()).toList(),
+        if (hooks.post.isNotEmpty)
+          "post": hooks.post.map((hook) => hook.toJson()).toList(),
         "jobs": jobs.map((job) => job.toJson()).toList(),
       };
 }

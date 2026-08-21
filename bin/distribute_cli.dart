@@ -5,6 +5,7 @@ import 'package:args/command_runner.dart';
 import 'package:distribute_cli/ai_command.dart';
 import 'package:distribute_cli/builder_command.dart';
 import 'package:distribute_cli/changelog_command.dart';
+import 'package:distribute_cli/clean_command.dart';
 import 'package:distribute_cli/create_command.dart';
 import 'package:distribute_cli/doctor_command.dart';
 import 'package:distribute_cli/initializer_command.dart';
@@ -118,6 +119,7 @@ Future<void> main(List<String> args) async {
   runner.addCommand(ValidateCommand());
   runner.addCommand(DoctorCommand());
   runner.addCommand(ChangelogCommand());
+  runner.addCommand(CleanCommand());
 
   // The assistant executes real commands through this same runner rather than
   // re-implementing them or shelling out, so `ai` can never reach a code path a

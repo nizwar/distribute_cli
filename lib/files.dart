@@ -362,3 +362,109 @@ class _FileCandidate {
     required this.modifiedAt,
   });
 }
+
+/// Expands shell style patterns in a configured path.
+///
+/// `distribution/android/output/*.apk` is the natural way to write "whatever
+/// the build produced", and every other tool in a release pipeline accepts it.
+/// Supported: `*` (anything but a separator), `?` (one character), `[abc]` (a
+/// set), and `**` (any number of directories).
+class Glob {
+  const Glob._();
+
+  /// Characters that make a path a pattern rather than a literal.
+  static final RegExp _magic = RegExp(r'[*?\[]');
+
+  /// Whether [pattern] needs expanding at all.
+  ///
+  /// A path with no magic is left completely alone, so a directory that happens
+  /// to be named oddly still behaves the way it always did.
+  static bool hasMagic(String pattern) => _magic.hasMatch(pattern);
+
+  /// Every existing file matching [pattern], newest first.
+  ///
+  /// Returns an empty list when nothing matches; the caller decides whether
+  /// that is an error, because a dry run legitimately has nothing to match yet.
+  static List<File> expand(String pattern, {Directory? from}) {
+    final normalized = pattern.replaceAll('\\', '/');
+    final segments = normalized.split('/');
+
+    // Everything before the first magic segment is a real directory to start
+    // from; listing the whole tree from the working directory would be absurd
+    // for a pattern that named one folder.
+    final fixed = <String>[];
+    var index = 0;
+    while (index < segments.length && !hasMagic(segments[index])) {
+      fixed.add(segments[index]);
+      index++;
+    }
+    if (index == segments.length) {
+      // No magic after all — resolve it as the plain path it is, still
+      // relative to `from` so the two branches agree.
+      final literal = from == null ? pattern : path.join(from.path, pattern);
+      final file = File(literal);
+      return file.existsSync() ? [file] : const [];
+    }
+
+    final rootPath = fixed.isEmpty
+        ? (from?.path ?? '.')
+        : (from == null
+            ? fixed.join(Platform.pathSeparator)
+            : path.join(from.path, fixed.join(Platform.pathSeparator)));
+
+    final root = Directory(rootPath);
+    if (!root.existsSync()) return const [];
+
+    final remainder = segments.sublist(index).join('/');
+    final matcher = _toRegExp(remainder);
+    final recursive = remainder.contains('**') || remainder.contains('/');
+
+    final matches = <File>[];
+    for (final entity in root.listSync(recursive: recursive)) {
+      if (entity is! File) continue;
+      final relative =
+          path.relative(entity.path, from: root.path).replaceAll('\\', '/');
+      if (matcher.hasMatch(relative)) matches.add(entity);
+    }
+
+    matches.sort(
+      (a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()),
+    );
+    return matches;
+  }
+
+  /// Compiles a glob into an anchored regular expression.
+  static RegExp _toRegExp(String pattern) {
+    final buffer = StringBuffer('^');
+    for (var i = 0; i < pattern.length; i++) {
+      final char = pattern[i];
+      if (char == '*') {
+        // `**` crosses directories; a single `*` stops at the separator, which
+        // is what stops `out/*.apk` from reaching into `out/nested/`.
+        if (i + 1 < pattern.length && pattern[i + 1] == '*') {
+          buffer.write('.*');
+          i++;
+          if (i + 1 < pattern.length && pattern[i + 1] == '/') i++;
+        } else {
+          buffer.write('[^/]*');
+        }
+        continue;
+      }
+      if (char == '?') {
+        buffer.write('[^/]');
+        continue;
+      }
+      if (char == '[') {
+        final close = pattern.indexOf(']', i + 1);
+        if (close != -1) {
+          buffer.write(pattern.substring(i, close + 1));
+          i = close;
+          continue;
+        }
+      }
+      buffer.write(RegExp.escape(char));
+    }
+    buffer.write(r'$');
+    return RegExp(buffer.toString());
+  }
+}

@@ -9,3 +9,4 @@ distribution/android/output/
 distribution/ios/output/
 distribution/custom/output/
 distribution/google-key.json
+.distribute/

@@ -1,3 +1,135 @@
+## 2.8.0
+
+### Added
+* **Independent tasks can run in parallel.** `-j 2`, `-j auto`, or
+  `parallel: true` in `distribution.yaml`. Given the usual
+
+  ```
+  android.build  →  android.publish
+  ios.build      →  ios.publish
+  ```
+
+  the two chains overlap, so `android.publish` uploads while `ios.build` is
+  still compiling. Jobs *inside* a task stay strictly ordered — that ordering is
+  the point, since a publish must not start before the build it uploads.
+
+  `flutter build` is serialised even when tasks overlap: two builds in the same
+  checkout share `.dart_tool/` and `build/`, and `--pub` has both running
+  `pub get` over the same directory, which Flutter does not lock. Everything
+  around the compile still runs concurrently, which is where the time goes — so
+  two build-only tasks gain nothing, and build-and-publish pipelines gain the
+  whole upload.
+
+  Each task's output is collected and printed as one block when it finishes,
+  rather than interleaved live. The indentation counter and the output sink are
+  now per-task rather than global, which is what makes that possible.
+  `--fail-fast` stops starting new tasks; ones already running finish, because a
+  build cannot be safely killed part way through.
+
+* **Globally coordinated start gaps for parallel tasks.** Use
+  `parallel: {tasks: 3, gap: 15s}` or `--gap 15s` to avoid starting every task
+  or store upload at once. Durations accept `ms`, `s`, `m`, and `h`.
+  `parallel: true`, `parallel: false`, `parallel: auto`, and numeric values
+  remain backwards compatible.
+
+* **Persistent run state and safe resume.** Every real run records job status,
+  attempts, resolved version, and artifact metadata in
+  `.distribute/last-run.json`. `--resume` and `--retry-failed` skip successful
+  work, `--status` inspects the saved state, `--state-file` changes its location,
+  and `--force-resume` explicitly overrides compatibility checks. A build is
+  skipped only when every saved artifact still has the same size and SHA-256.
+  The configuration, selected operation, and committed Git revision are part of
+  the resume fingerprint, and Ctrl-C flushes state before stopping work.
+
+* **Run, task, and job lifecycle hooks.** `pre` and `post` accept a command or a
+  structured step with arguments, environment, working directory, timeout,
+  `continue-on-error`, and `on: always|success|failure`. Hooks share the normal
+  variable expansion and secret redaction, receive `DISTRIBUTE_*` context in
+  their environment, and post-hooks can use `${{ARTIFACT}}` and
+  `${{ARTIFACT_DIR}}`. Dry runs print hooks without executing them.
+
+* **Job reliability controls.** `retry-delay` spaces retry attempts and
+  `timeout` bounds each job attempt. Timeouts cancel in-process HTTP requests,
+  send SIGTERM to tracked child processes, and escalate to SIGKILL when a child
+  does not exit. `on-error: stop|continue` provides the same policy in YAML that
+  `--fail-fast` provides on the command line.
+
+* **Run-level automatic versioning.** A `version:` section resolves one shared
+  version before parallel work begins, injects `${{VERSION_NAME}}` and
+  `${{VERSION_CODE}}`, and includes it in state and JSON reports. Build numbers
+  can come from `pubspec.yaml`, an increment, the Git commit count, a timestamp,
+  or a positive literal. Optional `write-back` changes only the top-level
+  `version:` line and is disabled during dry runs.
+
+* **Safe automatic and standalone cleanup.** A `clean:` section can run after
+  success, failure, or every run, after all post-hooks have finished.
+  `distribute clean --flutter|--outputs|--all [--dry-run]` exposes the same
+  operation directly. Cleanup only accepts paths inside the project and refuses
+  symlinks or directories containing metadata, credentials, logs, or run state.
+
+* **Huawei AppGallery publishing.** `publisher.huawei` and
+  `distribute publish huawei` upload APK/AAB artifacts, resolve the AppGallery
+  app ID, attach the uploaded package, poll compilation, update localized release
+  notes, and optionally submit the release. Authentication supports the
+  recommended Service Account PS256 JWT flow and the legacy API client flow.
+  The create wizard and configuration validator understand the new publisher.
+
+* **Wildcard artifact paths.** Any `file-path` accepts `*`, `?`, `[abc]` and
+  `**`: `distribution/android/output/*.aab`, `build/**/*.ipa`. A publisher that
+  uploads one binary takes the newest match whose extension agrees with
+  `binary-type`, so `out/*` beside both an APK and its mapping file still
+  uploads the APK. The GitHub publisher attaches every match, which is how
+  `out/*.apk` uploads each split-per-ABI build as its own asset. A pattern
+  matching nothing is an error during a real run and a note during `--dry-run`.
+
+### Changed
+* The minimum Dart SDK is now 3.2.0.
+* GitHub and Huawei REST work participate in job cancellation, so an expired
+  timeout or Ctrl-C does not leave uploads running in the background.
+* Parallel stop-on-error releases workers waiting on a task-start gap
+  immediately. Tasks that had already started are still allowed to finish.
+* Explicit operation keys must be exactly `task` or `task.job`; malformed keys
+  such as `task.job.extra` are rejected instead of silently ignoring segments.
+
+### Fixed
+* Concurrent jobs no longer race while replacing the same run-state temporary
+  file. State writes are serialised and atomically replace the destination on
+  platforms with different rename semantics; malformed state files now produce
+  a controlled format error.
+* Resuming a task no longer skips a downstream saved success after an upstream
+  build had to run again. Once one ordered job is invalidated, the remainder of
+  that task runs again as well.
+* Long task gaps, retry delays, and Huawei compilation polling now wake
+  immediately after the matching stop, timeout, or interrupt signal.
+* One failing in-process cancellation callback no longer prevents other HTTP
+  operations and child processes from being terminated.
+* Flutter build output streams are fully drained before artifacts are moved, so
+  late diagnostics are not lost.
+* Duration validation rejects negative, zero-when-forbidden, and non-finite
+  values consistently. Job and hook timeout values also round-trip through YAML
+  using the keys the parser accepts.
+* Git-derived version codes fail with an actionable message in shallow clones
+  instead of silently producing a non-monotonic build number. Literal build
+  numbers must be greater than zero.
+* Cleanup now runs `flutter clean` from the project root, tracks the process for
+  interruption, protects custom credential/state/log paths, handles
+  case-insensitive filesystems, and rejects targets reached through a symlinked
+  parent.
+* Huawei upload requests include `releaseType`, normalize Huawei's legacy
+  `fileDestUlr` spelling to `fileDestUrl`, reject incomplete upload responses,
+  and wait for package compilation before submitting.
+* Unexpected lifecycle hook, variable, report, notification, and state errors
+  are converted to a controlled non-zero run result instead of escaping as an
+  unhandled exception.
+
+### Security
+* Huawei bearer tokens and API client IDs are removed from the HTTP client while
+  sending a file to the presigned upload host, then restored for AppGallery API
+  calls. Credentials are never forwarded to an unrelated upload origin.
+* Cleanup refuses to remove an output directory that contains configured
+  Fastlane or Huawei credentials, custom logs, protected metadata, or the active
+  resume state, including through symlink and case-insensitive path tricks.
+
 ## 2.7.1
 
 ### Added

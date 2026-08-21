@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as path;
@@ -70,12 +71,12 @@ abstract class BuildArguments extends JobArguments {
   /// Version name for the application build.
   ///
   /// Sets the user-visible version string for the application.
-  final String? buildName;
+  String? buildName;
 
   /// Version code/build number for the application.
   ///
   /// Sets the internal version number used for app store management.
-  final String? buildNumber;
+  String? buildNumber;
 
   /// Whether to run `flutter pub get` before building.
   ///
@@ -190,7 +191,27 @@ abstract class BuildArguments extends JobArguments {
   ///
   /// The build process includes proper error handling and logging
   /// at each step to facilitate debugging build issues.
-  Future<int> build() async {
+  /// Serialises `flutter build` across parallel tasks.
+  ///
+  /// Two builds in the same checkout share `.dart_tool/` and `build/`, and
+  /// `--pub` has them both running `pub get` over the same directory. Flutter
+  /// takes no lock, so overlapping them corrupts one or both.
+  ///
+  /// Tasks still overlap — this only holds the compile itself, which is what
+  /// makes one task's upload able to run while another compiles.
+  static Future<void> _buildGate = Future<void>.value();
+
+  /// Runs [body] once every earlier build has finished.
+  static Future<T> _serialised<T>(Future<T> Function() body) {
+    final previous = _buildGate;
+    final release = Completer<void>();
+    _buildGate = release.future;
+    return previous.then((_) => body()).whenComplete(() => release.complete());
+  }
+
+  Future<int> build() async => _serialised(_build);
+
+  Future<int> _build() async {
     await registerSecrets();
 
     // Display build configuration before starting
@@ -212,6 +233,7 @@ abstract class BuildArguments extends JobArguments {
         runInShell: true,
         includeParentEnvironment: true,
       );
+      JobArguments.trackProcess(process);
     } on ProcessException catch (e) {
       logger.logError(
         "Unable to start `flutter`: ${e.message}. "
@@ -221,15 +243,21 @@ abstract class BuildArguments extends JobArguments {
     }
 
     // Stream build output to logger
-    process.stdout.transform(utf8.decoder).listen(logger.logDebug);
-    process.stderr.transform(utf8.decoder).listen(logger.logErrorVerbose);
+    final drained = Future.wait([
+      process.stdout.transform(utf8.decoder).forEach(logger.logDebug),
+      process.stderr.transform(utf8.decoder).forEach(logger.logErrorVerbose),
+    ]);
 
     // A flutter build produces nothing on screen below --verbose and can run
     // for minutes, so without this the CLI looks hung.
     final exitCode = await Spinner.run(
       'building $binaryType'
       '${flavor == null || flavor!.isEmpty ? '' : " ($flavor)"}',
-      () => process.exitCode,
+      () async {
+        final code = await process.exitCode;
+        await drained;
+        return code;
+      },
     );
     if (exitCode != 0) {
       // `distribute build android` returns straight to the process exit code,

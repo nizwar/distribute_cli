@@ -27,6 +27,7 @@ Global options:
 Available commands:
   ai         Ask a model to pick the right distribute command for you.
   build      Build the application using the selected platform or custom configuration.
+  clean      Clean Flutter build products and distribution output directories.
   create     Create a new task or job.
   doctor     Check that the tools, configuration and credentials are ready to use.
   init       Initialize the project with the necessary configuration files and directories.
@@ -74,6 +75,16 @@ Usage: distribute run [arguments]
 -l, --list         List the available tasks and jobs, then exit.
     --json         Print a machine readable run report to stdout. The human readable log moves to stderr.
     --json-file    Write the machine readable run report to the given path.
+-j, --jobs         Run up to this many tasks at once. 1 keeps the current sequential behaviour; "auto" uses the core count.
+    --gap          Minimum gap between task starts (for example 15s or 2m).
+    --on-error     Continue independent tasks or stop starting new ones.
+                   [continue, stop]
+    --resume       Resume the last compatible run from its state file.
+    --retry-failed Resume and run failed/interrupted jobs while skipping successes.
+    --state-file   Path used to persist resumable run state.
+                   (defaults to ".distribute/last-run.json")
+    --force-resume Resume even when the config fingerprint changed.
+    --status       Print the saved run status without executing jobs.
     --no-notify    Skip the notifications declared in the configuration.
 
 Run "distribute help" to see global options.
@@ -84,6 +95,9 @@ distribute run -l                     # what can I run?
 distribute run -o android             # one task
 distribute run -o android.build       # one job
 distribute run --json > report.json   # report on stdout, progress on stderr
+distribute run -j 2                   # android and ios chains at the same time
+distribute run -j auto --gap 15s      # stagger task starts
+distribute run --retry-failed         # continue a saved run
 ```
 
 ## `distribute validate`
@@ -152,6 +166,7 @@ Available subcommands:
   fastlane   Publish to the Play Store using Fastlane supply.
   firebase   Publish to Firebase App Distribution.
   github     Publish the artifacts as a GitHub release.
+  huawei     Upload an APK/AAB and optionally submit it to Huawei AppGallery.
   xcrun      Publish to App Store Connect using xcrun altool.
 
 Run "distribute help" to see global options.
@@ -219,6 +234,20 @@ from the name, and shows what it will write before touching the file:
 A wizard reads its answers from stdin. When the input runs out — a CI job, an
 empty stdin, Ctrl-D — it exits `64` rather than hanging. It also refuses to run
 under `--quiet` or `--silent`.
+
+## Wildcard paths
+
+Any `file-path` accepts `*`, `?`, `[abc]` and `**`:
+
+```yaml
+publisher:
+  fastlane:
+    file-path: "distribution/android/output/*.aab"
+  github:
+    file-path: "distribution/android/output/*.apk"   # every split APK
+  xcrun:
+    file-path: "build/ios/ipa/*.ipa"
+```
 
 ## `distribute changelog`
 

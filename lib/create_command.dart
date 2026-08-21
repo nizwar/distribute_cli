@@ -22,6 +22,7 @@ import 'package:yaml_codec/yaml_codec.dart';
 import '../app_publisher/fastlane/arguments.dart' as fastlane_publisher;
 import '../app_publisher/firebase/arguments.dart' as firebase_publisher;
 import '../app_publisher/github/arguments.dart' as github_publisher;
+import '../app_publisher/huawei/arguments.dart' as huawei_publisher;
 import 'parsers/task_arguments.dart';
 
 /// Returns the argument parser shared by the job creation commands.
@@ -570,12 +571,14 @@ abstract class CreatorCommand extends Commander {
           'fastlane': 'Play Store, via Fastlane supply',
           'xcrun': 'App Store Connect, via altool',
           'github': 'GitHub Releases',
+          'huawei': 'Huawei AppGallery',
         };
         final available = [
           'firebase',
           'fastlane',
           if (Platform.isMacOS) 'xcrun',
           'github',
+          'huawei',
         ];
         logger.logEmpty();
         tools = wizard!.multiSelect(
@@ -588,7 +591,7 @@ abstract class CreatorCommand extends Commander {
         tools = (argResults!["tools"] as List<String>).toList();
       }
 
-      const known = {'fastlane', 'firebase', 'xcrun', 'github'};
+      const known = {'fastlane', 'firebase', 'xcrun', 'github', 'huawei'};
       final supported = tools
           .where((tool) => known.contains(tool))
           .where((tool) => tool != 'xcrun' || Platform.isMacOS)
@@ -624,6 +627,9 @@ abstract class CreatorCommand extends Commander {
             : null,
         github: tools.contains("github") == true
             ? github_publisher.Arguments.defaultConfigs(globalResults)
+            : null,
+        huawei: tools.contains("huawei") == true
+            ? huawei_publisher.Arguments.defaultConfigs(globalResults)
             : null,
       );
     } else {
@@ -691,6 +697,7 @@ abstract class CreatorCommand extends Commander {
         if (publisher?.fastlane != null) 'fastlane',
         if (publisher?.xcrun != null) 'xcrun',
         if (publisher?.github != null) 'github',
+        if (publisher?.huawei != null) 'huawei',
       ];
 
   /// A sensible starting name so the first question can be answered with enter.
@@ -773,6 +780,7 @@ class CreatePublisherCommand extends CreatorCommand {
         "fastlane",
         if (Platform.isMacOS) "xcrun",
         "github",
+        "huawei",
       ],
       allowedHelp: {
         "firebase": "Publish to Firebase App Distribution.",
@@ -780,6 +788,7 @@ class CreatePublisherCommand extends CreatorCommand {
         if (Platform.isMacOS)
           "xcrun": "Publish using Xcode command line tools.",
         "github": "Publish to GitHub.",
+        "huawei": "Publish to Huawei AppGallery.",
       },
     );
 }

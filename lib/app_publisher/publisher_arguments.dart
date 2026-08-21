@@ -179,6 +179,7 @@ abstract class PublisherArguments extends JobArguments {
         runInShell: true,
         includeParentEnvironment: true,
       );
+      JobArguments.trackProcess(process);
     } on ProcessException catch (e) {
       logger.logError(
         "Unable to start `$publisher`: ${e.message}. "
@@ -226,6 +227,24 @@ abstract class PublisherArguments extends JobArguments {
   Future<void> processFilesArgs() async {
     if (filePath.isEmpty) {
       logger.logErrorVerbose.call("File path is empty");
+      return;
+    }
+
+    // A pattern is resolved before anything else: `output/*.apk` is the
+    // natural way to say "whatever the build produced", and it is neither a
+    // file nor a directory as far as the checks below are concerned.
+    if (Glob.hasMagic(filePath)) {
+      final matches = Glob.expand(filePath);
+      final chosen = _bestMatch(matches);
+      if (chosen == null) {
+        logger.logErrorVerbose.call("No file matches $filePath");
+        filePath = "";
+        return;
+      }
+      logger.logDebug.call(
+        "$filePath matched ${matches.length} file(s); using ${chosen.path}",
+      );
+      filePath = chosen.path;
       return;
     }
 
@@ -282,6 +301,23 @@ abstract class PublisherArguments extends JobArguments {
         "No .$binaryType artifact found in ${dir.path} or in ${sources.join(', ')}",
       );
     }
+  }
+
+  /// Picks the artifact to publish from a pattern's matches.
+  ///
+  /// A publisher uploads one binary, so a pattern that matches several has to
+  /// resolve to one. The declared `binary-type` decides first — `out/*` next to
+  /// both an APK and a mapping file must not upload the mapping file — and the
+  /// newest wins after that.
+  File? _bestMatch(List<File> matches) {
+    if (matches.isEmpty) return null;
+    if (binaryType.isEmpty) return matches.first;
+
+    final suffix = '.${binaryType.toLowerCase()}';
+    final typed = matches
+        .where((file) => file.path.toLowerCase().endsWith(suffix))
+        .toList();
+    return typed.isNotEmpty ? typed.first : matches.first;
   }
 
   Future<String?> _copyFromCandidateSources({
