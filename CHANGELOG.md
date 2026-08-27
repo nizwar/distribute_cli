@@ -1,3 +1,25 @@
+## 2.8.1
+
+### Fixed
+* A Huawei AppGallery publish no longer fails after the bundle has already
+  landed. The publisher uploads the artifact, attaches it, and then polls AGC
+  for the server-side compile status. A failure of that last *query* aborted the
+  whole job, which threw away a successful upload and skipped the release notes
+  the job exists to write — the artifact sat in AGC as a draft with no "what's
+  new" against it, and the run reported `exit 1`. The status query is now
+  advisory: it logs a warning and carries on. A compilation that genuinely fails
+  (`successStatus` below zero) still stops the job, and the polling interval and
+  timeout are unchanged.
+* The package id read back from Huawei's attach response can no longer be a
+  version string. The lookup accepted `pkgVersion` next to `packageId` and
+  `pkgId`, and it walks the response in field order, so a payload that carried
+  `pkgVersion` first produced something like `3.1.1.301`. Handed to `pkgIds`,
+  AGC rejects it as an unknown package with code 204144711
+  (`call amis/ascf to get app apk failed`), which is the failure the previous
+  item then turned into a dead run. `pkgVersion` is no longer a candidate and
+  `pkgIds` is; when the response carries no id at all, the existing
+  skip-the-polling path takes over, which is what it was there for.
+
 ## 2.8.0
 
 ### Added

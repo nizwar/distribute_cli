@@ -104,6 +104,66 @@ void main() {
     expect(attachedFile.containsKey('fileDestUlr'), isFalse);
   });
 
+  test('a version string in the attach response is never used as a package id',
+      () async {
+    // AGC answers app-file-info with pkgVersion and no id. Passing that
+    // version to pkgIds is what produced code 204144711 in production, so the
+    // publisher must find no id at all and skip polling instead.
+    final sandbox = Directory.systemTemp.createTempSync('distribute_huawei');
+    addTearDown(() => sandbox.deleteSync(recursive: true));
+    final artifact = File('${sandbox.path}/app.aab')
+      ..writeAsBytesSync([1, 2, 3]);
+    final adapter = _HuaweiAdapter(attachReturnsOnlyVersion: true);
+    final dio = Dio(BaseOptions(baseUrl: Arguments.defaultBaseUrl))
+      ..httpClientAdapter = adapter;
+    final arguments = Arguments(
+      Variables(<String, dynamic>{}, null),
+      filePath: artifact.path,
+      binaryType: 'aab',
+      clientId: 'client',
+      clientSecret: 'secret',
+      releaseNotes: 'Fixed bugs',
+      releaseType: 1,
+      pollInterval: const Duration(milliseconds: 1),
+      dio: dio,
+    )..packageNameOverride = 'com.example.app';
+
+    expect(await arguments.publish(), 0);
+    expect(
+      adapter.calls,
+      isNot(contains('GET /api/publish/v3/package/compile/status')),
+    );
+    // The release notes are the point of the job - they must still be written.
+    expect(adapter.calls, contains('PUT /api/publish/v2/app-language-info'));
+  });
+
+  test('a compile-status query failure does not discard the landed upload',
+      () async {
+    // The bundle is uploaded and attached before polling starts. AGC refusing
+    // to answer the status query must not fail the job or skip release notes.
+    final sandbox = Directory.systemTemp.createTempSync('distribute_huawei');
+    addTearDown(() => sandbox.deleteSync(recursive: true));
+    final artifact = File('${sandbox.path}/app.aab')
+      ..writeAsBytesSync([1, 2, 3]);
+    final adapter = _HuaweiAdapter(compileQueryCode: 204144711);
+    final dio = Dio(BaseOptions(baseUrl: Arguments.defaultBaseUrl))
+      ..httpClientAdapter = adapter;
+    final arguments = Arguments(
+      Variables(<String, dynamic>{}, null),
+      filePath: artifact.path,
+      binaryType: 'aab',
+      clientId: 'client',
+      clientSecret: 'secret',
+      releaseNotes: 'Fixed bugs',
+      releaseType: 1,
+      pollInterval: const Duration(milliseconds: 1),
+      dio: dio,
+    )..packageNameOverride = 'com.example.app';
+
+    expect(await arguments.publish(), 0);
+    expect(adapter.calls, contains('PUT /api/publish/v2/app-language-info'));
+  });
+
   test('service account creates the required PS256 JWT claims', () async {
     final sandbox = Directory.systemTemp.createTempSync('distribute_huawei');
     addTearDown(() => sandbox.deleteSync(recursive: true));
@@ -199,10 +259,23 @@ void main() {
 
 class _HuaweiAdapter implements HttpClientAdapter {
   final int compileStatus;
+
+  /// Reproduces an AGC attach response that carries only a version string,
+  /// with no package id anywhere in it.
+  final bool attachReturnsOnlyVersion;
+
+  /// Reproduces AGC answering the compile-status query with a failure code
+  /// (204144711 in production) instead of a status.
+  final int compileQueryCode;
+
   final List<String> calls = [];
   final List<RequestOptions> requests = [];
 
-  _HuaweiAdapter({this.compileStatus = 0});
+  _HuaweiAdapter({
+    this.compileStatus = 0,
+    this.attachReturnsOnlyVersion = false,
+    this.compileQueryCode = 0,
+  });
 
   @override
   Future<ResponseBody> fetch(
@@ -243,13 +316,23 @@ class _HuaweiAdapter implements HttpClientAdapter {
     } else if (path.endsWith('/publish/v2/app-file-info')) {
       body = {
         'code': 0,
-        'data': {'packageId': 'package-123'},
+        'data': attachReturnsOnlyVersion
+            ? {'pkgVersion': '3.1.1.301'}
+            : {'packageId': 'package-123'},
       };
     } else if (path.endsWith('/publish/v3/package/compile/status')) {
-      body = {
-        'code': 0,
-        'data': {'successStatus': compileStatus},
-      };
+      body = compileQueryCode != 0
+          ? {
+              'ret': {
+                'code': compileQueryCode,
+                'msg': '[AppGalleryConnectPublishService]'
+                    'call amis/ascf to get app apk failed.',
+              },
+            }
+          : {
+              'code': 0,
+              'data': {'successStatus': compileStatus},
+            };
     } else if (path.endsWith('/publish/v2/app-language-info') ||
         path.endsWith('/publish/v2/app-submit')) {
       body = {'code': 0};

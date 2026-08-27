@@ -279,7 +279,11 @@ class Arguments extends PublisherArguments {
     _ensureSuccess(response.data, 'attach uploaded file');
     return _findValue(
       response.data,
-      const {'packageId', 'pkgId', 'pkgVersion'},
+      // Deliberately NOT 'pkgVersion': that is a version string, not an id.
+      // _findValue walks the response in field order, so a payload carrying
+      // pkgVersion ahead of the real id used to yield e.g. "3.1.1.301", which
+      // AGC then rejects from pkgIds as an unknown package (code 204144711).
+      const {'packageId', 'pkgId', 'pkgIds'},
     )?.toString();
   }
 
@@ -291,7 +295,14 @@ class Arguments extends PublisherArguments {
         queryParameters: {'appId': targetAppId, 'pkgIds': packageId},
         cancelToken: _cancelToken,
       );
-      _ensureSuccess(response.data, 'query package compilation');
+      final failure = _failureOf(response.data, 'query package compilation');
+      if (failure != null) {
+        // The bundle is uploaded and attached by the time we get here, so AGC
+        // refusing to report a compile status is not a reason to fail the job
+        // and skip the release notes. Warn, stop polling, carry on.
+        logger.logWarning('$failure - continuing without the compile status.');
+        return;
+      }
       final raw = _findValue(response.data, const {'successStatus'});
       final status = raw is num ? raw.toInt() : int.tryParse('$raw');
       if (status == 0) return;
@@ -372,17 +383,23 @@ class Arguments extends PublisherArguments {
   static String _base64UrlJson(Map<String, dynamic> value) =>
       base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
 
-  static void _ensureSuccess(dynamic data, String operation) {
+  /// Describes an AGC failure payload, or null when the call succeeded.
+  ///
+  /// Split out of [_ensureSuccess] so a caller can decide whether a given
+  /// failure is worth aborting the job over.
+  static String? _failureOf(dynamic data, String operation) {
     final code = _findValue(data, const {'code', 'retCode'});
-    if (code == null) return;
+    if (code == null) return null;
     final parsed = code is num ? code.toInt() : int.tryParse(code.toString());
-    if (parsed != null && parsed != 0) {
-      final message = _findValue(data, const {'msg', 'desc', 'message'});
-      throw StateError(
-        'Huawei could not $operation (code $parsed)'
-        '${message == null ? '' : ': $message'}',
-      );
-    }
+    if (parsed == null || parsed == 0) return null;
+    final message = _findValue(data, const {'msg', 'desc', 'message'});
+    return 'Huawei could not $operation (code $parsed)'
+        '${message == null ? '' : ': $message'}';
+  }
+
+  static void _ensureSuccess(dynamic data, String operation) {
+    final failure = _failureOf(data, operation);
+    if (failure != null) throw StateError(failure);
   }
 
   static dynamic _findValue(dynamic node, Set<String> keys) {
